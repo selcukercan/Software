@@ -75,7 +75,7 @@ class DaguWheelsDriver:
         self.leftMotor.run(leftMotorMode)
         self.rightMotor.setSpeed(pwmr)
         self.rightMotor.run(rightMotorMode)
-
+        
     def setWheelsSpeed(self, left, right):
         self.leftSpeed = left
         self.rightSpeed = right

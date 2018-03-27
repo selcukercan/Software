@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Main software repository for Duckietown
 
 This is the main software repository for the Duckietown project. It contains all software, as well as hardware projects.
@@ -44,3 +45,6 @@ See [the continuous integration console](https://circleci.com/gh/duckietown/Soft
     </tr>
 </tbody>
 </table>
+=======
+# mecanum_wheels
+>>>>>>> ab7dc0136e31824bc63f48fa816f1664e8134b8a
