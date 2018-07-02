@@ -65,7 +65,7 @@ class GroundProjectionNode(object):
         self.pub_lineseglist_.publish(seglist_out)
 
     def get_ground_coordinate_cb(self,req):
-        return GetGroundCoordResponse(self.gp.pixel2ground(req.normalized_uv))
+        return GetGroundCoordResponse(self.gp.vector2ground(req.normalized_uv))
 
     def get_image_coordinate_cb(self,req):
         return GetImageCoordResponse(self.gp.ground2pixel(req.gp))
