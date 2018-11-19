@@ -128,7 +128,8 @@ TagDetector::TagDetector(ros::NodeHandle pnh) :
   // Create the AprilTags 2 detector
   td_ = apriltag_detector_create();
   apriltag_detector_add_family(td_, tf_);
-  td_->quad_decimate = (float)decimate_;
+  //td_->quad_decimate = (float)decimate_;
+  td_->quad_decimate = (float)3.0;
   td_->quad_sigma = (float)blur_;
   td_->nthreads = threads_;
   td_->debug = debug_;
@@ -196,6 +197,7 @@ AprilTagDetectionArray TagDetector::detectTags (
   // Run AprilTags 2 algorithm on the image
   detections_ = apriltag_detector_detect(td_, &apriltags2_image);
 
+
   // Restriction: any tag ID can appear at most once in the scene. Thus, get all
   // the tags visible in the scene and remove any tags with IDs of which there
   // are multiple in the scene
@@ -208,6 +210,10 @@ AprilTagDetectionArray TagDetector::detectTags (
   tag_detection_array.header = image->header;
   std::map<std::string, std::vector<cv::Point3d > > bundleObjectPoints;
   std::map<std::string, std::vector<cv::Point2d > > bundleImagePoints;
+  clock_t begin, end;
+  double cost;
+  //start recording
+  begin = clock();
   for (int i=0; i < zarray_size(detections_); i++)
   {
     // Get the i-th detected tag
@@ -337,6 +343,13 @@ AprilTagDetectionArray TagDetector::detectTags (
     }
   }
 
+  end = clock();
+  cost = (double)(end - begin)/CLOCKS_PER_SEC; // seconds
+  
+  //output the time cost of each step
+  timeprofile_display(td_->tp);
+  printf("%2d %32s %15f ms %15s ms\n", 12, "pose estimation" , cost*1000, "---" );
+  
   // If set, publish the transform /tf topic
   if (publish_tf_) {
     for (unsigned int i=0; i<tag_detection_array.detections.size(); i++) {
@@ -466,6 +479,23 @@ Eigen::Matrix4d TagDetector::getRelativeTransform(
   return T;
 }
 
+void rotationTransform(double x,double y ,double z , double w ) 
+{ 
+double q0 = w; 
+double q1 = x; 
+double q2 = y; 
+double q3 = z; 
+double rx,ry,rz;
+rx = float(atan2( 2 * (q2*q3 + q0*q1), (q0*q0 - q1*q1 - q2*q2 + q3*q3))); 
+ry = float(asin( -2 * (q1*q3 - q0*q2))); 
+rz = float(atan2( 2 * (q1*q2 + q0*q3), (q0*q0 + q1*q1 - q2*q2 - q3*q3)));
+rx*=180.0/3.141592653589793; 
+ry*=180.0/3.141592653589793; 
+rz*=180.0/3.141592653589793; 
+printf("rotation estimation x:%lf degree ,y:%lf degree ,z:%lf degree\n\n",rx,ry,rz);
+}
+
+
 geometry_msgs::PoseWithCovarianceStamped TagDetector::makeTagPose(
     const Eigen::Matrix4d& transform,
     const Eigen::Quaternion<double> rot_quaternion,
@@ -481,6 +511,8 @@ geometry_msgs::PoseWithCovarianceStamped TagDetector::makeTagPose(
   pose.pose.pose.orientation.y = rot_quaternion.y();
   pose.pose.pose.orientation.z = rot_quaternion.z();
   pose.pose.pose.orientation.w = rot_quaternion.w();
+  printf("transformation estimation x:%lf cm ,y:%lf cm ,z:%lf cm\n",pose.pose.pose.position.x*100,pose.pose.pose.position.y*100,pose.pose.pose.position.z*100);
+  rotationTransform(pose.pose.pose.orientation.x,pose.pose.pose.orientation.y,pose.pose.pose.orientation.z,pose.pose.pose.orientation.w);
   return pose;
 }
 

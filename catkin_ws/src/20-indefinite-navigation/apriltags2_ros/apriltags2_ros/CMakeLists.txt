@@ -8,6 +8,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   sensor_msgs
   std_msgs
+  duckietown_msgs
   message_generation
   cv_bridge
   tf
