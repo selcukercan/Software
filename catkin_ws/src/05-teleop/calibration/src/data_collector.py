@@ -1,18 +1,19 @@
 #!/usr/bin/env python
+# system imports
 import rospy
-from rosbag_recorder.srv import *
-import rosnode
-from std_msgs.msg import String #Imports msg
-from duckietown_msgs.msg import WheelsCmdStamped, Twist2DStamped, AprilTagDetectionArray, VehiclePoseEuler
-from calibration.wheel_cmd_utils import *
 from os.path import expanduser
 from os import remove
 
+# package utilities import
+from std_msgs.msg import String #Imports msg
+from duckietown_msgs.msg import WheelsCmdStamped, Twist2DStamped, AprilTagDetectionArray, VehiclePoseEuler
+from calibration.wheel_cmd_utils import *
 # Service types to be imported from rosbag_recorder package
-from rosbag_recorder.srv import RecordTopics, StopRecording
+from rosbag_recorder.srv import *
 
 class DataCollector:
     def __init__(self):
+        # namespace variables
         host_package = rospy.get_namespace()  # as defined by <group> in launch file
         node_name = 'data_collector'  # node name , as defined in launch file
         host_package_node = host_package + node_name
@@ -21,97 +22,97 @@ class DataCollector:
         # Initialize the node with rospy
         rospy.init_node('Command', anonymous=True)
         self.frequency = 30
+
         # Publisher
         publisher=rospy.get_param("~veh")+"/wheels_driver_node/wheels_cmd"
-        self.pub_wheels_cmd = rospy.Publisher(publisher,WheelsCmdStamped,queue_size=1)
+        self.pub_wheels_cmd = rospy.Publisher(publisher, WheelsCmdStamped, queue_size=1)
 
-        # Subscribers
-        # Local Pose Info
+        # Topics to save into rosbag
         sub_topic_pose_in_world_frame =  '/' + veh + '/apriltags2_ros/publish_detections_in_local_frame/tag_detections_local_frame'
-        print sub_topic_pose_in_world_frame
-        #self.sub_pose_in_world_frame = rospy.Subscriber(sub_topic_pose_in_world_frame, VehiclePoseEuler, self.cbLocalPoseInfo)
-        self.topics_to_follow = [sub_topic_pose_in_world_frame]
-        """
-        # Rectified Image
         sub_topic_rect_image = '/' + veh + '/camera_node/image/rect'
-        self.sub_pose_in_world_frame = rospy.Subscriber(sub_topic_pose_in_world_frame, VehiclePoseEuler, self.cbLocalPoseInfo)
-        sensor_msgs / Image
-        """
-        rospy.loginfo('BEFORE SERVICE REGISTER')
+
+        self.topics_to_follow = [sub_topic_pose_in_world_frame, sub_topic_rect_image]
+
         # Wait for service server - rosbag-recorder services to start
+        rospy.loginfo('[Data Collector Node] BEFORE SERVICE REGISTER')
         rospy.wait_for_service('/record_topics')
         rospy.wait_for_service('/stop_recording')
+
         # rospy.ServiceProxy(SERVICE_NAME, SERVICE_TYPE), SERVICE_TYPE is defined under /srv of rosbag_recorder
         # call these fns with the right input/output arguments similar to local fns.
         self.topic_recorder = rospy.ServiceProxy('/record_topics', RecordTopics)
         self.recording_stop= rospy.ServiceProxy('/stop_recording', StopRecording)
-        rospy.loginfo('AFTER SERVICE REGISTER')
+        rospy.loginfo('[Data Collector Node] AFTER SERVICE REGISTER')
+        self.wait_for_rosbag = 5 # wait for wait_for_rosbag seconds to make sure that the bag has started recording
 
-        self.wait_for_rosbag = 5
+    def exp_name_to_exp_object(self, exp_name):
+        """
+        accepts a valid experiment name and create the corresponding experiment object
 
+        :param exp_name:
+        :return: exp_object if valid experiment name, None otherwise.
+        """
+        if exp_name == "ramp_up":
+            return RampUp()
+        elif exp_name == "sine":
+            return Sine()
+        else:
+            rospy.loginfo('[{}] is not a valid experiment name'.format(exp_name))
+            return None
 
-    def cbLocalPoseInfo(self):
-        print 'IN HERE'
 
     def perform_experiments(self):
+
         DO_EXPERIMENT = "yes"
-        rosbag_name = "deneme_delete"
         available_experiments = ["ramp_up", "sine"]
         ui = ExperimentUI()
 
         while DO_EXPERIMENT == "yes":
-            print "Type the experiment type you want to do: {}".format(str(available_experiments))
+            rospy.loginfo("\nType the experiment type you want to do: {}".format(str(available_experiments)))
             experiment_type = raw_input()
+            experiment_object = self.exp_name_to_exp_object(experiment_type)
 
-            if experiment_type == "ramp_up":
-                ramp_up = RampUp()
-                default_param_dict = ramp_up.parameter_dict
+            if experiment_type != None:
+                #ramp_up = RampUp()
+                default_param_dict = experiment_object.parameter_dict
                 param_dict_request = ui.request_param_values(experiment_type, default_param_dict) # get user input to decide the set of params to be used.
-                print "[Calibration INFO] parameter set to be used in {} calibration: {}".format(experiment_type, str(param_dict_request))
-                wheel_cmds = ramp_up.generate_input(param_dict_request)
+                rospy.loginfo("[Data Collector Node] parameter set to be used in {} calibration: {}".format(experiment_type, str(param_dict_request)))
+
+                wheel_cmds = experiment_object.generate_input(param_dict_request)
+                rosbag_name = experiment_object.generate_experiment_label()
 
                 # start recording rosbag
                 record_topic_response = self.topic_recorder(rosbag_name, self.topics_to_follow)
                 record_topic_response_val = record_topic_response.success
-                rospy.loginfo("XXXX {} , {} XXXX".format(str(record_topic_response.success), type(record_topic_response.success)))
 
-                rospy.loginfo("[Publish Control] starting the node and waiting {} seconds to ensure rosbag is recording".format(str(self.wait_for_rosbag)))
+                rospy.loginfo("[Data Collector Node] starting the node and waiting {} seconds to ensure rosbag is recording ...".format(str(self.wait_for_rosbag)))
                 rospy.sleep(self.wait_for_rosbag)  # wait for the bag to start recording
+
 
                 if record_topic_response_val == True: # if the recording had started
                     self.send_commands(wheel_cmds)
                 else:
-                    rospy.loginfo('Failed to start recording the topics, needs handling')
+                    rospy.loginfo('Failed to start recording the topics, needs handling!')
 
                 # stop recording rosbag.
                 recording_stop_response = self.recording_stop(rosbag_name)
 
                 #ask whether user wants to keep the current measurements
-                print 'do you want to keep the current experiment .bag? [respond with yes or no]'
+                rospy.loginfo('do you want to keep the current experiments bag file? (respond with yes or no)')
                 user_input = raw_input()
-                bag_file_path = expanduser("~") + "/" + rosbag_name
+                bag_file_path = expanduser("~") + "/" + rosbag_name + ".bag"
                 if user_input.strip().lower() == 'no':
-                    print 'removing the bag file {}'.format(bag_file_path)
+                    rospy.loginfo('removing the bag file {} ...'.format(bag_file_path))
                     remove(bag_file_path)
                 else:
-                    print 'keeping the bag file {}'.format(bag_file_path)
+                    rospy.loginfo('keeping the bag file {}.'.format(bag_file_path))
 
-            elif experiment_type == "sine":
-                sine = Sine()
-                default_param_dict = sine.parameter_dict
-                param_dict_request = ui.request_param_values(experiment_type, default_param_dict)
-                print "[Calibration INFO] parameter set to be used in {} calibration: {}".format(experiment_type, str(param_dict_request))
-                wheel_cmds = sine.generate_input(param_dict_request)
-                self.send_commands(wheel_cmds)
-            else:
-                print "NOT A VALID EXPERIMENT OPTION"
-
-            print "\n\nDo you want to do another experiment? [respond with yes or no]\n\n"
+            rospy.loginfo("\n\nDo you want to do another experiment? (respond with yes or no)\n\n")
             user_wish = raw_input()
 
             DO_EXPERIMENT = user_wish.strip().lower()
         else:
-            print "farewell, no more experiments for now."
+            rospy.loginfo("farewell, no more experiments for now.")
 
     def send_commands(self, wheel_cmds_dict):
         vel_right_array = wheel_cmds_dict['right_wheel']
@@ -125,7 +126,7 @@ class DataCollector:
             msg_wheels_cmd.vel_right = vel_right_array[i]
             msg_wheels_cmd.vel_left = vel_left_array[i]
 
-            rospy.loginfo("Left Wheel: {} \t Right Wheel: {}".format(vel_left_array[i], vel_right_array[i]))
+            #rospy.loginfo("Left Wheel: {} \t Right Wheel: {}".format(vel_left_array[i], vel_right_array[i]))
             self.pub_wheels_cmd.publish(msg_wheels_cmd)
             rospy.sleep(1/self.frequency)
 
