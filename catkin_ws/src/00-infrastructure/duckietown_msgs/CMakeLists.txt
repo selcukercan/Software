@@ -77,6 +77,7 @@ add_message_files(
   ObstacleImageDetectionList.msg
   ObstacleProjectedDetection.msg
   ObstacleProjectedDetectionList.msg
+  VehiclePoseEuler.msg
 
 )
 

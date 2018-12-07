@@ -27,7 +27,7 @@ class RampUp(BaseExperimentClass):
         input_sequence = {'left_wheel': [], 'right_wheel': []}
         rospy.loginfo("[generate_input] generating input sequence of type {} with parameters {}".format("RampUp", str(parameter_dict)))
 
-        for n in range(1, parameter_dict['Nstep'] + 1):
+        for n in range(1, int(parameter_dict['Nstep']) + 1):
             v = parameter_dict['vFin']/parameter_dict['Nstep'] * n
             input_sequence['left_wheel'].append(v)
             input_sequence['right_wheel'].append(v)
@@ -82,9 +82,9 @@ class ExperimentUI():
                    valid_val = float(user_input) #try to cast into a float
 
                    not_float_input = False
-                   param_dict[param_name] = user_input
+                   param_dict[param_name] = valid_val
 
-                   print("[UI INFO] input float number value is: ", user_input)
+                   print("[UI INFO] input float number value is: ", valid_val)
                 except ValueError:
                     if user_input == "":
                         print("[UI INFO] pressed enter -> using the default value for {}:{}".format(param_name,param_dict[param_name]))

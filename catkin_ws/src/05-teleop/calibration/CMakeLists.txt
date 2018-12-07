@@ -7,6 +7,7 @@ find_package(catkin REQUIRED COMPONENTS
   duckietown_msgs
   std_msgs
   dagu_car
+  rosbag_recorder
 )
 
 catkin_python_setup()
