@@ -24,7 +24,7 @@ class DataCollector:
         self.frequency = 30
 
         # Publisher
-        publisher=rospy.get_param("~veh")+"/wheels_driver_node/wheels_cmd"
+        publisher= '/' + veh + "/wheels_driver_node/wheels_cmd"
         self.pub_wheels_cmd = rospy.Publisher(publisher, WheelsCmdStamped, queue_size=1)
 
         # Topics to save into rosbag
@@ -128,7 +128,7 @@ class DataCollector:
 
             #rospy.loginfo("Left Wheel: {} \t Right Wheel: {}".format(vel_left_array[i], vel_right_array[i]))
             self.pub_wheels_cmd.publish(msg_wheels_cmd)
-            rospy.sleep(1/self.frequency)
+            rospy.sleep(1/float(self.frequency))
 
 if __name__ == '__main__':
     calib = DataCollector()
