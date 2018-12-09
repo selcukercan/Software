@@ -28,10 +28,15 @@ class DataCollector:
         self.pub_wheels_cmd = rospy.Publisher(publisher, WheelsCmdStamped, queue_size=1)
 
         # Topics to save into rosbag
+        # Output End
         sub_topic_pose_in_world_frame =  '/' + veh + '/apriltags2_ros/publish_detections_in_local_frame/tag_detections_local_frame'
-        sub_topic_rect_image = '/' + veh + '/camera_node/image/rect'
+        sub_topic_rect_image = '/' + veh + '/camera_node/image/rect' # 4-5 Hz
+        sub_topic_comp_image = '/' + veh + '/camera_node/image/compressed' # 30 Hz
+        # Input End
+        sub_topic_wheels_cmd_executed = '/' + veh + '/wheels_driver_node/wheels_cmd_executed'
+        sub_topic_wheels_cmd = '/' + veh + '/wheels_driver_node/wheels_cmd'
 
-        self.topics_to_follow = [sub_topic_pose_in_world_frame, sub_topic_rect_image]
+        self.topics_to_follow = [sub_topic_pose_in_world_frame, sub_topic_rect_image, sub_topic_comp_image, sub_topic_wheels_cmd_executed, sub_topic_wheels_cmd]
 
         # Wait for service server - rosbag-recorder services to start
         rospy.loginfo('[Data Collector Node] BEFORE SERVICE REGISTER')
@@ -43,8 +48,8 @@ class DataCollector:
         self.topic_recorder = rospy.ServiceProxy('/record_topics', RecordTopics)
         self.recording_stop= rospy.ServiceProxy('/stop_recording', StopRecording)
         rospy.loginfo('[Data Collector Node] AFTER SERVICE REGISTER')
-        self.wait_for_rosbag = 5 # wait for wait_for_rosbag seconds to make sure that the bag has started recording
-
+        self.wait_start_rosbag = 5 # wait for wait_for_rosbag seconds to make sure that the bag has started recording
+        self.wait_write_rosbag = 8
     def exp_name_to_exp_object(self, exp_name):
         """
         accepts a valid experiment name and create the corresponding experiment object
@@ -85,8 +90,8 @@ class DataCollector:
                 record_topic_response = self.topic_recorder(rosbag_name, self.topics_to_follow)
                 record_topic_response_val = record_topic_response.success
 
-                rospy.loginfo("[Data Collector Node] starting the node and waiting {} seconds to ensure rosbag is recording ...".format(str(self.wait_for_rosbag)))
-                rospy.sleep(self.wait_for_rosbag)  # wait for the bag to start recording
+                rospy.loginfo("[Data Collector Node] starting the node and waiting {} seconds to ensure rosbag is recording ...".format(str(self.wait_start_rosbag)))
+                rospy.sleep(self.wait_start_rosbag)  # wait for the bag to start recording
 
 
                 if record_topic_response_val == True: # if the recording had started
@@ -95,6 +100,8 @@ class DataCollector:
                     rospy.loginfo('Failed to start recording the topics, needs handling!')
 
                 # stop recording rosbag.
+                rospy.loginfo("[Data Collector Node] waiting {} seconds to ensure all data is recorded into rosbag ...".format(str(self.wait_write_rosbag)))
+                rospy.sleep(self.wait_write_rosbag)  # wait for the bag to record all data
                 recording_stop_response = self.recording_stop(rosbag_name)
 
                 #ask whether user wants to keep the current measurements
