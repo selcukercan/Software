@@ -16,12 +16,10 @@
   <arg name="path_input_rosbag" doc="path to the input rosbag containing the compressed image"/>
   <arg name="save_path" doc="file path to save the processed rosbag."/>
 
-  <!-- Launch the bag file that will hold the world_frame poses -->
-  <node pkg="rosbag" type="record" name="recorder" output="screen" args="$(arg save_path).test_output.bag"/>
   <!-- Play the bag file that holds compressed image data  -->
   <node pkg="rosbag" type="play" name="player" output="screen" args="$(arg path_input_rosbag)"/>
-
-  <!-- Launch the -->
+  <!-- Launch the bag file that will hold the world_frame poses -->
+  <node pkg="rosbag" type="record" name="recorder" output="screen" args="record --all -O $(arg save_path)/test_output.bag"/>
   <!-- decoder_node -->
   <group if="$(arg raw)">
       <remap from="decoder_node/compressed_image" to="camera_node/image/compressed"/>
@@ -33,7 +31,6 @@
           <arg name="publish_freq" value="15"/>
       </include>
   </group>
-
   <!-- cam_info_reader_node -->
   <group if="$(arg cam_info)">
       <remap from="cam_info_reader_node/camera_info" to="camera_node/camera_info"/>
@@ -72,4 +69,5 @@
       </group>
   </group>
 
+  <!-- <node name="stop_recorder" pkg="rosnode" type="kill" args="kill /recorder" /> -->
 </launch>
