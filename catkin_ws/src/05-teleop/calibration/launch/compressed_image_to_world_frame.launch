@@ -16,8 +16,6 @@
   <arg name="path_input_rosbag" doc="path to the input rosbag containing the compressed image"/>
   <arg name="save_path" doc="file path to save the processed rosbag."/>
 
-  <arg name="apriltags2_ros_addon" doc="path to apriltag2_ros package of apriltag2 addon repo"/>
-
   <!-- decoder_node -->
   <group if="$(arg raw)">
       <remap from="decoder_node/compressed_image" to="camera_node/image/compressed"/>
@@ -68,12 +66,18 @@
   </group>
 
   <!-- start the apriltag detector launch -->
-  <include file="$(arg apriltags2_ros_addon)/launch/apriltag2_demo.launch">
+  <include file="$(find apriltags2_ros)/launch/apriltag2_demo.launch">
     <arg name="veh" value="$(arg veh)"/>
   </include>
 
   <!-- start the apriltag to world frame launch -->
-  <!-- start buffer launch -->
+  <include file="$(find apriltags2_ros)/launch/detection_to_local_frame.launch">
+    <arg name="veh" value="$(arg veh)"/>
+  </include>
 
+  <!-- start buffer launch -->
+  <include file="$(find calibration)/launch/buffer_node.launch">
+    <arg name="veh" value="$(arg veh)"/>
+  </include>
 
 </launch>
