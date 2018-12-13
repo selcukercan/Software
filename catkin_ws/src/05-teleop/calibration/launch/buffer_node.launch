@@ -1,0 +1,13 @@
+<launch>
+  <arg name="veh"/>
+  <arg name="package_namespace" default="calibration" />
+  <arg name="node_namespace" default="buffer" />
+
+  <!-- Set parameters -->
+  <group ns="$(arg veh)/$(arg package_namespace)">
+  <node pkg="$(arg package_namespace)" type="$(arg node_namespace).py" name="$(arg node_namespace)" clear_params="true" required="true" output="screen">
+    <param name="veh" value="$(arg veh)"/>
+  </node>
+  </group>
+
+</launch>

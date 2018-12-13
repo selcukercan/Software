@@ -16,8 +16,12 @@
   <arg name="path_input_rosbag" doc="path to the input rosbag containing the compressed image"/>
   <arg name="save_path" doc="file path to save the processed rosbag."/>
 
-  <arg name="apriltags2_ros_addon" doc="path to apriltag2_ros package of apriltag2 addon repo"/>
+  <arg name="fapriltag2_ros_path" doc="path to apriltag2_ros of apriltag repo (fork)"/>
 
+  <!-- Play the bag file that holds compressed image data  -->
+  <node pkg="rosbag" type="play" name="player" output="screen" args="$(arg path_input_rosbag)"/>
+  <!-- Launch the bag file that will hold the world_frame poses -->
+  <node pkg="rosbag" type="record" name="recorder" output="screen" args="record --all -O $(arg save_path)/test_output.bag"/>
   <!-- decoder_node -->
   <group if="$(arg raw)">
       <remap from="decoder_node/compressed_image" to="camera_node/image/compressed"/>
@@ -67,13 +71,9 @@
       </group>
   </group>
 
-  <!-- start the apriltag detector launch -->
-  <include file="$(arg apriltags2_ros_addon)/launch/apriltag2_demo.launch">
+  <!-- Launch wheel driver node  -->
+  <include file="$(arg fapriltag2_ros_path)/launch/apriltag2_demo.launch">
     <arg name="veh" value="$(arg veh)"/>
   </include>
-
-  <!-- start the apriltag to world frame launch -->
-  <!-- start buffer launch -->
-
-
+  <!-- <node name="stop_recorder" pkg="rosnode" type="kill" args="kill /recorder" /> -->
 </launch>
