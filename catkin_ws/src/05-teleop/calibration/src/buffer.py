@@ -33,23 +33,27 @@ class Buffer:
         self.pub_compressed_image = rospy.Publisher(pub_topic_compressed_image, CompressedImage, queue_size=1)
 
         # ROS Parameters
-        self.paramname = "/" + self.veh + "/buffer_node/process_status"
-        self.processing_status = self.setupParam(self.paramname,0)
+        self.pm_send_status = "/" + self.veh + "/buffer_node/process_status"
+        self.send_status = self.setupParam(self.pm_send_status,0)
+        self.pm_message_count = "/" + self.veh + "/buffer_node/message_count"
+        self.message_count = self.setupParam(self.pm_message_count, -1) # set to a non-positive number for ease of debugging
 
         # Rosbag related parameters
         #path_to_bag = "/home/selcuk/input.bag"
         path_to_bag = rospy.get_param(param_name= host_package_node + "/input_rosbag")
-        print path_to_bag + "*******************"
         self.cur_image_i = 0
-        self.finished_processing = False
+        self.send_out_all_images = False
+
         # Read the compressed image topic from the bag
         topicname = "/" + self.veh + "/camera_node/image/compressed"
         self.input_rosbag = rosbag.Bag(path_to_bag)
         self.total_msg_count = self.input_rosbag.get_message_count(topicname)
         self.view_generator = self.input_rosbag.read_messages(topics=topicname) # create a rosbag generator
 
+        rospy.set_param(self.pm_message_count, self.total_msg_count)
+
         init_wait = 3
-        rospy.loginfo("[{}] Waiting for {} seconds to ensure all other processes have luanched".format(self.node_name, init_wait))
+        rospy.loginfo("[{}] Waiting for {} seconds to ensure all other processes have launched".format(self.node_name, init_wait))
         rospy.sleep(init_wait)
 
         self.pub_single_compressed_image() # send the first image
@@ -62,7 +66,7 @@ class Buffer:
         return value
 
     def cb_recieved_ack(self, msg):
-        if self.finished_processing == False:
+        if self.send_out_all_images == False:
             print("recieved new image request, and have more to sent")
             self.pub_single_compressed_image()
         else:
@@ -80,11 +84,11 @@ class Buffer:
             self.pub_compressed_image.publish(msg) # publish the message
             self.cur_image_i += 1
         else: # after sending all messages close the bag
-            if self.finished_processing == False:
-                rospy.loginfo('[{}] processed all the messages, now closing the bag.'.format(self.node_name))
-                self.processing_status = rospy.set_param(self.paramname,1)
+            if self.send_out_all_images == False:
+                rospy.loginfo('[{}] send all the messages'.format(self.node_name))
                 self.input_rosbag.close()
-                self.finished_processing = True
+                self.send_out_all_images = True
+                self.send_status = rospy.set_param(self.pm_send_status,1)
             else:
                 print("!!!!!!!!!! SHOULD NOT BE HERE 2 ")
 
