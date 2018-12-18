@@ -35,6 +35,12 @@ EXPERIMENT_NAME_FOR_PICKLE = "my_data.pckl"
 class experimentData():
     pass
 
+
+def process_raw_data(wheel_cmd_exec, robot_pose):
+    wheel_cmd_exec, robot_pose = remove_images_before_wheel_cmd(wheel_cmd_exec, robot_pose)
+
+    return wheel_cmd_exec, robot_pose
+
 def remove_images_before_wheel_cmd(wheel_cmd_exec, robot_pose):
     """
     use wheel_cmd_exec as the reference as it is the actual command that is send to the duckiebot.
@@ -77,10 +83,29 @@ def remove_images_before_wheel_cmd(wheel_cmd_exec, robot_pose):
 
     return wheel_cmd_exec, robot_pose
 
-def process_raw_data(wheel_cmd, wheel_cmd_exec, robot_pose):
-    wheel_cmd_exec, robot_pose = remove_images_before_wheel_cmd(wheel_cmd_exec, robot_pose)
+def resampling(Ts, u, p):
+    """
+    Args:
+        Ts: sampling time of the system.
+        u: input command to the vehicle, wheel_cmd.
+        p: pose of the vehicle, robot_pose.
 
-    return wheel_cmd_exec, robot_pose
+    Returns:
+        u_rs: resampled input commands.
+        p_rs: resampled posed of the vehicle.
+    """
+    # create a t
+    experiment_duration = stop_time - start_time
+    t = np.arange(0, experiment_duration, Ts)
+
+    # Resample commands to the fixed sampling time using the last command
+    cmd_right = wheel_cmd_exec['vel_r']
+    cmd_right = cmd_right[np.searchsorted(t, time, side='right')]
+
+    cmd_left = wheel_cmd_exec['vel_l']
+    cmd_left = cmd_left[np.searchsorted(t, time, side='right')]
+
+    return u_rs, p_rs
 
 class calib():
     def __init__(self):
@@ -111,7 +136,9 @@ class calib():
 
         #self.delta =  0.00
         if PREPARE_CALIBRATION_DATA_FOR_OPTIMIZATION:
-            self.raw_dataset_from_rosbag()
+            wheel_cmd_exec_raw, robot_pose = self.raw_dataset_from_rosbag() # load raw dataset
+            self.wheel_cmd_exec, self.robot_pose = process_raw_data(wheel_cmd_exec_raw, robot_pose) # bring data set to format usable by the optimizer
+
             #self.experiment_data_ = self.unpackData()
 
         #self.fit_=self.nonlinear_model_fit()
@@ -144,7 +171,7 @@ class calib():
 
         wheel_cmd_exec, robot_pose = process_raw_data(wheel_cmd, wheel_cmd_exec, robot_pose)
 
-        return wheel_cmd, wheel_cmd_exec, robot_pose
+        return wheel_cmd_exec, robot_pose
 
     # Get wheels command
     def get_wheels_command(self, inputbag, topicname):
@@ -158,7 +185,7 @@ class calib():
         for topic, msg, t in rosbag.Bag(inputbag).read_messages(topics=topicname):
             cmd['vel_l'].append(msg.vel_left)
             cmd['vel_r'].append(msg.vel_right)
-            cmd['timestamp'].append(t)
+            cmd['timestamp'].append(t.to_sec)
 
         return cmd
 
@@ -178,7 +205,7 @@ class calib():
             pose['rx'].append(msg.rotx)
             pose['ry'].append(msg.roty)
             pose['rz'].append(msg.rotz)
-            pose['timestamp'].append(t)
+            pose['timestamp'].append(t.to_sec())
         return pose
 
 
@@ -302,28 +329,6 @@ class calib():
                 timepoints_sine, time_sine,
                 cmd_sine_right, cmd_sine_left)
 
-    def resampling(self,time_ramp_meas, time_ramp_cmd, cmd_ramp_right, cmd_ramp_left, time_sine_meas, time_sine_cmd, cmd_sine_right, cmd_sine_left):
-        # Sampling Time of the Identification
-        Ts = self.Ts
-        # generate an equally spaced time vector over the full length of position measurement times
-        # Based on looking at the data we assume the images were taken at a perfect
-        # 30 FPS rate, but arrive in ROS at an variable rate. Therefore, we resample and
-        # assume that the images have been taken at the ideal time steps
-        time_ramp = np.arange(0,time_ramp_meas[-1]-time_ramp_meas[0]+Ts/2,Ts)
-        time_sine = np.arange(0,time_sine_meas[-1]-time_sine_meas[0]+Ts/2,Ts)
-        # Shift the cmd time vectors to match the new time vectors
-        time_ramp_cmd = time_ramp_cmd - time_ramp_meas[0]
-        time_sine_cmd = time_sine_cmd - time_sine_meas[0]
-        # Resample commands to the fixed sampling time using the last command
-        cmd_ramp_right = cmd_ramp_right[np.searchsorted(time_ramp_cmd, time_ramp, side='right')]
-        cmd_ramp_left  = cmd_ramp_left[np.searchsorted(time_ramp_cmd, time_ramp, side='right')]
-        cmd_sine_right = cmd_sine_right[np.searchsorted(time_sine_cmd, time_sine, side='right')]
-        cmd_sine_left  = cmd_sine_left[np.searchsorted(time_sine_cmd, time_sine, side='right')]
-        # timepoints (indexes in time vector) where we have measurements
-        timepoints_ramp = ((time_ramp_meas-time_ramp_meas[0])*30+0.5).astype(int)
-        timepoints_sine = ((time_sine_meas-time_sine_meas[0])*30+0.5).astype(int)
-
-        return timepoints_ramp, time_ramp, cmd_ramp_right, cmd_ramp_left, timepoints_sine, time_sine, cmd_sine_right, cmd_sine_left
     def processData(self,starting_ind, ending_ind):
         (x_ramp_meas,y_ramp_meas, yaw_ramp_meas,
         x_sine_meas,y_sine_meas,yaw_sine_meas,
