@@ -56,32 +56,31 @@ def remove_images_before_wheel_cmd(wheel_cmd_exec, robot_pose):
 
     start_time = actuated_t[0] # first time instance when an the vehicle recieves an actuation command
     stop_time_cand = actuated_t[-1] # last time instance when an the vehicle recieves an actuation command. notice that this is not necessarily the stopping instance as the vehicle will keep on moving due to inertia.
-    stop_time = stop_time_cand + rospy.Duration(t_motion_inertia)
+    stop_time = stop_time_cand + rospy.Duration(t_motion_inertia) # NOTE: HARDCODING
 
-    for i, t in enumerate(robot_pose['timestamp']):
-        if (t < start_time) or (t > stop_time):
-            del robot_pose['px'][i]
-            del robot_pose['py'][i]
-            del robot_pose['pz'][i]
-            del robot_pose['rx'][i]
-            del robot_pose['ry'][i]
-            del robot_pose['rz'][i]
-            del robot_pose['timestamp'][i]
-    for i, t in enumerate(robot_pose['timestamp']):
-        if (t < start_time) or (t > stop_time):
-            del robot_pose['px'][i]
-            del robot_pose['py'][i]
-            del robot_pose['pz'][i]
-            del robot_pose['rx'][i]
-            del robot_pose['ry'][i]
-            del robot_pose['rz'][i]
-            del robot_pose['timestamp'][i]
-    wheel_cmd_exec_non_zero_= {k: v for k, v in wheel_cmd_exec.iteritems() if v <= stop_time and v >= start_time} # faster with checking  (i in actuated_i) ?
+    # extract the pose detections that fall into active experiment time.
+    while robot_pose['timestamp'][0] < start_time:
+        for key in robot_pose.keys():
+            del robot_pose[key][0]
+    while robot_pose['timestamp'][-1] > stop_time:
+        for key in robot_pose.keys():
+            del robot_pose[key][-1]
 
+    # eliminates the case when 0 input applied at the beginning of the experiment
+    while wheel_cmd_exec['timestamp'][0] <= start_time:
+        for key in wheel_cmd_exec.keys():
+            del wheel_cmd_exec[key][0]
+    # eliminates the case when 0 input applied at the end of the experiment
+    while wheel_cmd_exec['timestamp'][-1] > stop_time:
+        for key in wheel_cmd_exec.keys():
+            del wheel_cmd_exec[key][-1]
+
+    return wheel_cmd_exec, robot_pose
 
 def process_raw_data(wheel_cmd, wheel_cmd_exec, robot_pose):
-    wheel_cmd, wheel_cmd_exec, robot_pose = remove_images_before_wheel_cmd(wheel_cmd_exec, robot_pose)
+    wheel_cmd_exec, robot_pose = remove_images_before_wheel_cmd(wheel_cmd_exec, robot_pose)
 
+    return wheel_cmd_exec, robot_pose
 
 class calib():
     def __init__(self):
@@ -205,7 +204,6 @@ class calib():
                 pose[key]=np.convolve(pose[key], np.ones((N,)) / N, mode='valid')
         return pose
 
-
     def compressArray(self,ref_size,arr):
         arr_interp = interp.interp1d(np.arange(arr.size), arr)
         arr_compress = arr_interp(np.linspace(0, arr.size - 1, ref_size))
@@ -238,36 +236,13 @@ class calib():
             time_ramp_cmd[i] = time_ramp_cmd[i].to_sec()
         time_ramp_cmd = np.array(time_ramp_cmd)
 
-        ### SINE COMMAND EXPERIMENT
-        ## Measuremet States
-        # unpack the measured states -> model output
-        x_sine_meas    = self.veh_pose_['curve']['x_veh']
-        x_sine_meas    = np.reshape(x_sine_meas,np.size(x_sine_meas))  # fixing some totally fucked up dimensions
-        y_sine_meas    = self.veh_pose_['curve']['y_veh']
-        y_sine_meas    = np.reshape(y_sine_meas,np.size(y_sine_meas))  # fixing some totally fucked up dimensions
-        yaw_sine_meas  = self.veh_pose_['curve']['yaw_veh']
-        yaw_sine_meas  = ( np.array(yaw_sine_meas) + np.pi*0.5 + np.pi) % (2 * np.pi ) - np.pi # shift by pi/2 and wrap to +-pi
 
-        # unpack the the array containing time instances of the mentioned measurements
-        time_sine_meas = self.veh_pose_['curve']['timestamp']
-        for i in range(0,np.size(time_sine_meas)):  # convert time to float
-            time_sine_meas[i] = time_sine_meas[i].to_sec()
-        time_sine_meas = np.array(time_sine_meas)
-
-        cmd_sine_right = np.concatenate([[0],self.wheels_cmd_['vel_r']])  # add a 0 cmd at the beginning
-        cmd_sine_left  = np.concatenate([[0],self.wheels_cmd_['vel_l']])  # as interpolation boundary
-        time_sine_cmd  = self.wheels_cmd_['timestamp']
-
-        timepoints_ramp, time_ramp, cmd_ramp_right, cmd_ramp_left, timepoints_sine, time_sine, cmd_sine_right, cmd_sine_left = self.resampling(time_ramp_meas, time_ramp_cmd, cmd_ramp_right, cmd_ramp_left, time_sine_meas, time_sine_cmd, cmd_sine_right, cmd_sine_left)
+        timepoints_ramp, time_ramp, cmd_ramp_right, cmd_ramp_left = self.resampling(time_ramp_meas, time_ramp_cmd, cmd_ramp_right, cmd_ramp_left)
 
         experimentDataObj = experimentData()
         experimentDataObj.x_ramp_meas = x_ramp_meas
         experimentDataObj.y_ramp_meas = y_ramp_meas
         experimentDataObj.yaw_ramp_meas = yaw_ramp_meas
-
-        experimentDataObj.x_sine_meas = x_sine_meas
-        experimentDataObj.y_sine_meas = y_sine_meas
-        experimentDataObj.yaw_sine_meas = yaw_sine_meas
 
         experimentDataObj.timepoints_ramp = timepoints_ramp
         experimentDataObj.time_ramp = time_ramp
@@ -275,11 +250,6 @@ class calib():
         experimentDataObj.cmd_ramp_right = cmd_ramp_right
         experimentDataObj.cmd_ramp_left = cmd_ramp_left
 
-        experimentDataObj.timepoints_sine = timepoints_sine
-        experimentDataObj.time_sine = time_sine
-
-        experimentDataObj.cmd_sine_right = cmd_sine_right
-        experimentDataObj.cmd_sine_left = cmd_sine_left
 
         f = open(EXPERIMENT_NAME_FOR_PICKLE, 'wb')
         pickle.dump(experimentDataObj, f)
