@@ -28,162 +28,272 @@ from mpl_toolkits.mplot3d import Axes3D
 import yaml
 import pickle
 from os.path import expanduser
-DEBUG = 1
+
 PREPARE_CALIBRATION_DATA_FOR_OPTIMIZATION = True
 EXPERIMENT_NAME_FOR_PICKLE = "my_data.pckl"
 
 class experimentData():
     pass
-
-def remove_images_before_wheel_cmd(wheel_cmd_exec, robot_pose):
-    """
-    use wheel_cmd_exec as the reference as it is the actual command that is send to the duckiebot.
-
-    reference: https://github.com/duckietown/Software/blob/9cae95e41d1672f86a10bba86fca430e73af2431/catkin_ws/src/05-teleop/dagu_car/src/wheels_driver_node.py
-
-    :param wheel_cmd_exec:
-    :param robot_pose:
-    :return:
-    """
-    t_motion_inertia = 1.0 # sec
-
-    # get index where where there is a velocity command its respective timestamp
-    actuated_i = [i for i, j in enumerate(wheel_cmd_exec['vel_r']) if j != 0]
-    actuated_t = [wheel_cmd_exec['timestamp'][i] for i in actuated_i]
-
-    if actuated_t == []: # there does not exist a time instance when robot is actuated.
-        rospy.logerr('DATA SET DOES NOT CONTAIN ANY ACTUATION COMMANDS')
-
-    start_time = actuated_t[0] # first time instance when an the vehicle recieves an actuation command
-    stop_time_cand = actuated_t[-1] # last time instance when an the vehicle recieves an actuation command. notice that this is not necessarily the stopping instance as the vehicle will keep on moving due to inertia.
-    stop_time = stop_time_cand + rospy.Duration(t_motion_inertia)
-
-    for i, t in enumerate(robot_pose['timestamp']):
-        if (t < start_time) or (t > stop_time):
-            del robot_pose['px'][i]
-            del robot_pose['py'][i]
-            del robot_pose['pz'][i]
-            del robot_pose['rx'][i]
-            del robot_pose['ry'][i]
-            del robot_pose['rz'][i]
-            del robot_pose['timestamp'][i]
-    for i, t in enumerate(robot_pose['timestamp']):
-        if (t < start_time) or (t > stop_time):
-            del robot_pose['px'][i]
-            del robot_pose['py'][i]
-            del robot_pose['pz'][i]
-            del robot_pose['rx'][i]
-            del robot_pose['ry'][i]
-            del robot_pose['rz'][i]
-            del robot_pose['timestamp'][i]
-    wheel_cmd_exec_non_zero_= {k: v for k, v in wheel_cmd_exec.iteritems() if v <= stop_time and v >= start_time} # faster with checking  (i in actuated_i) ?
-
-
-def process_raw_data(wheel_cmd, wheel_cmd_exec, robot_pose):
-    wheel_cmd, wheel_cmd_exec, robot_pose = remove_images_before_wheel_cmd(wheel_cmd_exec, robot_pose)
-
-
-class calib():
+class AutoCalibration():
     def __init__(self):
-        # namespace variables
-        if not DEBUG:
-            host_package = rospy.get_namespace()  # as defined by <group> in launch file
-        else:
-            host_package = "/mete/calibration/"
-
-        self.node_name = 'kinematic_calibration'  # node name , as defined in launch file
-        host_package_node = host_package + self.node_name
-        self.veh = host_package.split('/')[1]
         # Initialize the node with rospy
-        rospy.init_node('calibration', anonymous=True)
+        rospy.init_node('command', anonymous=True)
 
+        # defaults overwritten by paramminimize(self.objective, p0)
+        self.robot_name = rospy.get_param("~veh")
 
-        # Parameters
-        param_veh = host_package_node + '/' + "veh"
-        self.robot_name = rospy.get_param(param_veh)
-        param_veh = host_package_node + '/' + "path"
-        self.input_bag = rospy.get_param(param_veh) + self.robot_name + "_calibration.bag"
-
+        self.p0 = [0.9, 1, 0.0]
         self.Ts = 1 / 30.0
         self.d = 0.6
-
         self.DATA_BEG_INDEX = 0
-        self.DATA_END_INDEX = -5 # ignore last data points
-
-        #self.delta =  0.00
+        self.DATA_END_INDEX = -30 # ignore last data points
+        self.delta =  0.00
         if PREPARE_CALIBRATION_DATA_FOR_OPTIMIZATION:
-            self.raw_dataset_from_rosbag()
-            #self.experiment_data_ = self.unpackData()
+            # Load homography
+            self.H = self.load_homography()
+            # define PinholeCameraModel
+            self.pcm_ = PinholeCameraModel()
+            # load camera info
+            self.cam = self.load_camera_info()
+            # load information about duckietown chessboard
+            self.board_ = self.load_board_info()
 
-        #self.fit_=self.nonlinear_model_fit()
+            # load joystick commands
+            # self.joy_cmd_=self.get_joy_command()
+
+            # load wheel commands
+            self.wheels_cmd_=self.get_wheels_command()
+            # load veh pose
+            self.veh_pose_ = self.load_camera_pose_estimation()
+            self.experiment_data_ = self.unpackData()
+
+        self.fit_=self.nonlinear_model_fit()
         #self.plots()
         # write to the kinematic calibration file
-        #self.write_calibration()
+        self.write_calibration()
 
         # make plots & visualizations
         #self.plot=self.visualize()
-        #plt.show()
+        plt.show()
 
-    def raw_dataset_from_rosbag(self):
-        """
-        generates dictionaries for the variables of interest by reading the content available in their respective topics.
-        as a convention each function takes in a topic name, and returns the parameter dictionary.
 
-        :return:
-        """
-        # input bag
-        inputbag = self.input_bag
+    def load_camera_pose_estimation(self):
+        # initialize lists
+        x,y,z,pitch,roll,yaw,timestamp =([] for i in range(7))
 
-        # topics of interest
-        top_wheel_cmd = "/" + self.robot_name + "/wheels_driver_node/wheels_cmd"
-        top_wheel_cmd_exec = "/" + self.robot_name + "/wheels_driver_node/wheels_cmd_executed"
-        top_robot_pose = "/" + self.robot_name + "/apriltags2_ros/publish_detections_in_local_frame/tag_detections_local_frame"
+        pose_straight = {
+            'x_veh': [],
+            'y_veh': [],
+            'z_veh': [],
+            'yaw_veh':[],
+            'roll_veh':[],
+            'pitch_veh':[],
+            'timestamp':[],
+          }
+        pose_curve = {
+            'x_veh': [],
+            'y_veh': [],
+            'z_veh': [],
+            'yaw_veh':[],
+            'roll_veh':[],
+            'pitch_veh':[],
+            'timestamp':[],
+          }
 
-        wheel_cmd = self.get_wheels_command(inputbag, top_wheel_cmd)
-        wheel_cmd_exec = self.get_wheels_command(inputbag, top_wheel_cmd_exec)
-        robot_pose = self.get_robot_pose(inputbag, top_robot_pose)
 
-        wheel_cmd_exec, robot_pose = process_raw_data(wheel_cmd, wheel_cmd_exec, robot_pose)
+        #define the inputbag and topicname
+        inputbag=rospy.get_param("~path")+self.robot_name+"_calibration.bag"
+        topicname = "/" + self.robot_name + "/camera_node/image/compressed"
+        indexcounter=1
 
-        return wheel_cmd, wheel_cmd_exec, robot_pose
+        #initialize recording state
+        Recording=False
 
-    # Get wheels command
-    def get_wheels_command(self, inputbag, topicname):
-        cmd = {
-            'vel_r': [],
-            'vel_l': [],
-            'timestamp': [],
-        }
+        #get Index where there is no velocity command its respective timestamp
+        stopIndex = [i for i, j in enumerate(self.wheels_cmd_['vel_r']) if j == 0]
+        stopTime=[self.wheels_cmd_['timestamp'][i] for i in stopIndex]
+        #get Index where there is a velocity command its respective timestamp
+        starting_ind = [i for i, j in enumerate(self.wheels_cmd_['vel_r']) if j != 0]
+        startTime=[self.wheels_cmd_['timestamp'][i] for i in starting_ind]
+        counter=0
+        count_checkerboard_scenes = 0
 
         # Loop over the image files contained in rosbag
         for topic, msg, t in rosbag.Bag(inputbag).read_messages(topics=topicname):
-            cmd['vel_l'].append(msg.vel_left)
-            cmd['vel_r'].append(msg.vel_right)
-            cmd['timestamp'].append(t)
+            indexcounter+=1
+            dt = rospy.Duration(secs=1.0/30.) # start recording approx one frame before first wheel cmd
 
+            for i in range(len(stopTime)):
+                if abs(t - stopTime[i]) < dt:
+                    Recording=False
+            for i in range(len(startTime)):
+                if abs(t - startTime[i]) < dt:
+                    Recording = True
+
+            if Recording:
+                if ret == True:
+                    counter=0 # reset counter
+                    count_checkerboard_scenes += 1
+                    print "checkerboard in frame %d found" %indexcounter
+
+
+                    #split into 2 arrays for the different experiments
+                    if t<stopTime[0]:
+                        pose_straight['x_veh'].append(veh_pos[0])
+                        pose_straight['y_veh'].append(veh_pos[1])
+                        pose_straight['z_veh'].append(veh_pos[2])
+                        pose_straight['roll_veh'].append(veh_eulerangles[0])
+                        pose_straight['pitch_veh'].append(veh_eulerangles[1])
+                        pose_straight['yaw_veh'].append(veh_eulerangles[2])
+                        pose_straight['timestamp'].append(t)
+                    else:
+                        pose_curve['x_veh'].append(veh_pos[0])
+                        pose_curve['y_veh'].append(veh_pos[1])
+                        pose_curve['z_veh'].append(veh_pos[2])
+                        pose_curve['roll_veh'].append(veh_eulerangles[0])
+                        pose_curve['pitch_veh'].append(veh_eulerangles[1])
+                        pose_curve['yaw_veh'].append(veh_eulerangles[2])
+                        pose_curve['timestamp'].append(t)
+
+                else:
+                    print "checkerboard in frame %d not found" %indexcounter
+                    #counter+=1
+                    #if counter==15:
+                    #    print "Finished recording"
+                    #    Recording=False
+                    #    break
+
+        cv2.destroyAllWindows() #close window
+
+        data_pre_filter ={'straight':pose_straight,'curve':pose_curve}
+        rospy.loginfo("NUMBER OF SCENES WITH CHECKERBOARD Before Pose Filter: {}".format(str(count_checkerboard_scenes)))
+        rospy.loginfo("""\nStraight Pose Data Before Pose Filter
+                         Size : {data_pre_filter_struct_size}
+                         Type : {data_pre_filter_struct_type}
+                         Variables : {variables}
+                         [Time Stamp (sec)] Size: {time_stamp_size} Duration: {duration}
+                         [Global X] Size: {global_x_size} Max: {max_global_x} Min: {min_global_x}
+                         [Global Y] Size: {global_y_size} Max: {max_global_y} Min: {min_global_y}
+                         [Global Yaw] Size: {yaw_size} Max: {max_yaw} Min: {min_yaw}
+                         """
+                         .format(data_pre_filter_struct_size = len(data_pre_filter['straight']),
+                                 data_pre_filter_struct_type = type(data_pre_filter['straight']),
+                                 variables = data_pre_filter['straight'].keys(),
+                                 time_stamp_size = len(data_pre_filter['straight']['timestamp']), duration = (max(data_pre_filter['straight']['timestamp']) - min(data_pre_filter['straight']['timestamp'])).to_sec(),
+                                 global_x_size = len(data_pre_filter['straight']['x_veh']), max_global_x = max(data_pre_filter['straight']['x_veh']), min_global_x = min(data_pre_filter['straight']['x_veh']),
+                                 global_y_size = len(data_pre_filter['straight']['y_veh']), max_global_y = max(data_pre_filter['straight']['y_veh']), min_global_y = min(data_pre_filter['straight']['y_veh']),
+                                 yaw_size = len(data_pre_filter['straight']['yaw_veh']), max_yaw = max(data_pre_filter['straight']['yaw_veh']), min_yaw = min(data_pre_filter['straight']['yaw_veh'])
+                                )
+                     )
+        rospy.loginfo("""\Curve Pose Data Before Pose Filter
+                         Size : {data_pre_filter_struct_size}
+                         Type : {data_pre_filter_struct_type}
+                         Variables : {variables}
+                         [Time Stamp] Size: {time_stamp_size} Extracted Frame's Duration: {duration}
+                         [Global X] Size: {global_x_size} Max: {max_global_x} Min: {min_global_x}
+                         [Global Y] Size: {global_y_size} Max: {max_global_y} Min: {min_global_y}
+                         [Global Yaw] Size: {yaw_size} Max: {max_yaw} Min: {min_yaw}
+                         """
+                         .format(data_pre_filter_struct_size = len(data_pre_filter['curve']),
+                                 data_pre_filter_struct_type = type(data_pre_filter['curve']),
+                                 variables = data_pre_filter['curve'].keys(),
+                                 time_stamp_size = len(data_pre_filter['curve']['timestamp']), duration = (max(data_pre_filter['curve']['timestamp']) - min(data_pre_filter['curve']['timestamp'])).to_sec(),
+                                 global_x_size = len(data_pre_filter['curve']['x_veh']), max_global_x = max(data_pre_filter['curve']['x_veh']), min_global_x = min(data_pre_filter['curve']['x_veh']),
+                                 global_y_size = len(data_pre_filter['curve']['y_veh']), max_global_y = max(data_pre_filter['curve']['y_veh']), min_global_y = min(data_pre_filter['curve']['y_veh']),
+                                 yaw_size = len(data_pre_filter['curve']['yaw_veh']), max_yaw = max(data_pre_filter['curve']['yaw_veh']), min_yaw = min(data_pre_filter['curve']['yaw_veh'])
+                                )
+                     )
+
+        #MA filter with window size N;
+        filter=False
+        if filter:
+            N = 3
+            pose_straight=self.poseFilter(pose_straight,N)
+            pose_curve=self.poseFilter(pose_curve,N)
+
+        data ={'straight':pose_straight,'curve':pose_curve}
+
+        rospy.loginfo("NUMBER OF SCENES WITH CHECKERBOARD After Pose Filter: {}".format(str(count_checkerboard_scenes)))
+        rospy.loginfo("""\nStraight Pose Data After Pose Filter
+                         Size : {data_struct_size}
+                         Type : {data_struct_type}
+                         Variables : {variables}
+                         [Time Stamp] Size: {time_stamp_size} Duration: {duration}
+                         [Global X] Size: {global_x_size} Max: {max_global_x} Min: {min_global_x}
+                         [Global Y] Size: {global_y_size} Max: {max_global_y} Min: {min_global_y}
+                         [Global Yaw] Size: {yaw_size} Max: {max_yaw} Min: {min_yaw}
+                         """
+                         .format(data_struct_size = len(data['straight']),
+                                 data_struct_type = type(data['straight']),
+                                 variables = data['straight'].keys(),
+                                 time_stamp_size = len(data['straight']['timestamp']), duration = (max(data_pre_filter['straight']['timestamp']) - min(data_pre_filter['straight']['timestamp'])).to_sec(),
+                                 global_x_size = len(data['straight']['x_veh']), max_global_x = max(data['straight']['x_veh']), min_global_x = min(data['straight']['x_veh']),
+                                 global_y_size = len(data['straight']['y_veh']), max_global_y = max(data['straight']['y_veh']), min_global_y = min(data['straight']['y_veh']),
+                                 yaw_size = len(data['straight']['yaw_veh']), max_yaw = max(data['straight']['yaw_veh']), min_yaw = min(data['straight']['yaw_veh'])
+                                )
+                     )
+        rospy.loginfo("""\nCurve Pose Data After Pose Filter
+                         Size : {data_struct_size}
+                         Type : {data_struct_type}
+                         Variables : {variables}
+                         [Time Stamp] Size: {time_stamp_size} Duration: {duration}
+                         [Global X] Size: {global_x_size} Max: {max_global_x} Min: {min_global_x}
+                         [Global Y] Size: {global_y_size} Max: {max_global_y} Min: {min_global_y}
+                         [Global Yaw] Size: {yaw_size} Max: {max_yaw} Min: {min_yaw}
+                         """
+                         .format(data_struct_size = len(data['curve']),
+                                 data_struct_type = type(data['curve']),
+                                 variables = data['curve'].keys(),
+                                 time_stamp_size = len(data['curve']['timestamp']), duration = (max(data_pre_filter['curve']['timestamp']) - min(data_pre_filter['curve']['timestamp'])).to_sec(),
+                                 global_x_size = len(data['curve']['x_veh']), max_global_x = max(data['curve']['x_veh']), min_global_x = min(data['curve']['x_veh']),
+                                 global_y_size = len(data['curve']['y_veh']), max_global_y = max(data['curve']['y_veh']), min_global_y = min(data['curve']['y_veh']),
+                                 yaw_size = len(data['curve']['yaw_veh']), max_yaw = max(data['curve']['yaw_veh']), min_yaw = min(data['curve']['yaw_veh'])
+                                )
+                     )
+
+        #rospy.loginfo("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXxx")
+        #rospy.loginfo(data['straight']['timestamp'])
+        return data
+
+    # Get joystick command
+    def get_joy_command(self):
+        omg=[]
+        vel=[]
+        timestamp=[]
+        inputbag=rospy.get_param("~path")+self.robot_name+"_calibration.bag"
+
+        topicname = "/" + self.robot_name + "/joy_mapper_node/car_cmd"
+        for topic, msg, t in rosbag.Bag(inputbag).read_messages(topics=topicname):
+            vel.append(msg.v)
+            omg.append(msg.omega)
+            timestamp.append(t)
+
+        cmd = {
+            'velocity': vel,
+            'omega': omg,
+            'timestamp': timestamp,
+        }
         return cmd
 
-    def get_robot_pose(self, inputbag, topicname):
+    # Get wheels command
+    def get_wheels_command(self):
+        vel_l = []
+        vel_r = []
+        timestamp = []
+        inputbag = rospy.get_param("~path")+self.robot_name+"_calibration.bag"
+        topicname = "/" + self.robot_name + "/wheels_driver_node/wheels_cmd"
 
-        pose = {
-            'px': [],'py': [],'pz': [],
-            'rx':[],'ry':[],'rz':[],
-            'timestamp': []
-        }
-
-        # Loop over the image files contained in rosbag
         for topic, msg, t in rosbag.Bag(inputbag).read_messages(topics=topicname):
-            pose['px'].append(msg.posx)
-            pose['py'].append(msg.posy)
-            pose['pz'].append(msg.posz)
-            pose['rx'].append(msg.rotx)
-            pose['ry'].append(msg.roty)
-            pose['rz'].append(msg.rotz)
-            pose['timestamp'].append(t)
-        return pose
+            vel_l.append(msg.vel_left)
+            vel_r.append(msg.vel_right)
+            timestamp.append(t)
 
-
-
+        cmd = {
+            'vel_r': vel_r,
+            'vel_l': vel_l,
+            'timestamp': timestamp,
+        }
+        return cmd
 
     # Checks if a matrix is a valid rotation matrix.
     def isRotationMatrix(self,R):
@@ -630,5 +740,4 @@ class calib():
        print("\nPlease check the plots and judge if the parameters are reasonable.")
        print("Once done inspecting the plot, close them to terminate the program.")
 if __name__ == '__main__':
-    calib=calib()
-    rospy.spin()
+    calib=AutoCalibration()
