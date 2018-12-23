@@ -15,7 +15,7 @@ class DataPreparation():
 
     def __init__(self, input_bag = None, top_wheel_cmd_exec = None, top_robot_pose = None, save_as = None, dump = False):
         self.input_bag = input_bag
-        self.wheel_cmd, self.robot_pose = self.load_bag(input_bag, top_wheel_cmd_exec, top_robot_pose, dump=dump, save_as=save_as)
+        self.wheel_cmd, self.robot_pose = self.load_bag(input_bag, top_wheel_cmd_exec, top_robot_pose)
 
     def process_raw_data(self):
         start_time, end_time, duration = self.set_experiment_duration()
@@ -169,23 +169,15 @@ class DataPreparation():
 
         return wheel_cmd_exec_rs
 
-    def load_bag(self, input_bag, top_wheel_cmd_exec, top_robot_pose, dump=None, save_as=None):
+    def load_bag(self, input_bag, top_wheel_cmd_exec, top_robot_pose):
         """
         generates dictionaries for  by reading the content available in their respective topics.
         as a convention each function takes in a topic name, and returns the parameter dictionary.
 
         :return:
         """
-
         wheel_cmd_exec = self.get_wheels_command(input_bag, top_wheel_cmd_exec)
         robot_pose = self.get_robot_pose(input_bag, top_robot_pose)
-
-        if dump:
-            rospy.loginfo('experiment data will be dumped')
-            self.save_pickle(save_as, wheel_cmd_exec, robot_pose)
-        else:
-            rospy.loginfo('experiment data will NOT be dumped')
-
 
         return wheel_cmd_exec, robot_pose
 
@@ -230,29 +222,24 @@ class DataPreparation():
             dict[key] = dict[key][discard_first:-discard_last]
         return dict
 
-    @staticmethod
-    def save_pickle(experiment_name, wheel_cmd_exec, robot_pose):
-        experiment_data_obj = ExperimentData()
-        experiment_data_obj.wheel_cmd_exec = wheel_cmd_exec
-        experiment_data_obj.robot_pose = robot_pose
 
-        if experiment_name is not None:
-            rospy.loginfo('dumping the experiment data with pickle, naming it [{}] ...'.format(experiment_name))
-            f = open(experiment_name, 'wb')
-            pickle.dump(experiment_data_obj, f)
-            f.close()
-        else:
-            rospy.logerr('experiment name cannot be [{}], please provide a valid name  '.format(experiment_name))
 # UTILITY FUNCTIONS AND CLASSES
+
+def save_pickle(object=None, save_as=None):
+    if object is not {}:
+        rospy.loginfo('dumping the experiment set with pickle, naming it [{}] ...'.format(save_as))
+        with open(save_as, 'wb') as handle:
+            pickle.dump(object, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    else:
+        rospy.logerr('empty experiment set, please check that your bag files are not corrupted')
 
 def load_pickle(experiment_name):
     if experiment_name is not None:
         rospy.loginfo('pickling experiment data with name [{}]'.format(experiment_name))
-        f = open(experiment_name, 'rb')
-        exp_data_object = pickle.load(f)
-        f.close()
+        with open(experiment_name, 'rb') as handle:
+            experiments = pickle.load(handle)
 
-        return exp_data_object.wheel_cmd_exec, exp_data_object.robot_pose
+        return experiments
     else:
         rospy.logfatal('to load data with pickle, specify the experiment name')
 

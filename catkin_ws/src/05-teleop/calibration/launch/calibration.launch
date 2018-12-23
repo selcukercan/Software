@@ -2,12 +2,12 @@
     <arg name="veh" doc="Name of vehicle. ex: megaman"/>
     <arg name="package_namespace" default="calibration" />
     <arg name="node_namespace" default="calibration" />
-    <arg name="path" default="/media/logs/" doc="path of the recorded bag." />
+    <arg name="folder_path" doc="path to the folder containing rosbags" />
 
     <group ns="$(arg veh)/$(arg package_namespace)">
         <node  pkg="calibration" type="kinematic_calibration.py" name="kinematic_calibration" output="screen" clear_params="true" required="true">
             <param name="veh" value="$(arg veh)"/>
-            <param name="path" value="$(arg path)"/>
+            <param name="folder_path" value="$(arg folder_path)"/>
         </node>
     </group>
 </launch>

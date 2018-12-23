@@ -25,12 +25,12 @@ from scipy.integrate import odeint
 from mpl_toolkits.mplot3d import Axes3D
 import yaml
 from os.path import expanduser
-
+from os.path import join
 import plotly.graph_objs as go
 import plotly.offline as opy
 
 from calibration.data_preperation_utils import DataPreparation
-from calibration.data_preperation_utils import load_pickle
+from calibration.data_preperation_utils import load_pickle, save_pickle
 
 #opy.init_notebook_mode(connected=True)
 
@@ -55,8 +55,10 @@ class calib():
         # Parameters
         param_veh = host_package_node + '/' + "veh"
         self.robot_name = rospy.get_param(param_veh)
-        param_veh = host_package_node + '/' + "path"
-        input_bag = rospy.get_param(param_veh) + self.robot_name + "_calibration.bag"
+        param_folder_path = host_package_node + '/' + "folder_path"
+        input_folder = rospy.get_param(param_folder_path)
+
+        experiments = self.input_folder_to_experiment_dict(input_folder)
 
         self.Ts = 1 / 30.0
         self.d = 0.6
@@ -65,23 +67,21 @@ class calib():
         top_wheel_cmd_exec = "/" + self.robot_name + "/wheels_driver_node/wheels_cmd_executed"
         top_robot_pose = "/" + self.robot_name + "/apriltags2_ros/publish_detections_in_local_frame/tag_detections_local_frame"
 
-        source = 'bag'
-
+        source = 'pickle'
         load_from_pickle = 'test_run'
-        save_to_pickle = False # True/False
-        save_experiment_name = 'test_run'
+        save_to_pickle = True # True/False
+        set_name = 'test_run'
 
         #self.delta =  0.00
-        if source == 'bag':
-            data_raw = DataPreparation(input_bag=input_bag, top_wheel_cmd_exec=top_wheel_cmd_exec, top_robot_pose=top_robot_pose, save_as= save_experiment_name, dump= save_to_pickle )
-            self.wheel_cmd_exec, self.robot_pose = data_raw.process_raw_data() # bring data set to format usable by the optimizer
+        if source == 'folder':
+            for exp in experiments.keys():
+                data_raw = DataPreparation(input_bag=experiments[exp]['path'], top_wheel_cmd_exec=top_wheel_cmd_exec, top_robot_pose=top_robot_pose)
+                experiments[exp]['wheel_cmd_exec'], experiments[exp]['robot_pose']= data_raw.process_raw_data() # bring data set to format usable by the optimizer
+            save_pickle(object=experiments, save_as=set_name)
         elif source == 'pickle':
-            self.wheel_cmd_exec, self.robot_pose = load_pickle(experiment_name= load_from_pickle)
+            experiments = load_pickle(load_from_pickle)
         else:
             rospy.logfatal('[{}] is not a valid source type'.format(source))
-
-
-            #self.experiment_data_ = self.unpackData()
 
         #self.fit_=self.nonlinear_model_fit()
         #self.plots()
@@ -92,7 +92,14 @@ class calib():
         #self.plot=self.visualize()
         #plt.show()
 
-
+    @staticmethod
+    def input_folder_to_experiment_dict(folder_path):
+        experiments = {}
+        bag_files = os.listdir(folder_path)
+        for bag in bag_files:
+            bag_name = bag.split('.')[0]
+            experiments[bag_name] = {'wheel_cmd_exec': None, 'robot_pose': None, 'path': join(folder_path, bag)}
+        return experiments
     @staticmethod
     def kinematic_model(s, t,cmd_right,cmd_left, p):
         d = 0.06  # Distance of camera from Baseline is fixed and not part of the optimization for now
