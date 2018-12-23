@@ -10,8 +10,8 @@ For the tutorial, see [](#ros-python-howto).
 
   <!-- One maintainer tag required, multiple allowed, one person per tag -->
   <!-- Example:  -->
-  <author email="sgadi@student.ethz.ch">Sofiane Gadi</author>
-  <maintainer email="sgadi@student.ethz.ch">Sofiane Gadi</maintainer>
+  <author email="ercans@ethz.ch">Selcuk Ercan</author>
+  <maintainer email="ercans@ethz.ch">Selcuk Ercan</maintainer>
 
   <!-- One license tag required, multiple allowed, one license per tag -->
   <!-- Commonly used license strings: -->
@@ -25,6 +25,7 @@ For the tutorial, see [](#ros-python-howto).
   <build_depend>rospy</build_depend>
   <build_depend>std_msgs</build_depend>
   <build_depend>dagu_car</build_depend>
+  <build_depend>rostest</build_depend>
 
   <run_depend>duckietown_msgs</run_depend>
   <run_depend>roscpp</run_depend>
@@ -32,4 +33,5 @@ For the tutorial, see [](#ros-python-howto).
   <run_depend>std_msgs</run_depend>
   <run_depend>dagu_car</run_depend>
 
+  <test_depend>unittest</test_depend>
 </package>

@@ -16,3 +16,10 @@ catkin_python_setup()
 include_directories(
   ${catkin_INCLUDE_DIRS}
 )
+
+
+if(CATKIN_ENABLE_TESTING)
+  find_package(rostest REQUIRED)
+  add_rostest(tests/test_data_preperation_utils.test)
+endif()
+
