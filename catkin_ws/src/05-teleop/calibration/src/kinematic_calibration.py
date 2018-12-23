@@ -32,7 +32,7 @@ import plotly.offline as opy
 from calibration.data_preperation_utils import DataPreparation
 from calibration.data_preperation_utils import load_pickle
 
-opy.init_notebook_mode(connected=True)
+#opy.init_notebook_mode(connected=True)
 
 
 class calib():

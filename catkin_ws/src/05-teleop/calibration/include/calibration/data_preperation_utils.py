@@ -1,11 +1,11 @@
 import rospy, rosbag
 import numpy as np
-import plotly.graph_objs as go
-import plotly.offline as opy
+#import plotly.graph_objs as go
+#import plotly.offline as opy
 import copy
 import pickle
 
-opy.init_notebook_mode(connected=True)
+#opy.init_notebook_mode(connected=True)
 
 class DataPreparation():
     DEBUG_MODE = True # convenience flag
@@ -126,7 +126,7 @@ class DataPreparation():
         # note that this resampling method can handle variable data acquisition frequency. (previous methods assumed data comes at a fixed 30 hz rate.)
         cmd_right_rs = np.interp(robot_pose_timestamp, cmd_timestamp, cmd_right)
         cmd_left_rs = np.interp(robot_pose_timestamp, cmd_timestamp, cmd_left)
-
+        """
         if self.DEBUG_MODE and not self.TEST_MODE:
             # Create a trace
             plot1 = go.Scatter(
@@ -159,7 +159,7 @@ class DataPreparation():
 
             data_left = [plot3, plot4]
             opy.plot(data_left)
-
+        """
         # create a copy of the original wheel_cmd_exec dictionary
         wheel_cmd_exec_rs = copy.deepcopy(wheel_cmd_exec)
         # assign resampled wheel commands and the corresponding timestamps to the new dictionary.

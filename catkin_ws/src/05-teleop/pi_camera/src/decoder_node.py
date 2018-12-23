@@ -37,6 +37,7 @@ class DecoderNode(object):
         self.active = switch_msg.data
 
     def cbImg(self,msg):
+        print "DECODER 1"
         if not self.active:
             rospy.logwarn("[{}] not active".format(self.node_name))
             return
@@ -61,6 +62,7 @@ class DecoderNode(object):
         # rospy.loginfo("[%s] Took %f sec to conver to Image."%(self.node_name,time_2 - time_1))
         # rospy.loginfo("[%s] Took %f sec to publish."%(self.node_name,time_3 - time_2))
 
+        print "DECODER 2"
 if __name__ == '__main__':
     rospy.init_node('decoder_low_freq',anonymous=False)
     node = DecoderNode()
