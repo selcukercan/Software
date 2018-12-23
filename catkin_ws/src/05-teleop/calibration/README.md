@@ -21,50 +21,18 @@ This package is an automatic wheels calibration procedure.
 - The launchfile test.launch tests if the callibration has succeded or not.
 
 
-## Commands
+## Data Acquisition
 
-To calibrate the wheels, place your Duckiebot with its USB mounted in front of the same chessboard as for the camera calibration at a distance of slightly more than 1 meter (~ 2 duckie tiles) and run the following command : 
+## Calibration  
 
-    duckiebot $ roslaunch calibration commands.launch veh:=robot name
+### Processing Data
 
-The program will publish at a frequency of 30 Hz in the topic robot_name/wheels_driver_node/wheels_cmd the following commands : 
+The data recorded during the experiment is /compressed_image, but calibration script requires /tag_detections_local_frame. To get a bag file with the correct topic.
 
-- A ramp (the same increasing voltage command to the right and left wheels) 
-- No command for 10 seconds (so you can replace your Duckiebot at 1 meter of the chessboard)
-- A sinusoid (a cosinus voltage command in opposite phase between the left and the right wheels)
+```shell
+roslaunch calibration compressed_image_to_world_frame.launch veh:=mete input_rosbag:=/home/selcuk/input.bag output_rosbag:=/home/selcuk/![OUTPUT_FILE_NAME].bag operation_mode:=1
+```
 
-When the program will exit, you will have a rosbag named robot_name_calibration.bag in your USB drive containing the commands published and the images.
-
-
-If the chessboard goes out of the camera's field of view too quickly, you can tune the voltage commands by typing the values of the parameters in the command the following way :
-
-    duckiebot $ roslaunch calibration commands.launch veh:=robot name vFin:=![value] Nstep:=![value] k1:=![value] k2:=![value] omega:=![value] duration:=![value]
-
-where :
-- vFin is the final voltage of the ramp command (0.5 by default)
-- Nstep is the number of step used to go from 0 to vFin for the ramp (180 steps by default)
-
-- k1, k2 and omega are the parameters of the sinusoid command k1 + k2 \* cos(omega \* t) (by default, k1=0.2, k2=0.06, omega=0.007)
-- duration is the duration of the sinusoid command (by default 2000)
-
-
-## Calibration
-
-Once you have recorded a Rosbag, you can run the following commands : 
-
-    laptop $ roslaunch calibration calibration.launch veh:=robot name  path:=/absolute/path/to/the/rosbag/folder/
-
-(path example: path:=/home/user_name/sysid/) Do not forget the backslash at the end of the path. (Common mistake: path not starting from /home, forgetting the last / in the path)
-
-It will calculate the parameters of the theoretical model that fit best the trajectory your Duckiebot made. This values will be stored in the file
-
-    ![DUCKIEFLEET_ROOT]/calibrations/kinematics/![robot name].yaml
-
+Note the `operation_mode` parameters which runs the image processing pipeline in sequential mode.
 
 ## Test
-
-To check if your calibration is right, you can run the following test : 
-
-    duckiebot $ roslaunch calibration test.launch
-
-Your Duckiebot should first drive straight for 1m (in 5s) then turn a full circle to the left (in 8s) and then a full circle to the right (in 8s).

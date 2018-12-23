@@ -49,13 +49,9 @@ class CamInfoReader(object):
         self.sub_img_compressed = rospy.Subscriber("~compressed_image", img_type, self.cbCompressedImage, queue_size=1)
 
     def cbCompressedImage(self, msg):
-        print "[CAME_INFO_READER] XXXXXXXXXXXX    1     XXXXXXXXXXXX"
         if self.camera_info_msg is not None:
             self.camera_info_msg.header.stamp = msg.header.stamp
             self.pub_camera_info.publish(self.camera_info_msg)
-            print "[CAME_INFO_READER] XXXXXXXXXXXX    2     XXXXXXXXXXXX"
-        print "[CAME_INFO_READER] XXXXXXXXXXXX    3     XXXXXXXXXXXX"
-        
     def setupParam(self, param_name, default_value):
         value = rospy.get_param(param_name, default_value)
         rospy.set_param(param_name, value)  #Write to parameter server for transparancy

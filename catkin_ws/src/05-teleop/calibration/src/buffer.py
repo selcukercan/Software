@@ -44,9 +44,6 @@ class Buffer:
         self.cur_image_i = 0
         self.send_out_all_images = False
 
-        # Setup Operation Mode
-        self.setupParam('/operation_mode', 1)
-
         # Read the compressed image topic from the bag
         topicname = "/" + self.veh + "/camera_node/image/compressed"
         self.input_rosbag = rosbag.Bag(path_to_bag)
