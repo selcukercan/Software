@@ -26,14 +26,14 @@ from mpl_toolkits.mplot3d import Axes3D
 import yaml
 from os.path import expanduser
 from os.path import join
-import plotly.graph_objs as go
-import plotly.offline as opy
 
 from calibration.data_preperation_utils import DataPreparation
 from calibration.data_preperation_utils import load_pickle, save_pickle
 
-#opy.init_notebook_mode(connected=True)
+from calibration.model_library import model_generator, simulate
+from calibration.data_adapter_utils import *
 
+from calibration.plotting_utils import *
 
 class calib():
     def __init__(self):
@@ -62,12 +62,13 @@ class calib():
 
         self.Ts = 1 / 30.0
         self.d = 0.6
+        self.p0 = [0,0,0]
 
         # topics of interest
         top_wheel_cmd_exec = "/" + self.robot_name + "/wheels_driver_node/wheels_cmd_executed"
         top_robot_pose = "/" + self.robot_name + "/apriltags2_ros/publish_detections_in_local_frame/tag_detections_local_frame"
 
-        source = 'pickle'
+        source = 'folder'
         load_from_pickle = 'test_run'
         save_to_pickle = True # True/False
         set_name = 'test_run'
@@ -76,14 +77,32 @@ class calib():
         if source == 'folder':
             for exp in experiments.keys():
                 data_raw = DataPreparation(input_bag=experiments[exp]['path'], top_wheel_cmd_exec=top_wheel_cmd_exec, top_robot_pose=top_robot_pose)
-                experiments[exp]['wheel_cmd_exec'], experiments[exp]['robot_pose']= data_raw.process_raw_data() # bring data set to format usable by the optimizer
+                experiments[exp]['wheel_cmd_exec'], experiments[exp]['robot_pose'], experiments[exp]['timestamp']= data_raw.process_raw_data() # bring data set to format usable by the optimizer
             save_pickle(object=experiments, save_as=set_name)
         elif source == 'pickle':
             experiments = load_pickle(load_from_pickle)
         else:
             rospy.logfatal('[{}] is not a valid source type'.format(source))
 
-        #self.fit_=self.nonlinear_model_fit()
+        # define which model to use
+        model_object = model_generator('model1')
+
+        """
+        c = 1
+        cl = tr = 0
+        p = (c, cl, tr)
+
+        t = [0, 1, 5]
+        for exp_name in experiments.keys():
+            exp_data = experiments[exp_name]
+            x = exp_data['robot_pose']
+            x0 = [x['px'][0], x['py'][0], x['rz'][0]]
+            u_np = self.form_u(exp_data['wheel_cmd_exec'])
+
+            x_sim = simulate(model_object, t, x0, u_np, p)
+        """
+
+        self.fit_=self.nonlinear_model_fit(model_object, experiments)
         #self.plots()
         # write to the kinematic calibration file
         #self.write_calibration()
@@ -92,29 +111,7 @@ class calib():
         #self.plot=self.visualize()
         #plt.show()
 
-    @staticmethod
-    def input_folder_to_experiment_dict(folder_path):
-        experiments = {}
-        bag_files = os.listdir(folder_path)
-        for bag in bag_files:
-            bag_name = bag.split('.')[0]
-            experiments[bag_name] = {'wheel_cmd_exec': None, 'robot_pose': None, 'path': join(folder_path, bag)}
-        return experiments
-    @staticmethod
-    def kinematic_model(s, t,cmd_right,cmd_left, p):
-        d = 0.06  # Distance of camera from Baseline is fixed and not part of the optimization for now
-        # optimized parameters
-        c, cl, tr = p
-
-        # Simple Kinematic model
-        # Assumptions: Rigid body, No lateral slip
-        x_dot_rob = c * (cmd_right+cmd_left) * 0.5  + tr * (cmd_right-cmd_left)*0.5
-        omega_rob = cl * (cmd_right-cmd_left) * 0.5 + tr * (cmd_right+cmd_left) * 0.5
-        y_dot_rob = omega_rob * d  # The model currently also estimates the offset of the camera position
-
-        return [x_dot_rob,  y_dot_rob, omega_rob]
-
-
+    '''
     def forwardEuler(self,s_cur, Ts, cmd_right, cmd_left,p):
         c, cl, tr = p
 
@@ -153,57 +150,42 @@ class calib():
             s[i+1] = s_cur
 
         return s
+    '''
 
-    def cost_function(self,p, p0, cmd_right_ramp, cmd_left_ramp, s_init_ramp, x_meas_ramp, y_meas_ramp, yaw_meas_ramp, time_ramp, cmd_right_sine, cmd_left_sine, s_init_sine, x_meas_sine, y_meas_sine, yaw_meas_sine, time_sine):
-        #simulate the model
-        #states for a particular p set
-        s_p_ramp = self.simulate(p, cmd_right_ramp, cmd_left_ramp, s_init_ramp, time_ramp)
-        s_p_sine = self.simulate(p, cmd_right_sine, cmd_left_sine, s_init_sine, time_sine)
-
-        c_init, cl_init, tr_init = p0
-        c_cur, cl_cur, tr_cur = p
-
-        delta = self.delta
+    def cost_function(self, p, model_object, experiments):
 
         obj_cost = 0.0
 
-        for i in range(len(time_ramp)):
-            obj_cost+= ( ((s_p_ramp[i,0] - x_meas_ramp[i])) ** 2 +
-                         ((s_p_ramp[i,1] - y_meas_ramp[i])) ** 2 +
-                        ((s_p_ramp[i,2] - yaw_meas_ramp[i])) ** 2
-                       )
+        for exp_name in experiments.keys():
+            exp_data = experiments[exp_name]
+            t = exp_data['timestamp']
+            x = exp_data['robot_pose']
+            u = exp_data['wheel_cmd_exec']
+            x0 = x[:,0]
 
-        for i in range(len(time_sine)):
-            obj_cost+= (((s_p_sine[i,0] - x_meas_sine[i])) ** 2 +
-                        ((s_p_sine[i,1] - y_meas_sine[i])) ** 2 +
-                        ((s_p_sine[i,2] - yaw_meas_sine[i])) ** 2
-                       )
-
-        obj_cost+= delta * ((c_cur - c_init) ** 2 + (cl_cur - cl_init) ** 2 + (tr_cur - tr_init) ** 2)
+            #simulate the model
+            #states for a particular p set
+            x_sim = simulate(model_object, t, x0, u, p)
+            plot_system(states= x, time=t, input = u)
+            for i in range(len(t)):
+                obj_cost += ( ((x_sim[0,i] - x['px'])) ** 2 +
+                              ((x_sim[1,i] - x['py'])) ** 2 +
+                              ((x_sim[2,i] - x['rz'])) ** 2)
 
         return obj_cost
 
-    def nonlinear_model_fit(self):
-        start = self.DATA_BEG_INDEX
+    def nonlinear_model_fit(self, model_object, experiments):
+        print 'IN NONLINEAR MODEL FIT'
 
-        (x_ramp_meas,y_ramp_meas, yaw_ramp_meas,
-        x_sine_meas,y_sine_meas,yaw_sine_meas,
-        timepoints_ramp,time_ramp ,
-        cmd_ramp_right, cmd_ramp_left,
-        timepoints_sine,time_sine,
-        cmd_sine_right, cmd_sine_left) = self.processData(starting_ind = self.DATA_BEG_INDEX, ending_ind = self.DATA_END_INDEX)
-
-        #initial conditions for the states
-        s_init_sine = [x_sine_meas[start],y_sine_meas[start], yaw_sine_meas[start]]
-        s_init_ramp = [x_ramp_meas[start], y_ramp_meas[start], yaw_ramp_meas[start]]
-
-        #initial guesses for the optimization parameters
         p0 = self.p0
 
         # Actual Parameter Optimization/Fitting
         # Minimize the least squares error between the model prediction
-        result = minimize(self.cost_function, p0, args=(p0, cmd_ramp_right, cmd_ramp_left, s_init_ramp, x_ramp_meas, y_ramp_meas, yaw_ramp_meas, timepoints_ramp, cmd_sine_right, cmd_sine_left, s_init_sine, x_sine_meas, y_sine_meas, yaw_sine_meas, timepoints_sine))
+        result = minimize(self.cost_function, p0, args=(model_object, experiments))
+        """
+        #result = minimize(self.cost_function, p0, args=(model_object, experiments)) niye boyle degil
         popt = result.x
+
         print('[BEGIN] Optimization Result\n')
         print(result)
         print('[END] Optimization Result\n')
@@ -220,6 +202,7 @@ class calib():
 
         popt_dict = {"gain": popt[0], "trim":popt[2]}
         return popt_dict
+        """
 
     def sine_plots(self,p0, popt, y_opt_predict_sine, cmd_sine_right, cmd_sine_left, s_init_sine, x_sine_meas, y_sine_meas, yaw_sine_meas, time_sine, timepoints_sine):
 
@@ -356,6 +339,16 @@ class calib():
 
        print("\nPlease check the plots and judge if the parameters are reasonable.")
        print("Once done inspecting the plot, close them to terminate the program.")
+
+    @staticmethod
+    def input_folder_to_experiment_dict(folder_path):
+        experiments = {}
+        bag_files = os.listdir(folder_path)
+        for bag in bag_files:
+            bag_name = bag.split('.')[0]
+            experiments[bag_name] = {'wheel_cmd_exec': None, 'robot_pose': None, 'path': join(folder_path, bag)}
+        return experiments
+
 
 if __name__ == '__main__':
     calib=calib()

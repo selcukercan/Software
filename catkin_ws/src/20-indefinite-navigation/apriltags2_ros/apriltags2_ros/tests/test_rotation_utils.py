@@ -6,7 +6,7 @@ import tf.transformations as tr
 from apriltags2_ros_post_process.rotation_utils import *
 
 class RotationUtils(unittest.TestCase):
-
+    '''
     def test_col(self):
         """
         tests whether a numpy singleton is converted into a column array correctly,
@@ -24,6 +24,8 @@ class RotationUtils(unittest.TestCase):
         v = np.array([1,2,3])
         v_row = row(v)
         self.assertEqual(v_row.shape, (1,3))
+
+    '''
 
     def test_inverse_homogenous_transform_trivial(self):
         """

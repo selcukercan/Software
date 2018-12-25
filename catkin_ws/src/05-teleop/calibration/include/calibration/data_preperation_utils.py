@@ -4,6 +4,7 @@ import numpy as np
 #import plotly.offline as opy
 import copy
 import pickle
+from calibration.data_adapter_utils import *
 
 #opy.init_notebook_mode(connected=True)
 
@@ -25,8 +26,13 @@ class DataPreparation():
         wheel_cmd_exec_sel = self.select_interval(wheel_cmd_exec_rs, self.DISCARD_FIRST, self.DISCARD_LAST)
         robot_pose_sel = self.select_interval(robot_pose_clipped, self.DISCARD_FIRST, self.DISCARD_LAST)
 
-        wheel_cmd_exec, robot_pose = wheel_cmd_exec_sel, robot_pose_sel
-        return wheel_cmd_exec, robot_pose
+        wheel_cmd_exec_opt = self.u_adapter(wheel_cmd_exec_sel)
+        robot_pose_opt = self.x_adapter(robot_pose_sel)
+        # at this point the times should be synced so select time from either of them
+        assert(wheel_cmd_exec_sel['timestamp'] == wheel_cmd_exec_sel['timestamp'])
+        t = wheel_cmd_exec_sel['timestamp']
+
+        return wheel_cmd_exec_opt, robot_pose_opt, t
 
     def set_experiment_duration(self):
         """
@@ -216,6 +222,19 @@ class DataPreparation():
             pose['timestamp'].append(t.to_sec())
         return pose
 
+    @staticmethod
+    def u_adapter(u_dict):
+        v_l_r = row(np.array(u_dict['vel_l']))
+        v_r_r = row(np.array(u_dict['vel_r']))
+        return np.vstack([v_r_r, v_l_r])
+
+    @staticmethod
+    def x_adapter(x_dict):
+        px = row(np.array(x_dict['px']))
+        py = row(np.array(x_dict['py']))
+        rz = row(np.array(x_dict['rz']))
+
+        return np.vstack([px, py, rz])
     @staticmethod
     def select_interval(dict, discard_first, discard_last):
         for key, val in dict.items():
