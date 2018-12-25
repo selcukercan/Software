@@ -1,6 +1,6 @@
 import rosbag
 from shutil import copy
-from rospy import sleep
+import rospy
 
 def time_sync(input_bag):
 
@@ -11,6 +11,7 @@ def time_sync(input_bag):
     output_bag = input_base + "_synced.bag"
 
     copy(input_bag, input_backup_bag)
+
 
     t_compressed = []
     t_tag_detectons = []
@@ -39,15 +40,11 @@ def time_sync(input_bag):
             if topic == top_tag_detections:
                 try:
                     outbag.write(topic, msg, my_dict[t])
+                    print msg
                 except:
                     pass
             else:
                 outbag.write(topic, msg, t)
 
-
-if __name__ == '__main__':
-    input_bag = "/home/selcuk/test_bags/ramp_inv.bag"
-    time_sync(input_bag)
-    print "Selcuk"
-
+    rospy.loginfo('finished time-syncing, file is at {}'.format(output_bag))
 
