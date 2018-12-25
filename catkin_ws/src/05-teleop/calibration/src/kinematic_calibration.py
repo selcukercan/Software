@@ -166,7 +166,7 @@ class calib():
             #simulate the model
             #states for a particular p set
             x_sim = simulate(model_object, t, x0, u, p)
-            plot_system(states= x, time=t, input = u)
+            plot_system(states= x, time=t)
             for i in range(len(t)):
                 obj_cost += ( ((x_sim[0,i] - x['px'])) ** 2 +
                               ((x_sim[1,i] - x['py'])) ** 2 +

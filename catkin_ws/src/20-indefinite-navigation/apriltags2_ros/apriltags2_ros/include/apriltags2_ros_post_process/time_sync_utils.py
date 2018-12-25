@@ -1,7 +1,10 @@
 import rosbag
 from shutil import copy
+from rospy import sleep
 
 def time_sync(input_bag):
+
+    print '\n\n\n\nXXXXXXXXXXXXXXXXXX IN TIME SYNC XXXXXXXXXXXXXXXXXXXXXXXX \n\n\n\n'
 
     input_base = input_bag.split('.')[0]
     input_backup_bag = input_base + "_backup.bag"
@@ -34,6 +37,17 @@ def time_sync(input_bag):
     with rosbag.Bag(output_bag, 'w') as outbag:
         for topic, msg, t in rosbag.Bag(input_bag).read_messages():
             if topic == top_tag_detections:
-                outbag.write(topic, msg, my_dict[t])
+                try:
+                    outbag.write(topic, msg, my_dict[t])
+                except:
+                    pass
             else:
                 outbag.write(topic, msg, t)
+
+
+if __name__ == '__main__':
+    input_bag = "/home/selcuk/test_bags/ramp_inv.bag"
+    time_sync(input_bag)
+    print "Selcuk"
+
+

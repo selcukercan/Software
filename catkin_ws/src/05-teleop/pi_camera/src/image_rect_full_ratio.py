@@ -66,7 +66,8 @@ class ImgRectFullRatio(object):
                 rospy.logwarn("[{}] not yet ready to start processing".format(self.node_name))
                 rospy.sleep(0.05)
             else:
-                rospy.loginfo("[{}] CAN start processing".format(self.node_name))
+                pass
+                #rospy.loginfo("[{}] CAN start processing".format(self.node_name))
 
         if not self.active:
             rospy.logwarn("[{}] not active".format(self.node_name))

@@ -73,9 +73,7 @@ class Buffer:
             print("!!!!!!!!!! SHOULD NOT BE HERE 1")
 
     def pub_single_compressed_image(self):
-        print "BUFFER 1"
         if self.cur_image_i < self.total_msg_count: # if not all the messages are sent yet.
-            print "BUFFER 2"
             print self.cur_image_i
             view_output = next(self.view_generator) # view_output class : <class 'rosbag.bag.BagMessage'>, has return value (topic_name, msg, time_stamp of the message)
 
@@ -85,7 +83,6 @@ class Buffer:
             rospy.loginfo("[{}] publishing image {}".format(self.node_name, self.cur_image_i))
             self.pub_compressed_image.publish(msg) # publish the message
             self.cur_image_i += 1
-            print "BUFFER 3"
         else: # after sending all messages close the bag
             if self.send_out_all_images == False:
                 rospy.loginfo('[{}] send all the messages'.format(self.node_name))

@@ -128,6 +128,47 @@ def robot_pose_in_word_frame(q_at,t_at):
 
     return veh_R_world, veh_t_world
 
+
+def vehTworld(q_at,t_at):
+    """
+    expresses the apriltags2_ros output in world cf.
+
+    Args:
+        q_at (numpy.array): quaternion representing relative orientation of camera frame with respect to tag frame.
+        t_at (numpy.array): translation vector from cameras cf to tags cf expressed in camera cf.
+
+    Returns:
+        2-element tuple containing
+
+        - **veh_T_world** (*numpy.array*) - homogeneous transformation that represent a p_world in vehicle frame
+    """
+
+    tOvehOcamx = np.array([0.10,0.0,0.05])
+
+    camztilted_T_tag = camztiltedTtag(q_at,t_at)
+    camz_T_camztilted = camzTcamztilted()
+    camx_T_camz = camxTcamz()
+    veh_T_camx = vehTcamx(tOvehOcamx)
+
+    D1 = np.matmul(veh_T_camx,camx_T_camz)
+    D2 = np.matmul(D1, camz_T_camztilted)
+
+    veh_T_tag = np.matmul(D2, camztilted_T_tag)
+
+    tag_T_world = tagTworld()
+    veh_T_world = np.matmul(veh_T_tag, tag_T_world)
+
+    return veh_T_world
+
+def worldTveh(q_at,t_at):
+
+    veh_T_world = vehTworld(q_at,t_at)
+    world_T_veh = inverse_homogeneous_transform(veh_T_world)
+    world_R_veh = world_T_veh[0:3, 0:3]
+    world_t_veh = world_T_veh[0:3, 3]
+
+    return world_R_veh, world_t_veh
+
 def rotation_matrix_to_euler(veh_R_world):
     """
     expresses the apriltags2_ros output in robot cf.
@@ -162,7 +203,7 @@ X camera frame:
 
 endFrame_Tp_initFrame:
 Represents passive Transformation, i.e represented vector remains the same wrt to a fixed world frame.
-The matrix describes how the basis vectors of are related to each other, spesifically it translates
+The matrix describes how the basis vectors of are related to each other, specifically it translates
 a vector expressed in initFrame into a vector expressed in endFrame.
 
 endFrame_R_initFrame:
@@ -170,7 +211,7 @@ represents relative orientation of endFrame wrt. initFrame, and is obtained by a
 R = R1 * R2 * ...
 
 endFrame_t_initFrame:
-represent the position vector from the origin of initFrame to the origin of endFrame expressend in initFrame
+represent the position vector from the origin of initFrame to the origin of endFrame expressed in initFrame
 
 FRAME_p:
 position vector p expressed in FRAME frame, i.e  WORLD_p means p is in WORLD coordinate frame.

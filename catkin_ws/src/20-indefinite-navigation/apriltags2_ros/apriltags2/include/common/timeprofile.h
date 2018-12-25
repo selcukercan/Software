@@ -145,11 +145,11 @@ static inline void timeprofile_get_val(timeprofile_t *tp, char *processes_output
     // Explicit NULL setting is not necessary as strings are automatically padded with the NULL that is \0,
     //strcat(processes_output, "\0");
 
-
+    /*
     printf("\n\n [BEG]\n\n");
     printf(processes_output);
     printf("\n\n [END]\n\n");
-
+    */
 }
 
 static inline uint64_t timeprofile_total_utime(timeprofile_t *tp)
