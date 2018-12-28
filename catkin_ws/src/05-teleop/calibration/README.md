@@ -11,6 +11,7 @@ To be able to run the launch file: compressed_image_to_world_frame.launch:
 
 use local_env.sh which sets the DUCKIEFLEET_ROOT to the default location. Make sure to include your calibration folder at DUCKIEFLEET_ROOT.
 
+Install the lastest version of the scipy, as the code uses `ivp_solver` that is introduced in scipy version v1.2.0
 
 This package is an automatic wheels calibration procedure.
 
