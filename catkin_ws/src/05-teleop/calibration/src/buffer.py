@@ -67,7 +67,7 @@ class Buffer:
 
     def cb_recieved_ack(self, msg):
         if self.send_out_all_images == False:
-            print("recieved new image request, and have more to sent")
+            rospy.loginfo('[{}] recieved new image request'.format(self.node_name))
             self.pub_single_compressed_image()
         else:
             print("!!!!!!!!!! SHOULD NOT BE HERE 1")

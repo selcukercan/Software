@@ -2,9 +2,9 @@ import rosbag
 from shutil import copy
 import rospy
 
-def time_sync(input_bag):
+def time_sync(input_bag, veh_name):
 
-    print '\n\n\n\nXXXXXXXXXXXXXXXXXX IN TIME SYNC XXXXXXXXXXXXXXXXXXXXXXXX \n\n\n\n'
+    rospy.loginfo("[{}] started time-sync function".format('time-sync'))
 
     input_base = input_bag.split('.')[0]
     input_backup_bag = input_base + "_backup.bag"
@@ -16,8 +16,8 @@ def time_sync(input_bag):
     t_compressed = []
     t_tag_detectons = []
 
-    top_compressed_image = "/mete/camera_node/image/compressed"
-    top_tag_detections = "/mete/apriltags2_ros/publish_detections_in_local_frame/tag_detections_local_frame"
+    top_compressed_image = "/" + veh_name + "/camera_node/image/compressed"
+    top_tag_detections = "/" + veh_name + "/apriltags2_ros/publish_detections_in_local_frame/tag_detections_local_frame"
 
     # record the ros times of compressed_image and tag_detections topics into a list
     for topic, msg, t in rosbag.Bag(input_bag).read_messages():
@@ -39,8 +39,8 @@ def time_sync(input_bag):
         for topic, msg, t in rosbag.Bag(input_bag).read_messages():
             if topic == top_tag_detections:
                 try:
-                    outbag.write(topic, msg, my_dict[t])
-                    print msg
+                    if non_empty_tag_detection(msg):
+                        outbag.write(topic, msg, my_dict[t])
                 except:
                     pass
             else:
@@ -48,3 +48,9 @@ def time_sync(input_bag):
 
     rospy.loginfo('finished time-syncing, file is at {}'.format(output_bag))
 
+def non_empty_tag_detection(msg):
+    els = [px, py, pz, rx, ry, rz] = [msg.posx, msg.posy, msg.posz, msg.rotx, msg.roty, msg.rotz]
+    for el in els:
+        if el != 0.:
+            return True
+    return False

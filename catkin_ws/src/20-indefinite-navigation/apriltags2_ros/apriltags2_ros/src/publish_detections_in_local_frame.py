@@ -70,6 +70,7 @@ class ToLocalPose:
 
     def cbDetection(self,msg):
         if (len(msg.detections) > 0):  # non-emtpy detection message
+            #print msg
             # unpack the position and orientation returned by apriltags2 ros
             t_msg = msg.detections[0].pose.pose.pose.position
             q_msg = msg.detections[0].pose.pose.pose.orientation
@@ -102,7 +103,7 @@ class ToLocalPose:
             self.pub_detection_in_robot_frame.publish(veh_pose_euler_msg)
             rospy.loginfo('posx: {} posy:  {} rotz: {}'.format(world_t_veh[0],world_t_veh[1],veh_feaXYZ_world[2]))
             if self.synchronous_mode:
-                # save the message to a bag file
+                # save the message to the bag file that contains compressed_images
                 self.lock.acquire()
                 output_rosbag = rosbag.Bag(self.output_bag, 'a') # open bag to write
                 output_rosbag.write(self.pub_topic_name, veh_pose_euler_msg)
@@ -116,27 +117,49 @@ class ToLocalPose:
                 req_msg = Bool(True)
                 self.pub_image_request.publish(req_msg)
 
-                if self.numb_written_images == self.total_msg_count - 1:
-                    time_sync(self.output_bag)
+                if self.numb_written_images == self.total_msg_count:
+                    time_sync(self.output_bag, self.veh)
 
 
         else:
-            rospy.loginfo("[{}] empty apriltag detection recieved publishing with all entries 0".format(self.node_name, self.numb_written_images))
+            rospy.loginfo("[{}] empty apriltag detection recieved".format(self.node_name, self.numb_written_images))
 
-            # form message to publish
-            veh_pose_euler_msg = VehiclePoseEuler()
-            veh_pose_euler_msg.header.stamp = rospy.Time.now()
-            # position
-            veh_pose_euler_msg.posx = 0
-            veh_pose_euler_msg.posy = 0
-            veh_pose_euler_msg.posz = 0
-            # orientation
-            veh_pose_euler_msg.rotx = 0
-            veh_pose_euler_msg.roty = 0
-            veh_pose_euler_msg.rotz = 0
+            if self.synchronous_mode:
+                rospy.loginfo("[{}] in synchronous mode publishing VehiclePoseEuler with entries equal to 0.0".format(self.node_name,self.numb_written_images))
 
-            # finally publish the message
-            self.pub_detection_in_robot_frame.publish(veh_pose_euler_msg)
+                # form message to publish
+                veh_pose_euler_msg = VehiclePoseEuler()
+                veh_pose_euler_msg.header.stamp = rospy.Time.now()
+                # position
+                veh_pose_euler_msg.posx = 0.
+                veh_pose_euler_msg.posy = 0.
+                veh_pose_euler_msg.posz = 0.
+                # orientation
+                veh_pose_euler_msg.rotx = 0.
+                veh_pose_euler_msg.roty = 0.
+                veh_pose_euler_msg.rotz = 0.
+
+                """
+                # finally publish the message
+                self.pub_detection_in_robot_frame.publish(veh_pose_euler_msg)    
+                """
+
+                # save the message to the bag file that contains compressed_images
+                self.lock.acquire()
+                output_rosbag = rosbag.Bag(self.output_bag, 'a') # open bag to write
+                output_rosbag.write(self.pub_topic_name, veh_pose_euler_msg)
+                output_rosbag.close()
+                self.lock.release()
+
+                rospy.loginfo("[{}] wrote image {}".format(self.node_name, self.numb_written_images))
+                self.numb_written_images += 1
+
+                # request a new image from "buffer.py"
+                req_msg = Bool(True)
+                self.pub_image_request.publish(req_msg)
+
+                if self.numb_written_images == self.total_msg_count:
+                    time_sync(self.output_bag, self.veh)
 
 if __name__ == '__main__':
     to_local_pose = ToLocalPose()

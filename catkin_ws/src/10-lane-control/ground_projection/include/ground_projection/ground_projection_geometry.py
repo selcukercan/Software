@@ -184,8 +184,8 @@ class GroundProjectionGeometry(object):
         H = int(self.pcm.height * ratio)
 #        mapx = np.ndarray(shape=(H, W, 1), dtype='float32')
 #        mapy = np.ndarray(shape=(H, W, 1), dtype='float32')
-        print('K: %s' % self.pcm.K)
-        print('P: %s' % self.pcm.P)
+        #print('K: %s' % self.pcm.K)
+        #print('P: %s' % self.pcm.P)
 
 #        alpha = 1
 #        new_camera_matrix, validPixROI = cv2.getOptimalNewCameraMatrix(self.pcm.K, self.pcm.D, (H, W), alpha)
@@ -195,7 +195,7 @@ class GroundProjectionGeometry(object):
         new_camera_matrix = self.pcm.K.copy()
         new_camera_matrix[0, 2] = W / 2
         new_camera_matrix[1, 2] = H / 2
-        print('new_camera_matrix: %s' % new_camera_matrix)
+        #print('new_camera_matrix: %s' % new_camera_matrix)
         mapx, mapy = cv2.initUndistortRectifyMap(self.pcm.K, self.pcm.D, self.pcm.R,
                                                  new_camera_matrix, (W, H),
                                                  cv2.CV_32FC1)
@@ -291,4 +291,3 @@ def fill_holes(rmapx, rmapy):
 
 #     print('holes: %s' % holes)
 #     print('deltas: %s' % get_deltas())
-
