@@ -29,7 +29,7 @@ class DataPreparation():
         wheel_cmd_exec_opt = self.u_adapter(wheel_cmd_exec_sel)
         robot_pose_opt = self.x_adapter(robot_pose_sel)
         # at this point the times should be synced so select time from either of them
-        assert(wheel_cmd_exec_sel['timestamp'] == wheel_cmd_exec_sel['timestamp'])
+        assert(wheel_cmd_exec_sel['timestamp'] == robot_pose_opt['timestamp'])
         t = wheel_cmd_exec_sel['timestamp']
 
         return wheel_cmd_exec_opt, robot_pose_opt, t
@@ -235,6 +235,7 @@ class DataPreparation():
         rz = row(np.array(x_dict['rz']))
 
         return np.vstack([px, py, rz])
+
     @staticmethod
     def select_interval(dict, discard_first, discard_last):
         for key, val in dict.items():
