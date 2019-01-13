@@ -19,6 +19,18 @@ class DataPreparation():
         self.wheel_cmd, self.robot_pose = self.load_bag(input_bag, top_wheel_cmd_exec, top_robot_pose)
 
     def process_raw_data(self):
+        """
+        process the data contained in rosbag files and bring them to a format usable by the optimization
+
+        returns:
+            3-element tuple containing
+
+        - **wheel_cmd_exec_opt** (*ndarray*) - 2*N ndarray, where first row is right wheel, and second row is left wheel commands
+        - **robot_pose_opt** (*ndarray*) - 3*N ndarray, where first row is x coordinate, the second row is y coordinate, and the third row is yaw angle
+        - **t** (*list*) - timestamps.
+
+        """
+
         start_time, end_time, duration = self.set_experiment_duration()
         wheel_cmd_clipped, robot_pose_clipped = self.remove_images_before_wheel_cmd(self.wheel_cmd, self.robot_pose, start_time, end_time)
         wheel_cmd_exec_rs = self.resampling(wheel_cmd_clipped, robot_pose_clipped)
@@ -26,11 +38,11 @@ class DataPreparation():
         wheel_cmd_exec_sel = self.select_interval(wheel_cmd_exec_rs, self.DISCARD_FIRST, self.DISCARD_LAST)
         robot_pose_sel = self.select_interval(robot_pose_clipped, self.DISCARD_FIRST, self.DISCARD_LAST)
 
+        # at this point the times should be synced so select time from either of them
+        # assert(wheel_cmd_exec_sel['timestamp'] == robot_pose_opt['timestamp'])
+        t = wheel_cmd_exec_sel['timestamp']
         wheel_cmd_exec_opt = self.u_adapter(wheel_cmd_exec_sel)
         robot_pose_opt = self.x_adapter(robot_pose_sel)
-        # at this point the times should be synced so select time from either of them
-        assert(wheel_cmd_exec_sel['timestamp'] == robot_pose_opt['timestamp'])
-        t = wheel_cmd_exec_sel['timestamp']
 
         return wheel_cmd_exec_opt, robot_pose_opt, t
 

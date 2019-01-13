@@ -48,9 +48,31 @@ class Model1(BaseModelClass):
 
         return [x_pred, y_pred, yaw_pred]
 
+class Model2(BaseModelClass):
+
+    def __init__(self):
+        self.name = "model1"
+        rospy.loginfo("\nusing model type: [{}]".format(self.name))
+
+    def model(self, t, x, u, p):
+        # input commands + model params
+        (cmd_right, cmd_left) = u
+        (c, cl, tr) = p
+
+        # kinetic states through actuation
+        vx_pred = c * (cmd_right + cmd_left) * 0.5 + tr * (cmd_right - cmd_left) * 0.5
+        omega_pred = cl * (cmd_right - cmd_left) * 0.5 + tr * (cmd_right + cmd_left) * 0.5
+
+        # position states in relation to kinetic states
+        yaw_pred = (omega_pred)
+        x_pred = (np.cos(yaw_pred) * vx_pred)
+        y_pred = (np.sin(yaw_pred) * vx_pred)
+
+        return [x_pred, y_pred, yaw_pred]
+
 # Include basic utility functions here
 
-# Motivation for introducing this class:
+# Motivation for introducing this fn:
 #  1) simplify the import procedure in the main script by avoiding the need to explicitly import certain model
 def model_generator(model_name = None):
     if model_name == None:
@@ -80,6 +102,6 @@ def simulate(model_object, t, x0, u, p):
         # one-step-ahead prediction
         sol = solve_ivp(fun=lambda t, x: model_object.model(t, x0, u[:,i], p), t_span=(t_cur, t_next), y0=x0, t_eval=[t_next])
         x_sim = np.hstack([x_sim, sol.y]) # add the output to the x history
-        x0 =row(sol.y).tolist()[0] # current solutino will be used as the initial step for the next step
+        x0 =row(sol.y).tolist()[0] # current solution will be used as the initial step for the next step
     return x_sim
 

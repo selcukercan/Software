@@ -62,7 +62,7 @@ class calib():
 
         self.Ts = 1 / 30.0
         self.d = 0.6
-        self.p0 = [0,0,0]
+        self.p0 = [1,1,0]
 
         # topics of interest
         top_wheel_cmd_exec = "/" + self.robot_name + "/wheels_driver_node/wheels_cmd_executed"
@@ -87,29 +87,16 @@ class calib():
         # define which model to use
         model_object = model_generator('model1')
 
-        """
-        c = 1
-        cl = tr = 0
-        p = (c, cl, tr)
 
-        t = [0, 1, 5]
-        for exp_name in experiments.keys():
-            exp_data = experiments[exp_name]
-            x = exp_data['robot_pose']
-            x0 = [x['px'][0], x['py'][0], x['rz'][0]]
-            u_np = self.form_u(exp_data['wheel_cmd_exec'])
+        self.cost_fn_plot_measurement = True
+        popt= self.nonlinear_model_fit(model_object, experiments)
 
-            x_sim = simulate(model_object, t, x0, u_np, p)
-        """
-
-        self.fit_=self.nonlinear_model_fit(model_object, experiments)
+        self.model_predictions(model_object, experiments, popt)
+        print('selcuk')
         #self.plots()
         # write to the kinematic calibration file
         #self.write_calibration()
 
-        # make plots & visualizations
-        #self.plot=self.visualize()
-        #plt.show()
 
     '''
     def forwardEuler(self,s_cur, Ts, cmd_right, cmd_left,p):
@@ -166,11 +153,15 @@ class calib():
             #simulate the model
             #states for a particular p set
             x_sim = simulate(model_object, t, x0, u, p)
-            plot_system(states= x, time=t)
+            if self.cost_fn_plot_measurement:
+                #plot_system(states= x, time=t, experiment_name=exp_name)
+                self.cost_fn_plot_measurement = False
+            #plot_system(states=x_sim, time=t, experiment_name=exp_name + '_simulated')
             for i in range(len(t)):
-                obj_cost += ( ((x_sim[0,i] - x['px'])) ** 2 +
-                              ((x_sim[1,i] - x['py'])) ** 2 +
-                              ((x_sim[2,i] - x['rz'])) ** 2)
+                obj_cost += ( ((x_sim[0,i] - x[0,i])) ** 2 +
+                              ((x_sim[1,i] - x[1,i])) ** 2 +
+                              0.2 * ((x_sim[2, i] - x[2, i])) ** 2
+                              )
 
         return obj_cost
 
@@ -182,102 +173,42 @@ class calib():
         # Actual Parameter Optimization/Fitting
         # Minimize the least squares error between the model prediction
         result = minimize(self.cost_function, p0, args=(model_object, experiments))
-        """
-        #result = minimize(self.cost_function, p0, args=(model_object, experiments)) niye boyle degil
         popt = result.x
 
-        print('[BEGIN] Optimization Result\n')
-        print(result)
-        print('[END] Optimization Result\n')
+        print('[BEGIN] Optimization Result\n {} [END] Optimization Result\n'.format(result))
 
-        # Make a prediction based on the fitted parameters for ramp experiment data
-        y_opt_predict_ramp = self.simulate(popt, cmd_ramp_right, cmd_ramp_left, s_init_ramp , timepoints_ramp) # Predict to calculate Error
-        self.y_opt_predict_ramp = y_opt_predict_ramp
-        # Make a prediction based on the fitted parameters for sine experiment data
-        y_opt_predict_sine = self.simulate(popt, cmd_sine_right, cmd_sine_left, s_init_sine , timepoints_sine) # Predict to calculate Error
-        self.y_opt_predict_sine = y_opt_predict_sine
+        return popt
 
-        self.sine_plots(p0, popt, y_opt_predict_sine, cmd_sine_right, cmd_sine_left, s_init_sine, x_sine_meas, y_sine_meas, yaw_sine_meas, time_sine, timepoints_sine)
-        self.ramp_plots(p0, popt, y_opt_predict_ramp, cmd_ramp_right, cmd_ramp_left, s_init_ramp, x_ramp_meas, y_ramp_meas, yaw_ramp_meas, time_ramp, timepoints_ramp)
+    def model_predictions(self, model_object, experiments, popt):
+        for exp_name in experiments.keys():
+            exp_data = experiments[exp_name]
+            t = exp_data['timestamp']
+            x = exp_data['robot_pose']
+            u = exp_data['wheel_cmd_exec']
+            x0 = x[:, 0]
 
-        popt_dict = {"gain": popt[0], "trim":popt[2]}
-        return popt_dict
-        """
+            # simulate the model
+            # states for a particular p set
+            x_sim_opt = simulate(model_object, t, x0, u, popt)
+            x_sim_init = simulate(model_object, t, x0, u, self.p0)
+            """
+            plot_system(states=x, time=t, experiment_name=exp_name + '_measurement')
+            plot_system(states=x_sim_init, time=t, experiment_name=exp_name + '_simulated_init')
+            plot_system(states=x_sim_opt, time=t, experiment_name=exp_name + '_simulated_optimal')
+            """
+            multiplot(states_list=[x, x_sim_init, x_sim_opt],
+                      time_list=[t,t,t],
+                      experiment_name_list=[exp_name + '_measurement', exp_name + '_simulated_init', exp_name + '_simulated_optimal'],
+                      mode = 'single_view')
 
-    def sine_plots(self,p0, popt, y_opt_predict_sine, cmd_sine_right, cmd_sine_left, s_init_sine, x_sine_meas, y_sine_meas, yaw_sine_meas, time_sine, timepoints_sine):
-
-        Y = np.stack((x_sine_meas, y_sine_meas, yaw_sine_meas), axis=1)
-
-        MSE_sine = np.sum((Y-y_opt_predict_sine)**2)/y_opt_predict_sine.size # Calculate the Mean Squared Error
-
-        y_pred_sine_default_params = self.simulate(p0, cmd_sine_right, cmd_sine_left, s_init_sine , timepoints_sine)
-        self.y_pred_sine_default_params = y_pred_sine_default_params
-
-        # PLOTTING
-        fig2, ax1 = plt.subplots()
-
-        x_sine_meas_handle, = ax1.plot(time_sine[timepoints_sine],x_sine_meas,'x',color=(0.5,0.5,1), label = 'x measured')
-        y_sine_meas_handle, = ax1.plot(time_sine[timepoints_sine],y_sine_meas,'x',color=(0.5,1,0.5), label = 'y measured')
-        yaw_sine_meas_handle, = ax1.plot(time_sine[timepoints_sine],yaw_sine_meas,'x',color=(1,0.5,0.5), label = 'yaw measured')
-
-        # Model predictions with default parameters
-        x_sine_pred_default_handle, = ax1.plot(time_sine[timepoints_sine],y_pred_sine_default_params[:,0],'bo', label = 'x predict def')
-        y_sine_pred_default_handle, = ax1.plot(time_sine[timepoints_sine],y_pred_sine_default_params[:,1],'go', label = 'y predict def')
-        yaw_sine_pred_default_handle, = ax1.plot(time_sine[timepoints_sine],y_pred_sine_default_params[:,2],'ro', label = 'yaw predict def')
-
-
-        # Model predictions with optimal parametes
-
-        x_sine_pred_handle, = ax1.plot(time_sine[timepoints_sine],y_opt_predict_sine[:,0],'b', label = 'x predict opt')
-        y_sine_pred_handle, = ax1.plot(time_sine[timepoints_sine],y_opt_predict_sine[:,1],'g', label = 'y predict opt')
-        yaw_sine_pred_handle, = ax1.plot(time_sine[timepoints_sine],y_opt_predict_sine[:,2],'r', label = 'yaw predict opt')
-        ax1.set_xlabel('time [s]')
-        ax1.set_ylabel('position [m] / heading [rad]')
-
-        handles = [x_sine_meas_handle,y_sine_meas_handle,yaw_sine_meas_handle,
-                   x_sine_pred_handle,y_sine_pred_handle,yaw_sine_pred_handle,
-                   x_sine_pred_default_handle, y_sine_pred_default_handle, yaw_sine_pred_default_handle]
-        labels = [h.get_label() for h in handles]
-
-        fig2.legend(handles=handles, labels=labels, prop={'size': 10}, loc=0)
-        fig2.suptitle('Measurements and Prediction with Default/Optimal Parameter Values - Sine Manouver', fontsize=16)
-        #plt.show(block=True)
-    def ramp_plots(self,p0, popt, y_opt_predict_ramp, cmd_ramp_right, cmd_ramp_left, s_init_ramp, x_ramp_meas, y_ramp_meas, yaw_ramp_meas, time_ramp, timepoints_ramp):
-        Y = np.stack((x_ramp_meas, y_ramp_meas, yaw_ramp_meas), axis=1)
-
-        MSE_ramp = np.sum((Y-y_opt_predict_ramp)**2)/y_opt_predict_ramp.size # Calculate the Mean Squared Error
-
-        y_pred_ramp_default_params = self.simulate(p0, cmd_ramp_right, cmd_ramp_left, s_init_ramp , timepoints_ramp)
-        self.y_pred_ramp_default_params = y_pred_ramp_default_params
-
-        # PLOTTING
-        fig1, ax1 = plt.subplots()
-
-        x_ramp_meas_handle, = ax1.plot(time_ramp[timepoints_ramp],x_ramp_meas,'x',color=(0.5,0.5,1), label = 'x measured')
-        y_ramp_meas_handle, = ax1.plot(time_ramp[timepoints_ramp],y_ramp_meas,'x',color=(0.5,1,0.5), label = 'y measured')
-        yaw_ramp_meas_handle, = ax1.plot(time_ramp[timepoints_ramp],yaw_ramp_meas,'x',color=(1,0.5,0.5), label = 'yaw measured')
-
-        # Model predictions with default parameters
-        x_ramp_pred_default_handle, = ax1.plot(time_ramp[timepoints_ramp],y_pred_ramp_default_params[:,0],'bo', label = 'x predict def')
-        y_ramp_pred_default_handle, = ax1.plot(time_ramp[timepoints_ramp],y_pred_ramp_default_params[:,1],'go', label = 'y predict def')
-        yaw_ramp_pred_default_handle, = ax1.plot(time_ramp[timepoints_ramp],y_pred_ramp_default_params[:,2],'ro', label = 'yaw predict def')
-
-        # Model predictions with optimal parametes
-        x_ramp_pred_handle, = ax1.plot(time_ramp[timepoints_ramp],y_opt_predict_ramp[:,0],'b', label = 'x predict opt')
-        y_ramp_pred_handle, = ax1.plot(time_ramp[timepoints_ramp],y_opt_predict_ramp[:,1],'g', label = 'y predict opt')
-        yaw_ramp_pred_handle, = ax1.plot(time_ramp[timepoints_ramp],y_opt_predict_ramp[:,2],'r', label = 'yaw predict opt')
-
-        ax1.set_xlabel('time [s]')
-        ax1.set_ylabel('position [m] / heading [rad]')
-
-        handles = [x_ramp_meas_handle,y_ramp_meas_handle,yaw_ramp_meas_handle,
-                   x_ramp_pred_handle,y_ramp_pred_handle,yaw_ramp_pred_handle,
-                   x_ramp_pred_default_handle, y_ramp_pred_default_handle, yaw_ramp_pred_default_handle]
-
-        labels = [h.get_label() for h in handles]
-
-        fig1.legend(handles=handles, labels=labels, prop={'size': 10}, loc=0)
-        fig1.suptitle('Measurements and Prediction with Default/Optimal Parameter Values - Ramp Manouver', fontsize=16)
+    @staticmethod
+    def input_folder_to_experiment_dict(folder_path):
+        experiments = {}
+        bag_files = os.listdir(folder_path)
+        for bag in bag_files:
+            bag_name = bag.split('.')[0]
+            experiments[bag_name] = {'wheel_cmd_exec': None, 'robot_pose': None, 'path': join(folder_path, bag)}
+        return experiments
 
     def write_calibration(self):
        '''Load kinematic calibration file'''
@@ -339,16 +270,6 @@ class calib():
 
        print("\nPlease check the plots and judge if the parameters are reasonable.")
        print("Once done inspecting the plot, close them to terminate the program.")
-
-    @staticmethod
-    def input_folder_to_experiment_dict(folder_path):
-        experiments = {}
-        bag_files = os.listdir(folder_path)
-        for bag in bag_files:
-            bag_name = bag.split('.')[0]
-            experiments[bag_name] = {'wheel_cmd_exec': None, 'robot_pose': None, 'path': join(folder_path, bag)}
-        return experiments
-
 
 if __name__ == '__main__':
     calib=calib()
