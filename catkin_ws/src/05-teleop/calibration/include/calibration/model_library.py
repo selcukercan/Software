@@ -39,11 +39,6 @@ class Model1(BaseModelClass):
         (cl, cr) = p
         L = 0.1 # 10 cm
 
-        """
-        # kinetic states through actuation
-        vx_pred = c * (cmd_right + cmd_left) * 0.5 + tr * (cmd_right - cmd_left) * 0.5
-        omega_pred = cl * (cmd_right - cmd_left) * 0.5 + tr * (cmd_right + cmd_left) * 0.5
-        """
         # kinetic states through actuation
         vx = (cr * cmd_right + cl * cmd_left)
         omega = (cr * cmd_right - cl * cmd_left) / L

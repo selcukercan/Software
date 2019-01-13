@@ -35,6 +35,16 @@ from calibration.data_adapter_utils import *
 
 from calibration.plotting_utils import *
 
+
+def norm_rmse(x, x_sim):
+    norm_mse_x = rmse(x[0, :], x_sim[0, :]) / (max(x[0, :]) - min(x[0, :]))
+    norm_mse_y = rmse(x[1, :], x_sim[1, :]) / (max(x[1, :]) - min(x[1, :]))
+    norm_mse_yaw = rmse(x[2, :], x_sim[2, :]) / (max(x[2, :]) - min(x[2, :]))
+    return np.mean(norm_mse_x + norm_mse_y + norm_mse_yaw)
+
+def rmse(x, x_sim):
+    return np.sqrt(np.mean(np.power((x - x_sim),2)))
+
 class calib():
     def __init__(self):
         PREPARE_CALIBRATION_DATA_FOR_OPTIMIZATION = True
@@ -98,49 +108,7 @@ class calib():
         #self.write_calibration()
 
 
-    '''
-    def forwardEuler(self,s_cur, Ts, cmd_right, cmd_left,p):
-        c, cl, tr = p
-
-        x_0 = s_cur[0]
-        y_0 = s_cur[1]
-        yaw_0 = s_cur[2]
-        d = self.d
-
-        # velocity term predictions based on differential drive
-        vx_pred = c * (cmd_right+cmd_left) * 0.5 + c * tr * (cmd_right-cmd_left)*0.5
-        omega_pred = -1*cl * (cmd_right-cmd_left) * 0.5 + -1*cl * tr * (cmd_right+cmd_left) * 0.5
-        vy_pred = -1*omega_pred * d
-
-        # forward euler integration
-        yaw_pred = (omega_pred) * Ts + yaw_0
-        x_pred = (np.cos(yaw_pred) * vx_pred - vy_pred * np.sin(yaw_pred)) * Ts + x_0
-        y_pred = 5 * (np.sin(yaw_pred) * vx_pred + vy_pred * np.cos(yaw_pred)) * Ts + y_0
-
-        return np.array([x_pred, y_pred, yaw_pred]).reshape(3)
-
-    def simulate(self,p, cmd_right, cmd_left, s_init,time):
-        # States
-        ## Note that values take checkerboard as the origin.
-        s = np.zeros((len(time),3))
-
-        s[0,0] = s_init[0] # x
-        s[0,1] = s_init[1] # y
-        s[0,2] = s_init[2] # yaw
-
-        Ts = self.Ts
-        s_cur = s[0]
-
-        for i in range(len(time)-1):
-            s_next = self.forwardEuler(s_cur, Ts, cmd_right[i],cmd_left[i],p)
-            s_cur = np.copy(s_next)
-            s[i+1] = s_cur
-
-        return s
-    '''
-
     def cost_function(self, p, model_object, experiments):
-
         obj_cost = 0.0
 
         for exp_name in experiments.keys():
@@ -149,7 +117,6 @@ class calib():
             x = exp_data['robot_pose']
             u = exp_data['wheel_cmd_exec']
             x0 = x[:,0]
-
 
             #simulate the model
             #states for a particular p set
@@ -169,12 +136,21 @@ class calib():
                 obj_cost += ( abs(((x_sim[0, i] - x[0, i])) / range_x) +
                               abs(((x_sim[1, i] - x[1, i])) / range_y) +
                               abs(((x_sim[2, i] - x[2, i])) / range_yaw)
-                            )
+                    )
                 """
+
+                """
+                #best so far
                 obj_cost += (
                              ((x_sim[0, i] - x[0, i])) ** 2 +
                              ((x_sim[1, i] - x[1, i])) ** 2 +
                              0.05 * ((x_sim[2, i] - x[2, i])) ** 2
+                            )
+                """
+                obj_cost += (
+                             ((x_sim[0, i] - x[0, i]) / range_x) ** 2 +
+                             ((x_sim[1, i] - x[1, i]) / range_y) ** 2  +
+                             ((x_sim[2, i] - x[2, i]) / range_yaw) ** 2
                             )
         return obj_cost
 
@@ -204,16 +180,23 @@ class calib():
             # states for a particular p set
             x_sim_opt = simulate(model_object, t, x0, u, popt)
             x_sim_init = simulate(model_object, t, x0, u, self.p0)
+
             """
             plot_system(states=x, time=t, experiment_name=exp_name + '_measurement')
             plot_system(states=x_sim_init, time=t, experiment_name=exp_name + '_simulated_init')
             plot_system(states=x_sim_opt, time=t, experiment_name=exp_name + '_simulated_optimal')
             """
+            exp_mse = norm_rmse(x, x_sim_opt)
+
+            print('\nModel Performance Evaluation:\nModel Name: {}\nMSE: {}'.format(exp_name, exp_mse))
+
+
             multiplot(states_list=[x, x_sim_init, x_sim_opt],
                       input_list=[u,u,u],
                       time_list=[t,t,t],
                       experiment_name_list=[exp_name + '_measurement', exp_name + '_simulated_init', exp_name + '_simulated_optimal'],
                       mode = 'single_view')
+
 
     @staticmethod
     def input_folder_to_experiment_dict(folder_path):
@@ -284,6 +267,7 @@ class calib():
 
        print("\nPlease check the plots and judge if the parameters are reasonable.")
        print("Once done inspecting the plot, close them to terminate the program.")
+
 
 if __name__ == '__main__':
     calib=calib()
