@@ -2,7 +2,7 @@ import tf.transformations as tr
 import numpy as np
 import math
 
-TILT_ANGLE = 18 * math.pi / 180.0
+TILT_ANGLE = 10 * math.pi / 180.0
 
 
 def camztiltedTtag(q,t):

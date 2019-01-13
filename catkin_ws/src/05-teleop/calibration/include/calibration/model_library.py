@@ -34,19 +34,27 @@ class Model1(BaseModelClass):
 
     def model(self, t, x, u, p):
         # input commands + model params
+        [x, y, theta] = x
         (cmd_right, cmd_left) = u
-        (c, cl, tr) = p
+        (cl, cr) = p
+        L = 0.1 # 10 cm
 
+        """
         # kinetic states through actuation
         vx_pred = c * (cmd_right + cmd_left) * 0.5 + tr * (cmd_right - cmd_left) * 0.5
         omega_pred = cl * (cmd_right - cmd_left) * 0.5 + tr * (cmd_right + cmd_left) * 0.5
+        """
+        # kinetic states through actuation
+        vx = (cr * cmd_right + cl * cmd_left)
+        omega = (cr * cmd_right - cl * cmd_left) / L
 
         # position states in relation to kinetic states
-        yaw_pred = (omega_pred)
-        x_pred = (np.cos(yaw_pred) * vx_pred)
-        y_pred = (np.sin(yaw_pred) * vx_pred)
+        x_dot = (np.cos(theta * np.pi / 180.0) * vx)
+        y_dot = (np.sin(theta * np.pi / 180.0) * vx)
 
-        return [x_pred, y_pred, yaw_pred]
+        theta_dot = (omega)
+
+        return [x_dot, y_dot, theta_dot]
 
 class Model2(BaseModelClass):
 
@@ -102,6 +110,6 @@ def simulate(model_object, t, x0, u, p):
         # one-step-ahead prediction
         sol = solve_ivp(fun=lambda t, x: model_object.model(t, x0, u[:,i], p), t_span=(t_cur, t_next), y0=x0, t_eval=[t_next])
         x_sim = np.hstack([x_sim, sol.y]) # add the output to the x history
-        x0 =row(sol.y).tolist()[0] # current solution will be used as the initial step for the next step
+        x0 = row(sol.y).tolist()[0] # current solution will be used as the initial step for the next step
     return x_sim
 

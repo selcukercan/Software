@@ -21,19 +21,19 @@ def single_plot_data(states= None, time= None, input = None, experiment_name="")
         p3 = go.Scatter(
             x=t,
             y=px,
-            name='x position'
+            name='x pos ' + experiment_name.split('_')[-1]
         )
 
         p4 = go.Scatter(
             x=t,
             y=py,
-            name='y position'
+            name='y pos ' + experiment_name.split('_')[-1]
         )
 
         p5 = go.Scatter(
             x=t,
             y=rz,
-            name='yaw angle'
+            name='yaw ang ' + experiment_name.split('_')[-1]
         )
 
         data.extend([p3, p4, p5])
@@ -77,7 +77,7 @@ def multiplot(states_list=None, time_list=None, input_list=None, experiment_name
 
 def multiplot_seperate_views(states_list=None, time_list=None, input_list=None, experiment_name_list=None):
     if input_list is not None:
-        for states, time, input, experiment_name in states_list,time_list,input_list, experiment_name_list:
+        for states, time, input, experiment_name in izip(states_list,time_list,input_list, experiment_name_list):
             tek_plot_data = single_plot_data(states=states, time=time, input=input, experiment_name=experiment_name)
     else:
         for states, time, experiment_name in izip(states_list,time_list, experiment_name_list):
@@ -87,13 +87,13 @@ def multiplot_single_view(states_list=None, time_list=None, input_list=None, exp
     plot_datas = []
 
     if input_list is not None:
-        for states, time, input, experiment_name in states_list,time_list,input_list, experiment_name_list:
+        for states, time, input, experiment_name in izip(states_list,time_list,input_list, experiment_name_list):
             tek_plot_data = single_plot_data(states=states, time=time, input=input, experiment_name=experiment_name)
+            plot_datas.extend(tek_plot_data)
     else:
         for states, time, experiment_name in izip(states_list,time_list, experiment_name_list):
             tek_plot_data = single_plot_data(states=states, time=time, experiment_name=experiment_name)
             plot_datas.extend(tek_plot_data)
-
     if len(plot_datas) is not 0:
         layout = dict(title='ALL PLOTS')
         fig = dict(data=plot_datas, layout=layout)

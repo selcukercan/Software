@@ -62,7 +62,7 @@ class calib():
 
         self.Ts = 1 / 30.0
         self.d = 0.6
-        self.p0 = [1,1,0]
+        self.p0 = [1,1]
 
         # topics of interest
         top_wheel_cmd_exec = "/" + self.robot_name + "/wheels_driver_node/wheels_cmd_executed"
@@ -150,6 +150,7 @@ class calib():
             u = exp_data['wheel_cmd_exec']
             x0 = x[:,0]
 
+
             #simulate the model
             #states for a particular p set
             x_sim = simulate(model_object, t, x0, u, p)
@@ -157,12 +158,24 @@ class calib():
                 #plot_system(states= x, time=t, experiment_name=exp_name)
                 self.cost_fn_plot_measurement = False
             #plot_system(states=x_sim, time=t, experiment_name=exp_name + '_simulated')
-            for i in range(len(t)):
-                obj_cost += ( ((x_sim[0,i] - x[0,i])) ** 2 +
-                              ((x_sim[1,i] - x[1,i])) ** 2 +
-                              0.2 * ((x_sim[2, i] - x[2, i])) ** 2
-                              )
 
+            range_x = float(max(x[0,:]) - min(x[0,:]))
+            range_y = float(max(x[1,:]) - min(x[1, :]))
+            range_yaw = float(max(x[2, :]) - min(x[2, :]))
+            #print('range x: {} range y: {} range yaw: {}'.format(range_x,range_y,range_yaw))
+
+            for i in range(len(t)):
+                """
+                obj_cost += ( abs(((x_sim[0, i] - x[0, i])) / range_x) +
+                              abs(((x_sim[1, i] - x[1, i])) / range_y) +
+                              abs(((x_sim[2, i] - x[2, i])) / range_yaw)
+                            )
+                """
+                obj_cost += (
+                             ((x_sim[0, i] - x[0, i])) ** 2 +
+                             ((x_sim[1, i] - x[1, i])) ** 2 +
+                             0.05 * ((x_sim[2, i] - x[2, i])) ** 2
+                            )
         return obj_cost
 
     def nonlinear_model_fit(self, model_object, experiments):
@@ -197,6 +210,7 @@ class calib():
             plot_system(states=x_sim_opt, time=t, experiment_name=exp_name + '_simulated_optimal')
             """
             multiplot(states_list=[x, x_sim_init, x_sim_opt],
+                      input_list=[u,u,u],
                       time_list=[t,t,t],
                       experiment_name_list=[exp_name + '_measurement', exp_name + '_simulated_init', exp_name + '_simulated_optimal'],
                       mode = 'single_view')
