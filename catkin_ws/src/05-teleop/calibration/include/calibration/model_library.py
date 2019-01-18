@@ -28,10 +28,16 @@ class BaseModelClass(object):
         """
         return
 
-    def param_initial_guess(self):
-        return self.p0
+    def get_param_initial_guess_dict(self):
+        param_initial_guess_dict = {}
+        for param_key in self.model_params.keys():
+            param_initial_guess_dict[param_key] = self.model_params[param_key]['param_init_guess']
+        return param_initial_guess_dict
     def get_param_bounds_list(self):
-
+        param_bounds = []
+        for param in self.param_ordered_list:
+            param_bounds.append(self.model_params[param]['param_bounds'])
+        return param_bounds
     def get_model_param_list(self):
         return self.model_params.keys()
 
@@ -39,9 +45,10 @@ class KinematicDrive(BaseModelClass):
 
     def __init__(self):
         self.name = "kinematic_drive"
+        self.param_ordered_list = ['dr', 'dl', 'L'] # it is used to enforce an order (to avoid possible confusions) while importing params from YAML as bounds are imported from model always.
         self.model_params = {'dr': {'param_init_guess':0.85, 'param_bounds': (None, None)},
                              'dl': {'param_init_guess':0.85, 'param_bounds': (None, None)},
-                             'L' : {'param_init_guess':0.85, 'param_bounds': (0.050, 0.60)}}
+                             'L' : {'param_init_guess':0.055, 'param_bounds': (0.05, 0.06)}}
 
         rospy.loginfo("\nusing model type: [{}]".format(self.name))
 

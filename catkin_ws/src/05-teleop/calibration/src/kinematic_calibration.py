@@ -1,12 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# first save .bag file as robot_name.bag in duckiefleet/calibrations/sysid
-
 import numpy as np
 import rosbag
 import rospy
 import time
+import datetime
 import os
 import math
 import yaml
@@ -58,8 +57,8 @@ def read_param_from_file(veh_name,model_object):
     fname = get_file_path(veh_name, model_object.name)
     # Use default.yaml if file doesn't exsit
     if not os.path.isfile(fname):
-        rospy.logwarn("[%s] %s does not exist. Using default.yaml." %('kinematic_calibration',fname))
-        fname = get_file_path("default", model_object.name)
+        rospy.logwarn("[%s] %s does not exist, will use model defaults" %('kinematic_calibration',fname))
+        return None
 
     with open(fname, 'r') as in_file:
         try:
@@ -75,15 +74,20 @@ def read_param_from_file(veh_name,model_object):
         return
     else:
         rospy.loginfo('[{}] using the parameter values from existing YAML file as the initial guesses: {}'.format('kinematic_calibration', fname))
-        model_param_array = []
-        for param in model_object.model_params:
+        model_param_dict = {}
+        for param in model_object.model_params.keys():
             try:
-                model_param_array.append(yaml_dict[param])
+                model_param_dict[param] = yaml_dict[param]
             except KeyError:
                 rospy.logfatal(
                     '[{}] attempting to access non-existing key [{}], is it defined in the YAML file?'.format('kinematic_calibration', param))
-        return model_param_array
+        return model_param_dict
 
+def dict_to_ordered_array(model_object, param_dict):
+    param_array = []
+    for param in model_object.param_ordered_list:
+        param_array.append(param_dict[param])
+    return param_array
 
 class calib():
     def __init__(self):
@@ -137,23 +141,21 @@ class calib():
         # construct a model by specifying which model to use
         model_object = model_generator('kinematic_drive')
 
-        # LEFT HERE: RETURN ORDER OF PARAMET INIT AND DEFAULT MODEL CAN BE DIFFERENT ?? 
         # Optimization Settings - for details refer to "https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html"
-        # see if there already is a yaml file for the model we use
+        # see if there already is a yaml file for the model we can use
         model_param_dict = read_param_from_file(self.robot_name, model_object)
         if model_param_dict is not None:
-            self.p0 = model_param_dict # if you want one, use the values as your initial guess.
+            self.p0 = dict_to_ordered_array(model_object, model_param_dict) # if you have one, use these values as your initial guesses.
         else:
-            self.p0 = model_object.get_param_initial_guess() # otherwise use the default initial guesses as defined in the class of our model choice
-            rospy.logwarn(
-                '[{}] using default initial guesses defined in model {}'.format('kinematic_calibration', model_object.name))
+            self.p0 = dict_to_ordered_array(model_object, model_object.get_param_initial_guess_dict()) # otherwise use the default initial guesses as defined in the class of our model choice
+            rospy.logwarn('[{}] using default initial guesses defined in model {}'.format('kinematic_calibration', model_object.name))
         # use the parameter bounds defined in the class of our model choice
         self.bounds = model_object.get_param_bounds_list()
 
         # self.delta =  0.00
 
         # run the optimization problem
-        popt= self.nonlinear_model_fit(model_object, experiments)
+        popt = self.nonlinear_model_fit(model_object, experiments)
 
         # test data set container
         test_dataset = self.input_folder_to_experiment_dict(path_test_data)
@@ -163,12 +165,11 @@ class calib():
             data_raw = DataPreparation(input_bag=test_dataset[exp]['path'], top_wheel_cmd_exec=top_wheel_cmd_exec,top_robot_pose=top_robot_pose)
             test_dataset[exp]['wheel_cmd_exec'], test_dataset[exp]['robot_pose'], test_dataset[exp]['timestamp'] = data_raw.process_raw_data()  # bring data set to format usable by the optimizer
 
-        self.model_predictions(model_object, experiments, popt)
+        #self.model_predictions(model_object, experiments, popt)
         #self.model_predictions(model_object, test_dataset, popt)
-        print('selcuk')
-        #self.plots()
+
         # write to the kinematic calibration file
-        #self.write_calibration()
+        self.write_calibration(model_object, popt)
 
     def cost_function(self, p, model_object, experiments):
         obj_cost = 0.0
@@ -267,66 +268,20 @@ class calib():
             experiments[bag_name] = {'wheel_cmd_exec': None, 'robot_pose': None, 'path': join(folder_path, bag)}
         return experiments
 
-    def write_calibration(self):
-       '''Load kinematic calibration file'''
-       home = expanduser("~")
-       filename = (home + "/duckietown_sysid/kinematics/" + self.robot_name + ".yaml")
+    def write_calibration(self, model_object, popt):
+       # Form yaml content to write
+       yaml_dict = {}
+       for i, param in enumerate(model_object.param_ordered_list):
+           yaml_dict[param] = popt[i].item()
+       yaml_dict['calibration_time'] =  datetime.datetime.now().strftime('%Y-%m-%d__%H:%M:%S')
+
+       # load calibration file
+       filename = get_file_path(self.robot_name, model_object.name) #TODO getpath yerine get_name olmali
+
        if not os.path.isfile(filename):
-           logger.warn("no kinematic calibration parameters for {}, taking some from default".format(self.robot_name))
-           filename = (home+"/duckietown_sysid/kinematics/default.yaml")
-           if not os.path.isfile(filename):
-               logger.error("can't find default either, something's wrong, is the duckiefleet root correctly set?")
-           else:
-               data = yaml_load_file(filename)
-       else:
-           rospy.loginfo("Loading some kinematic calibration parameters of " + self.robot_name)
-           data = yaml_load_file(filename)
-       logger.info("Loaded homography for {}".format(os.path.basename(filename)))
+           os.mknod(filename)
+       yaml_write_to_file(yaml_dict, filename)
 
-       # Load some of the parameters that will not be changed
-       param_k        = data['k']
-       param_limit    = data['limit']
-       param_radius   = data['radius']
-       baseline   = data['baseline']
-       # simply to increase readability
-
-       gain = self.fit_['gain']
-       trim = self.fit_['trim']
-
-       # Write to yaml
-       #datasave = {  # This is similar to the inverse_kinematics_node, but it did not work...
-       #    "calibration_time": time.strftime("%Y-%m-%d-%H-%M-%S"),
-       #    "gain": gain,
-       #    "trim": trim,
-       #    "baseline": baseline,
-       #    "radius": param_radius,
-       #    "k": param_k,
-       #    "limit": param_limit,
-       #}
-       datasave = \
-       "calibration_time: {}".format(time.strftime("%Y-%m-%d-%H-%M-%S")) + \
-       "\ngain: {}".format(gain) + \
-       "\ntrim: {}".format(trim) + \
-       "\nbaseline: {}".format(baseline) + \
-       "\nradius: {}".format(param_radius) + \
-       "\nk: {}".format(param_k) + \
-       "\nlimit: {}".format(param_limit)
-
-
-       print("\nThe Estimated Kinematic Calibration is:")
-       print("gain     = {}".format(gain))
-       print("trim     = {}".format(trim))
-
-       # Write to yaml file
-       filename = ( home + "/duckietown_sysid/kinematics/" + self.robot_name + ".yaml")
-       with open(filename, 'w') as outfile:
-           outfile.write(datasave)
-           #outfile.write(yaml.dump(datasave, default_flow_style=False))  # This did not work and gave very weird results
-
-       print("Saved Parameters to " + self.robot_name + ".yaml" )
-
-       print("\nPlease check the plots and judge if the parameters are reasonable.")
-       print("Once done inspecting the plot, close them to terminate the program.")
 
 
 if __name__ == '__main__':
