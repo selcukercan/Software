@@ -3,36 +3,27 @@
 
 # first save .bag file as robot_name.bag in duckiefleet/calibrations/sysid
 
-
 import numpy as np
 import rosbag
 import rospy
-
+import time
+import os
+import math
+import yaml
 import os.path
+
 from duckietown_utils.path_utils import get_ros_package_path
 from duckietown_utils.yaml_wrap import (yaml_load_file, yaml_write_to_file)
 from duckietown_utils import (logger, get_duckiefleet_root)
 #from duckietown_utils import rgb_from_ros
-
-import time
-import os
-import math
-import matplotlib.pyplot as plt
-from matplotlib.pyplot import pause,imshow
-from scipy.optimize import curve_fit
 from scipy.optimize import minimize
-from scipy.integrate import odeint
-from mpl_toolkits.mplot3d import Axes3D
-import yaml
 from os.path import expanduser
 from os.path import join
 
 from calibration.data_preperation_utils import DataPreparation
 from calibration.data_preperation_utils import load_pickle, save_pickle
-
 from calibration.model_library import model_generator, simulate
 from calibration.data_adapter_utils import *
-
 from calibration.plotting_utils import *
 
 
@@ -44,6 +35,15 @@ def norm_rmse(x, x_sim):
 
 def rmse(x, x_sim):
     return np.sqrt(np.mean(np.power((x - x_sim),2)))
+
+
+def defined_ros_param(ros_param_name):
+    try:
+        param_val = rospy.get_param(ros_param_name)
+    except KeyError:
+        rospy.logfatal('Parameter {} is not defined in ROS parameter server'.format(ros_param_name))
+        param_val = None
+    return param_val
 
 class calib():
     def __init__(self):
@@ -64,15 +64,15 @@ class calib():
 
         # Parameters
         param_veh = host_package_node + '/' + "veh"
-        self.robot_name = rospy.get_param(param_veh)
+        self.robot_name = defined_ros_param(param_veh)
+        #self.robot_name = rospy.get_param(param_veh)
         param_folder_path = host_package_node + '/' + "folder_path"
-        input_folder = rospy.get_param(param_folder_path)
+        #path_training_data = rospy.get_param(param_folder_path)
+        path_training_data = defined_ros_param(param_folder_path)
+        path_test_data = '/home/selcuk/test_bags/test_set'
 
-        experiments = self.input_folder_to_experiment_dict(input_folder)
-
-        self.Ts = 1 / 30.0
-        self.d = 0.6
-        self.p0 = [1,1]
+        # training data set container
+        experiments = self.input_folder_to_experiment_dict(path_training_data)
 
         # topics of interest
         top_wheel_cmd_exec = "/" + self.robot_name + "/wheels_driver_node/wheels_cmd_executed"
@@ -83,7 +83,7 @@ class calib():
         save_to_pickle = True # True/False
         set_name = 'test_run'
 
-        #self.delta =  0.00
+        # load and process experiment data to be used in in the optimization
         if source == 'folder':
             for exp in experiments.keys():
                 data_raw = DataPreparation(input_bag=experiments[exp]['path'], top_wheel_cmd_exec=top_wheel_cmd_exec, top_robot_pose=top_robot_pose)
@@ -94,19 +94,31 @@ class calib():
         else:
             rospy.logfatal('[{}] is not a valid source type'.format(source))
 
-        # define which model to use
+        # construct a model by specifying which model to use
         model_object = model_generator('model1')
 
+        # Optimization Settings - for details refer to "https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html"
+        self.p0 = [1,1] # initial guesses for the parameters
+        self.bnds = ((None, None), (None, None)) # bounds for the parameters
+        # self.delta =  0.00
 
-        self.cost_fn_plot_measurement = True
+        # run the optimization problem
         popt= self.nonlinear_model_fit(model_object, experiments)
 
+        # test data set container
+        test_dataset = self.input_folder_to_experiment_dict(path_test_data)
+
+        # load and process the experiment data to be used in for testing the model
+        for exp in test_dataset.keys():
+            data_raw = DataPreparation(input_bag=test_dataset[exp]['path'], top_wheel_cmd_exec=top_wheel_cmd_exec,top_robot_pose=top_robot_pose)
+            test_dataset[exp]['wheel_cmd_exec'], test_dataset[exp]['robot_pose'], test_dataset[exp]['timestamp'] = data_raw.process_raw_data()  # bring data set to format usable by the optimizer
+
         self.model_predictions(model_object, experiments, popt)
+        #self.model_predictions(model_object, test_dataset, popt)
         print('selcuk')
         #self.plots()
         # write to the kinematic calibration file
         #self.write_calibration()
-
 
     def cost_function(self, p, model_object, experiments):
         obj_cost = 0.0
@@ -121,10 +133,13 @@ class calib():
             #simulate the model
             #states for a particular p set
             x_sim = simulate(model_object, t, x0, u, p)
+
+            '''
             if self.cost_fn_plot_measurement:
                 #plot_system(states= x, time=t, experiment_name=exp_name)
                 self.cost_fn_plot_measurement = False
             #plot_system(states=x_sim, time=t, experiment_name=exp_name + '_simulated')
+            '''
 
             range_x = float(max(x[0,:]) - min(x[0,:]))
             range_y = float(max(x[1,:]) - min(x[1, :]))
@@ -144,7 +159,7 @@ class calib():
                 obj_cost += (
                              ((x_sim[0, i] - x[0, i])) ** 2 +
                              ((x_sim[1, i] - x[1, i])) ** 2 +
-                             0.05 * ((x_sim[2, i] - x[2, i])) ** 2
+                             0.0000001 * ((x_sim[2, i] - x[2, i])) ** 2
                             )
                 """
                 obj_cost += (
@@ -152,21 +167,17 @@ class calib():
                              ((x_sim[1, i] - x[1, i]) / range_y) ** 2  +
                              ((x_sim[2, i] - x[2, i]) / range_yaw) ** 2
                             )
+
         return obj_cost
 
     def nonlinear_model_fit(self, model_object, experiments):
         print 'IN NONLINEAR MODEL FIT'
-
-        p0 = self.p0
-
         # Actual Parameter Optimization/Fitting
         # Minimize the least squares error between the model prediction
-        result = minimize(self.cost_function, p0, args=(model_object, experiments))
-        popt = result.x
-
+        result = minimize(self.cost_function, self.p0, args=(model_object, experiments), bounds=self.bnds)
         print('[BEGIN] Optimization Result\n {} [END] Optimization Result\n'.format(result))
 
-        return popt
+        return result.x
 
     def model_predictions(self, model_object, experiments, popt):
         for exp_name in experiments.keys():
@@ -271,4 +282,3 @@ class calib():
 
 if __name__ == '__main__':
     calib=calib()
-    rospy.spin()

@@ -1,17 +1,19 @@
 import rosbag
-from shutil import copy
 import rospy
+
+from shutil import copy
+from os.path import splitext, isfile
+from os import remove
 
 def time_sync(input_bag, veh_name):
 
     rospy.loginfo("[{}] started time-sync function".format('time-sync'))
 
-    input_base = input_bag.split('.')[0]
+    input_base = splitext(input_bag)[0]
     input_backup_bag = input_base + "_backup.bag"
-    output_bag = input_base + "_synced.bag"
+    output_bag = input_base + "_pp.bag"
 
     copy(input_bag, input_backup_bag)
-
 
     t_compressed = []
     t_tag_detectons = []
@@ -34,7 +36,8 @@ def time_sync(input_bag, veh_name):
     my_dict = dict(zip(t_tag_detectons, t_compressed))
 
     # read the values from the input bag and replace the ros time of the tag_detections
-    # to match to that of the compressed_image.
+    # to match to that of the compressed_image. Note the output is written only when an
+    # apriltag is detected
     with rosbag.Bag(output_bag, 'w') as outbag:
         for topic, msg, t in rosbag.Bag(input_bag).read_messages():
             if topic == top_tag_detections:
@@ -45,6 +48,10 @@ def time_sync(input_bag, veh_name):
                     pass
             else:
                 outbag.write(topic, msg, t)
+
+    if isfile(output_bag):
+        remove(input_bag)
+        remove(input_backup_bag)
 
     rospy.loginfo('finished time-syncing, file is at {}'.format(output_bag))
 

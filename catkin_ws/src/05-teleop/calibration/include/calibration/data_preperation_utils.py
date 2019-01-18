@@ -20,7 +20,7 @@ class DataPreparation():
 
     def process_raw_data(self):
         """
-        process the data contained in rosbag files and bring them to a format usable by the optimization
+        process the data contained in a rosbag file and bring it to the form accepted by the optimization
 
         returns:
             3-element tuple containing
@@ -31,8 +31,8 @@ class DataPreparation():
 
         """
 
-        start_time, end_time, duration = self.set_experiment_duration()
-        wheel_cmd_clipped, robot_pose_clipped = self.remove_images_before_wheel_cmd(self.wheel_cmd, self.robot_pose, start_time, end_time)
+        start_time, end_time, duration = self.experiment_duration()
+        wheel_cmd_clipped, robot_pose_clipped = self.get_actuated_interval(self.wheel_cmd, self.robot_pose, start_time, end_time)
         wheel_cmd_exec_rs = self.resampling(wheel_cmd_clipped, robot_pose_clipped)
 
         wheel_cmd_exec_sel = self.select_interval(wheel_cmd_exec_rs, self.DISCARD_FIRST, self.DISCARD_LAST)
@@ -46,9 +46,9 @@ class DataPreparation():
 
         return wheel_cmd_exec_opt, robot_pose_opt, t
 
-    def set_experiment_duration(self):
+    def experiment_duration(self):
         """
-        sets experiment related parameters: experiment start time, end time and duration
+        decide experiment start time, end time and duration based on the first and the last actuation commands
 
         Returns:
             3-element tuple containing
@@ -60,7 +60,7 @@ class DataPreparation():
 
         wheel_cmd = self.wheel_cmd
 
-        # get index where where there is a velocity command its respective timestamp
+        # get index where where there is a velocity command and its respective timestamp
         actuated_i = [i for i, j in enumerate(wheel_cmd['vel_r']) if j != 0]
         actuated_t = [wheel_cmd['timestamp'][i] for i in actuated_i]
 
@@ -73,11 +73,11 @@ class DataPreparation():
 
         return start_time, end_time, duration
 
-    def remove_images_before_wheel_cmd(self, wheel_cmd_exec, robot_pose, start_time, end_time):
+    def get_actuated_interval(self, wheel_cmd_exec, robot_pose, start_time, end_time):
         """
         clips the wheel commands and pose measurements to [start_time, end_time] closed interval.
 
-        use wheel_cmd_exec as the reference as it is the actual command that is send to the duckiebot.
+        it uses wheel_cmd_exec as it is the actual command that is send to the vehicle.
         reference: https://github.com/duckietown/Software/blob/9cae95e41d1672f86a10bba86fca430e73af2431/catkin_ws/src/05-teleop/dagu_car/src/wheels_driver_node.py
 
         Args:
@@ -281,14 +281,6 @@ class ExperimentData():
 
 
 """
-# Checks if a matrix is a valid rotation matrix.
-def isRotationMatrix(self,R):
-    Rt = np.transpose(R)
-    shouldBeIdentity = np.dot(Rt, R)
-    I = np.identity(3, dtype=R.dtype)
-    n = np.linalg.norm(I - shouldBeIdentity)
-    return n < 1e-3
-
 def listFilter(self,x,N):
     x = np.convolve(x, np.ones((N,)) / N, mode='valid')
     return x
