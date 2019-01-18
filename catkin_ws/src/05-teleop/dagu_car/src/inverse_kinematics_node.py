@@ -18,29 +18,20 @@ class InverseKinematicsNode(object):
         self.node_name = rospy.get_name()
         self.veh_name = self.node_name.split("/")[1]
 
-        # Set parameters using yaml file
+        # Model Type
+        self.model_type = 'gt' # 'gt' for gain-trim model (classical) and 'sysid' for custom model (system-id based)
+        # Select Model Function
+        self.inv_model = self.select_model()
+        # Read parameters from the yaml file and write them to ROS parameter server
         self.readParamFromFile()
-
-        # Set local variable by reading parameters
-        self.gain = self.setup_parameter("~gain", 0.6)
-        self.trim = self.setup_parameter("~trim", 0.0)
-        self.baseline = self.setup_parameter("~baseline", 0.1)
-        self.radius = self.setup_parameter("~radius", 0.0318)
-        self.k = self.setup_parameter("~k", 27.0)
-        self.limit = self.setup_parameter("~limit", 1.0)
-        self.limit_max = 1.0
-        self.limit_min = 0.0
-
+        # Set local variables (class variables) by reading the values from ROS parameters server
+        self.setModelParams()
         self.v_max = 999.0     # TODO: Calculate v_max !
         self.omega_max = 999.0     # TODO: Calculate v_max !
 
         # Prepare services
-        self.srv_set_gain = rospy.Service("~set_gain", SetValue, self.cbSrvSetGain)
-        self.srv_set_trim = rospy.Service("~set_trim", SetValue, self.cbSrvSetTrim)
-        self.srv_set_baseline = rospy.Service("~set_baseline", SetValue, self.cbSrvSetBaseline)
-        self.srv_set_radius = rospy.Service("~set_radius", SetValue, self.cbSrvSetRadius)
-        self.srv_set_k = rospy.Service("~set_k", SetValue, self.cbSrvSetK)
-        self.srv_set_limit = rospy.Service("~set_limit", SetValue, self.cbSrvSetLimit)
+        self.setModelServices()
+        # Common services
         self.srv_save = rospy.Service("~save_calibration", Empty, self.cbSrvSaveCalibration)
 
         # Setup the publisher and subscriber
@@ -78,7 +69,11 @@ class InverseKinematicsNode(object):
         if yaml_dict is None:
             # Empty yaml file
             return
-        for param_name in ["gain", "trim", "baseline", "k", "radius", "limit"]:
+
+        # select the parameter list that corresponds to the chosen model
+        model_param_list = self.getModelParamList()
+
+        for param_name in model_param_list:
             param_value = yaml_dict.get(param_name)
             if param_name is not None:
                 rospy.set_param("~"+param_name, param_value)
@@ -86,8 +81,50 @@ class InverseKinematicsNode(object):
                 # Skip if not defined, use default value instead.
                 pass
 
+    def getModelParamList(self):
+        if self.model_type == 'gt':
+            return ["gain", "trim", "baseline", "k", "radius", "limit"]
+        elif self.model_type == 'sysid':
+            return ["dr", "dl", "L"]
+
+    def setModelParams(self):
+        if self.model_type == 'gt':
+            # Set local variable by reading parameters
+            self.gain = self.setup_parameter("~gain", 0.6)
+            self.trim = self.setup_parameter("~trim", 0.0)
+            self.baseline = self.setup_parameter("~baseline", 0.1)
+            self.radius = self.setup_parameter("~radius", 0.0318)
+            self.k = self.setup_parameter("~k", 27.0)
+            self.limit = self.setup_parameter("~limit", 1.0)
+            self.limit_max = 1.0
+            self.limit_min = 0.0
+        elif self.model_type == 'sysid':
+            self.dr = self.setup_parameter("~dr", 1)
+            self.dl = self.setup_parameter("~dl", 1)
+            self.L = self.setup_parameter("~L", 1)
+        else:
+            rospy.logfatal('Model name {} is not a valid one, failed to set parameters in setModelParams'.format(model_type))
+
+    def setModelServices(self):
+        if self.model_type == 'gt':
+            self.srv_set_gain = rospy.Service("~set_gain", SetValue, self.cbSrvSetGain)
+            self.srv_set_trim = rospy.Service("~set_trim", SetValue, self.cbSrvSetTrim)
+            self.srv_set_baseline = rospy.Service("~set_baseline", SetValue, self.cbSrvSetBaseline)
+            self.srv_set_radius = rospy.Service("~set_radius", SetValue, self.cbSrvSetRadius)
+            self.srv_set_k = rospy.Service("~set_k", SetValue, self.cbSrvSetK)
+            self.srv_set_limit = rospy.Service("~set_limit", SetValue, self.cbSrvSetLimit)
+        elif self.model_type == 'sysid':
+            self.srv_set_dr = rospy.Service("~set_dr", SetValue, self.cbSrvSetDR)
+            self.srv_set_dl = rospy.Service("~set_dl", SetValue, self.cbSrvSetDL)
+            self.srv_set_L = rospy.Service("~set_L", SetValue, self.cbSrvSetL)
+        else:
+            rospy.logfatal('Model name {} is not a valid one, failed to set services in setModelServices'.format(model_type))
+
     def getFilePath(self, name):
-        return (get_duckiefleet_root()+'/calibrations/kinematics/' + name + ".yaml")
+        if self.model_type == 'gt':
+            return (get_duckiefleet_root()+'/calibrations/kinematics/' + name + ".yaml")
+        elif self.model_type == 'sysid':
+            return (get_duckiefleet_root()+'/calibrations/kinematics/' + name + "_sysid" + ".yaml")
 
     def updateActuatorLimitsReceived(self, msg_actuator_limits_received):
         self.actuator_limits_received = msg_actuator_limits_received.data
@@ -112,6 +149,33 @@ class InverseKinematicsNode(object):
         self.printValues()
         rospy.loginfo("[%s] Saved to %s" %(self.node_name, file_name))
 
+    # [Start] Sysid Model Services
+    def cbSrvSetDR(self, req):
+        self.dr = req.value
+        self.printValues()
+        self.msg_actuator_limits.v = self.v_max     # TODO: Calculate v_max !
+        self.msg_actuator_limits.omega = self.omega_max     # TODO: Calculate omega_max !
+        self.pub_actuator_limits.publish(self.msg_actuator_limits)
+        return SetValueResponse()
+
+    def cbSrvSetDL(self, req):
+        self.dl = req.value
+        self.printValues()
+        self.msg_actuator_limits.v = self.v_max     # TODO: Calculate v_max !
+        self.msg_actuator_limits.omega = self.omega_max     # TODO: Calculate omega_max !
+        self.pub_actuator_limits.publish(self.msg_actuator_limits)
+        return SetValueResponse()
+
+    def cbSrvSetL(self, req):
+        self.L = req.value
+        self.printValues()
+        self.msg_actuator_limits.v = self.v_max     # TODO: Calculate v_max !
+        self.msg_actuator_limits.omega = self.omega_max     # TODO: Calculate omega_max !
+        self.pub_actuator_limits.publish(self.msg_actuator_limits)
+        return SetValueResponse()
+    # [End] Sysid Model Services
+
+    # [Start] GT Model Services
     def cbSrvSaveCalibration(self, req):
         self.saveCalibration()
         return EmptyResponse()
@@ -174,30 +238,22 @@ class InverseKinematicsNode(object):
         else:
             limit = value
         return limit
+    # [End] GT Model Services
 
     def printValues(self):
-        rospy.loginfo("[%s] gain: %s trim: %s baseline: %s radius: %s k: %s limit: %s" % (self.node_name, self.gain, self.trim, self.baseline, self.radius, self.k, self.limit))
+        if self.model_type == 'gt':
+            rospy.loginfo("[%s] gain: %s trim: %s baseline: %s radius: %s k: %s limit: %s" % (self.node_name, self.gain, self.trim, self.baseline, self.radius, self.k, self.limit))
+        elif self.model_type == 'sysid':
+            rospy.loginfo("[%s] dr: %s dl: %s L: %s " % (self.node_name, self.dr, self.dl, self.L))
 
     def car_cmd_callback(self, msg_car_cmd):
         if not self.actuator_limits_received:
             self.pub_actuator_limits.publish(self.msg_actuator_limits)
 
-        # assuming same motor constants k for both motors
-        k_r = self.k
-        k_l = self.k
+        v_ref = msg_car_cmd.v
+        w_ref = msg_car_cmd.omega
 
-        # adjusting k by gain and trim
-        k_r_inv = (self.gain + self.trim) / k_r
-        k_l_inv = (self.gain - self.trim) / k_l
-
-        omega_r = (msg_car_cmd.v + 0.5 * msg_car_cmd.omega * self.baseline) / self.radius
-        omega_l = (msg_car_cmd.v - 0.5 * msg_car_cmd.omega * self.baseline) / self.radius
-
-        # conversion from motor rotation rate to duty cycle
-        # u_r = (gain + trim) (v + 0.5 * omega * b) / (r * k_r)
-        u_r = omega_r * k_r_inv
-        # u_l = (gain - trim) (v - 0.5 * omega * b) / (r * k_l)
-        u_l = omega_l * k_l_inv
+        u_r, u_l = self.inv_model(v_ref, w_ref)
 
         # limiting output to limit, which is 1.0 for the duckiebot
         u_r_limited = max(min(u_r, self.limit), -self.limit)
@@ -209,6 +265,37 @@ class InverseKinematicsNode(object):
         msg_wheels_cmd.vel_right = u_r_limited
         msg_wheels_cmd.vel_left = u_l_limited
         self.pub_wheels_cmd.publish(msg_wheels_cmd)
+
+    def gt(self, v_ref, w_ref):
+        # assuming same motor constants k for both motors
+        k_r = self.k
+        k_l = self.k
+
+        # adjusting k by gain and trim
+        k_r_inv = (self.gain + self.trim) / k_r
+        k_l_inv = (self.gain - self.trim) / k_l
+
+        omega_r = (v_ref + 0.5 * w_ref * self.baseline) / self.radius
+        omega_l = (v_ref - 0.5 * w_ref * self.baseline) / self.radius
+
+        # conversion from motor rotation rate to duty cycle
+        # u_r = (gain + trim) (v + 0.5 * omega * b) / (r * k_r)
+        u_r = omega_r * k_r_inv
+        # u_l = (gain - trim) (v - 0.5 * omega * b) / (r * k_l)
+        u_l = omega_l * k_l_inv
+
+        return u_r, u_l
+
+    def kinematic_drive(self, v_ref, w_ref):
+        u_r = 1.0 / (2 * self.dr) * v_ref + self.L / (2 * self.dr) * w_ref
+        u_l = 1.0 / (2 * self.dl) * v_ref - self.L / (2 * self.dl) * w_ref
+        return u_r, u_l
+
+    def select_model(self):
+        if self.model_type == 'gt':
+            return self.gt
+        elif self.model_type == 'sysid':
+            return self.kinematic_drive
 
     def setup_parameter(self, param_name, default_value):
         value = rospy.get_param(param_name, default_value)

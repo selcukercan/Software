@@ -3,8 +3,10 @@ import rospy
 from scipy.integrate import solve_ivp
 import numpy as np
 from calibration.data_adapter_utils import *
+from duckietown_utils import get_duckiefleet_root
 from math import cos
 import datetime
+import os
 
 class BaseModelClass(object):
     __metaclass__ = ABCMeta
@@ -26,22 +28,32 @@ class BaseModelClass(object):
         """
         return
 
-class Model1(BaseModelClass):
+    def param_initial_guess(self):
+        return self.p0
+    def get_param_bounds_list(self):
+
+    def get_model_param_list(self):
+        return self.model_params.keys()
+
+class KinematicDrive(BaseModelClass):
 
     def __init__(self):
-        self.name = "model1"
+        self.name = "kinematic_drive"
+        self.model_params = {'dr': {'param_init_guess':0.85, 'param_bounds': (None, None)},
+                             'dl': {'param_init_guess':0.85, 'param_bounds': (None, None)},
+                             'L' : {'param_init_guess':0.85, 'param_bounds': (0.050, 0.60)}}
+
         rospy.loginfo("\nusing model type: [{}]".format(self.name))
 
     def model(self, t, x, u, p):
         # input commands + model params
         [x, y, theta] = x
         (cmd_right, cmd_left) = u
-        (cr, cl, L) = p
-        #L = 0.1 # 10 cm
+        (dr, dl, L) = p
 
         # kinetic states through actuation
-        vx = (cr * cmd_right + cl * cmd_left)
-        omega = (cr * cmd_right - cl * cmd_left) / L
+        vx = (dr * cmd_right + dl * cmd_left)
+        omega = (dr * cmd_right - dl * cmd_left) / L
 
         # position states in relation to kinetic states
         x_dot = (np.cos(theta * np.pi / 180.0) * vx)
@@ -80,8 +92,8 @@ class Model2(BaseModelClass):
 def model_generator(model_name = None):
     if model_name == None:
         rospy.logwarn('[model_library] model is not initialized'.format(model_name))
-    if model_name == 'model1':
-        return Model1()
+    if model_name == 'kinematic_drive':
+        return KinematicDrive()
     else:
         rospy.logwarn('[model_library] model name {} is not valid!'.format(model_name))
 
@@ -107,4 +119,3 @@ def simulate(model_object, t, x0, u, p):
         x_sim = np.hstack([x_sim, sol.y]) # add the output to the x history
         x0 = row(sol.y).tolist()[0] # current solution will be used as the initial step for the next step
     return x_sim
-

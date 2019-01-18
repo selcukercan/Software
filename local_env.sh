@@ -3,7 +3,7 @@
 #
 # DIFF_NOTE: Set duckifleet root. Needed to have the calibration files under duckifleet root for processing the
 # compressed images in local pc -> decoder node need them.
-
+# inverse_kinematics_node needs it
 [ -z "$HOSTNAME"        ] && { echo -e "\n\nThe variable HOSTNAME is not set. I need this info for setting up ROS. \n\n\n\n"; return 2;       }
 
 # Do not compile Lisp messages

@@ -45,6 +45,46 @@ def defined_ros_param(ros_param_name):
         param_val = None
     return param_val
 
+def get_file_path(veh_name, model_name):
+    if model_name == 'gt':
+        return (get_duckiefleet_root()+'/calibrations/kinematics/' + veh_name + ".yaml")
+    elif model_name == 'sysid':
+        return (get_duckiefleet_root()+'/calibrations/kinematics/' + veh_name + "_sysid" + ".yaml")
+    elif model_name == 'kinematic_drive':
+        return (get_duckiefleet_root() + '/calibrations/kinematics/' + veh_name + "_" + model_name + ".yaml")
+
+def read_param_from_file(veh_name,model_object):
+    # Check file existence
+    fname = get_file_path(veh_name, model_object.name)
+    # Use default.yaml if file doesn't exsit
+    if not os.path.isfile(fname):
+        rospy.logwarn("[%s] %s does not exist. Using default.yaml." %('kinematic_calibration',fname))
+        fname = get_file_path("default", model_object.name)
+
+    with open(fname, 'r') as in_file:
+        try:
+            yaml_dict = yaml.load(in_file)
+        except yaml.YAMLError as exc:
+            rospy.logfatal("[%s] YAML syntax error. File: %s fname. Exc: %s" %('kinematic_calibration', fname, exc))
+            rospy.signal_shutdown()
+            return
+
+    if yaml_dict is None:
+        # Empty yaml file
+        rospy.logwarn('[{}] calibration file exists, but has no content, see: {}'.format('kinematic_calibration', fname))
+        return
+    else:
+        rospy.loginfo('[{}] using the parameter values from existing YAML file as the initial guesses: {}'.format('kinematic_calibration', fname))
+        model_param_array = []
+        for param in model_object.model_params:
+            try:
+                model_param_array.append(yaml_dict[param])
+            except KeyError:
+                rospy.logfatal(
+                    '[{}] attempting to access non-existing key [{}], is it defined in the YAML file?'.format('kinematic_calibration', param))
+        return model_param_array
+
+
 class calib():
     def __init__(self):
         PREPARE_CALIBRATION_DATA_FOR_OPTIMIZATION = True
@@ -95,11 +135,21 @@ class calib():
             rospy.logfatal('[{}] is not a valid source type'.format(source))
 
         # construct a model by specifying which model to use
-        model_object = model_generator('model1')
+        model_object = model_generator('kinematic_drive')
 
+        # LEFT HERE: RETURN ORDER OF PARAMET INIT AND DEFAULT MODEL CAN BE DIFFERENT ?? 
         # Optimization Settings - for details refer to "https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html"
-        self.p0 = [0.85, 0.85, 0.055] # initial guesses for the parameters (p1 = cr, p2 = cl, p3 = L)
-        self.bnds = ((None, None), (None, None), (0.050,0.60)) # bounds for the parameters
+        # see if there already is a yaml file for the model we use
+        model_param_dict = read_param_from_file(self.robot_name, model_object)
+        if model_param_dict is not None:
+            self.p0 = model_param_dict # if you want one, use the values as your initial guess.
+        else:
+            self.p0 = model_object.get_param_initial_guess() # otherwise use the default initial guesses as defined in the class of our model choice
+            rospy.logwarn(
+                '[{}] using default initial guesses defined in model {}'.format('kinematic_calibration', model_object.name))
+        # use the parameter bounds defined in the class of our model choice
+        self.bounds = model_object.get_param_bounds_list()
+
         # self.delta =  0.00
 
         # run the optimization problem
@@ -173,7 +223,7 @@ class calib():
         print 'IN NONLINEAR MODEL FIT'
         # Actual Parameter Optimization/Fitting
         # Minimize the least squares error between the model prediction
-        result = minimize(self.cost_function, self.p0, args=(model_object, experiments), bounds=self.bnds)
+        result = minimize(self.cost_function, self.p0, args=(model_object, experiments), bounds=self.bounds)
         print('[BEGIN] Optimization Result\n {} [END] Optimization Result\n'.format(result))
 
         return result.x
