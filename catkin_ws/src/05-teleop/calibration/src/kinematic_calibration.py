@@ -98,8 +98,8 @@ class calib():
         model_object = model_generator('model1')
 
         # Optimization Settings - for details refer to "https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html"
-        self.p0 = [1,1] # initial guesses for the parameters
-        self.bnds = ((None, None), (None, None)) # bounds for the parameters
+        self.p0 = [0.85, 0.85, 0.055] # initial guesses for the parameters (p1 = cr, p2 = cl, p3 = L)
+        self.bnds = ((None, None), (None, None), (0.050,0.60)) # bounds for the parameters
         # self.delta =  0.00
 
         # run the optimization problem
@@ -155,11 +155,10 @@ class calib():
                 """
 
                 """
-                #best so far
                 obj_cost += (
                              ((x_sim[0, i] - x[0, i])) ** 2 +
                              ((x_sim[1, i] - x[1, i])) ** 2 +
-                             0.0000001 * ((x_sim[2, i] - x[2, i])) ** 2
+                             ((x_sim[2, i] - x[2, i])) ** 2
                             )
                 """
                 obj_cost += (

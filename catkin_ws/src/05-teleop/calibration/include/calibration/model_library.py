@@ -36,8 +36,8 @@ class Model1(BaseModelClass):
         # input commands + model params
         [x, y, theta] = x
         (cmd_right, cmd_left) = u
-        (cl, cr) = p
-        L = 0.1 # 10 cm
+        (cr, cl, L) = p
+        #L = 0.1 # 10 cm
 
         # kinetic states through actuation
         vx = (cr * cmd_right + cl * cmd_left)
