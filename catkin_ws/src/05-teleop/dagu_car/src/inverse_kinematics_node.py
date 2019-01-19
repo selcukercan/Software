@@ -19,7 +19,7 @@ class InverseKinematicsNode(object):
         self.veh_name = self.node_name.split("/")[1]
 
         # Model Type
-        self.model_type = 'gt' # 'gt' for gain-trim model (classical) and 'sysid' for custom model (system-id based)
+        self.model_type = rospy.get_param('~model') # 'gt' for gain-trim model (classical) and 'sysid' for custom model (system-id based)
         # Select Model Function
         self.inv_model = self.select_model()
         # Read parameters from the yaml file and write them to ROS parameter server
@@ -104,6 +104,8 @@ class InverseKinematicsNode(object):
             self.L = self.setup_parameter("~L", 1)
         else:
             rospy.logfatal('Model name {} is not a valid one, failed to set parameters in setModelParams'.format(model_type))
+            rospy.signal_shutdown()
+            return
 
     def setModelServices(self):
         if self.model_type == 'gt':
@@ -124,8 +126,11 @@ class InverseKinematicsNode(object):
         if self.model_type == 'gt':
             return (get_duckiefleet_root()+'/calibrations/kinematics/' + name + ".yaml")
         elif self.model_type == 'sysid':
-            return (get_duckiefleet_root()+'/calibrations/kinematics/' + name + "_sysid" + ".yaml")
-
+            if not 'default':
+                return (get_duckiefleet_root()+'/calibrations/kinematics/' + name + "_sysid" + ".yaml")
+            else:
+                rospy.logfatal('\n\nyou must run the calibration script first to generate the model parameters.\n\n'')
+                               
     def updateActuatorLimitsReceived(self, msg_actuator_limits_received):
         self.actuator_limits_received = msg_actuator_limits_received.data
 
