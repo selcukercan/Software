@@ -55,4 +55,6 @@ roslaunch calibration compressed_image_to_world_frame.launch veh:=mete input_ros
 
 Note the `operation_mode` parameters which runs the image processing pipeline in sequential mode.
 
+Also note that image processing pipeline requires the calibration files to work correctly, currently the calibration files are look for in their default location, for instance intrinsic calibration file must be located at '![HOME_DIRECTORY]/duckiefleet/calibrations/camera_intrinsic/![ROBOT_NAME].yaml'.
+
 ## Test
