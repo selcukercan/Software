@@ -24,6 +24,25 @@ This package is an automatic wheels calibration procedure.
 
 ## Data Acquisition
 
+Start camera-related functionality by roslaunching
+
+```shell
+roslaunch pi_camera camera_apriltag_demo.launch veh:=![ROBOT_NAME]
+```
+
+Then start the data-acquisition interface by
+
+```shell
+roslaunch roslaunch calibration data_collector.launch veh:=![ROBOT_NAME]
+```
+With this interface can specify
+
+- the type of the experiment you would like to conduct by choosing amongst the presented options, 
+
+- whether to save the collected experiment data by answering the question after the experiment has been completed,
+
+- whether to do another experiment.
+
 ## Calibration  
 
 ### Processing Data
