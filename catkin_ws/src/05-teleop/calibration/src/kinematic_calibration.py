@@ -165,7 +165,7 @@ class calib():
             data_raw = DataPreparation(input_bag=test_dataset[exp]['path'], top_wheel_cmd_exec=top_wheel_cmd_exec,top_robot_pose=top_robot_pose)
             test_dataset[exp]['wheel_cmd_exec'], test_dataset[exp]['robot_pose'], test_dataset[exp]['timestamp'] = data_raw.process_raw_data()  # bring data set to format usable by the optimizer
 
-        #self.model_predictions(model_object, experiments, popt)
+        self.model_predictions(model_object, experiments, popt)
         #self.model_predictions(model_object, test_dataset, popt)
 
         # write to the kinematic calibration file
@@ -205,7 +205,7 @@ class calib():
                     )
                 """
 
-                """
+
                 obj_cost += (
                              ((x_sim[0, i] - x[0, i])) ** 2 +
                              ((x_sim[1, i] - x[1, i])) ** 2 +
@@ -217,7 +217,7 @@ class calib():
                              ((x_sim[1, i] - x[1, i]) / range_y) ** 2  +
                              ((x_sim[2, i] - x[2, i]) / range_yaw) ** 2
                             )
-
+                """
         return obj_cost
 
     def nonlinear_model_fit(self, model_object, experiments):
@@ -280,6 +280,7 @@ class calib():
 
        if not os.path.isfile(filename):
            os.mknod(filename)
+       rospy.loginfo('writing the YAML file to: [{}]'.format(filename))
        yaml_write_to_file(yaml_dict, filename)
 
 

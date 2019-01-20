@@ -20,6 +20,8 @@ class InverseKinematicsNode(object):
 
         # Model Type
         self.model_type = rospy.get_param('~model') # 'gt' for gain-trim model (classical) and 'sysid' for custom model (system-id based)
+        rospy.logwarn('Using Model Type: [{}]'.format(self.model_type))
+
         # Select Model Function
         self.inv_model = self.select_model()
         # Read parameters from the yaml file and write them to ROS parameter server
@@ -129,8 +131,8 @@ class InverseKinematicsNode(object):
             if not 'default':
                 return (get_duckiefleet_root()+'/calibrations/kinematics/' + name + "_sysid" + ".yaml")
             else:
-                rospy.logfatal('\n\nyou must run the calibration script first to generate the model parameters.\n\n'')
-                               
+                rospy.logfatal('\n\nyou must run the calibration script first to generate the model parameters.\n\n')
+
     def updateActuatorLimitsReceived(self, msg_actuator_limits_received):
         self.actuator_limits_received = msg_actuator_limits_received.data
 

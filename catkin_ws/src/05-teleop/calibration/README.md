@@ -58,4 +58,26 @@ Note the `operation_mode` parameters which runs the image processing pipeline in
 
 Also note that image processing pipeline requires the calibration files to work correctly, currently the calibration files are look for in their default location, for instance intrinsic calibration file must be located at '![HOME_DIRECTORY]/duckiefleet/calibrations/camera_intrinsic/![ROBOT_NAME].yaml'.
 
+### Optimization
+
+On your local PC, start the optimization
+
+```shell
+roslaunch calibration calibration.launch veh:=![ROBOT_NAME] folder_path:=![INPUT_FOLDER_PATH]
+```
+
+ Note that the optimization script automatically loads and feeds all the bag files that are located inside ![INPUT_FOLDER_PATH].
+
+## Transfer the calibration YAML files
+
+```shell
+scp /home/selcuk/duckiefleet/calibrations/kinematics/mete_kinematic_drive.yaml selcuk@mete:~/
+sudo mv ~/mete_kinematic_drive.yaml /data/config/calibrations/kinematics/
+```
 ## Test
+
+Run the test script with
+```shell
+scp /home/selcuk/duckiefleet/calibrations/kinematics/mete_kinematic_drive.yaml selcuk@mete:~/
+sudo mv ~/mete_kinematic_drive.yaml /data/config/calibrations/kinematics/
+```

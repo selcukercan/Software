@@ -11,8 +11,8 @@ from calibration.data_adapter_utils import *
 class DataPreparation():
     DEBUG_MODE = True # convenience flag
     TEST_MODE = False # in test mode no plots are drawn
-    DISCARD_FIRST = 2 # discard first n data
-    DISCARD_LAST = 2  # discard last n data
+    DISCARD_FIRST = 15 # discard first n data
+    DISCARD_LAST = 15  # discard last n data
 
     def __init__(self, input_bag = None, top_wheel_cmd_exec = None, top_robot_pose = None, save_as = None, dump = False):
         self.input_bag = input_bag
