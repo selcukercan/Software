@@ -23,7 +23,7 @@ class ToLocalPose:
 
         # initialize the node
         rospy.init_node('publish_detections_in_local_frame_node', anonymous=False)
-
+        rospy.sleep(2) # to ensure that the the rosparam service is initialized before the values requested below (an observed issue)  
         # Parameters
         # determine we work synchronously or asynchronously, where asynchronous is the default
         # mode of operation. synchronous operation is benefitial when post-processing the recorded
@@ -141,7 +141,7 @@ class ToLocalPose:
 
                 """
                 # finally publish the message
-                self.pub_detection_in_robot_frame.publish(veh_pose_euler_msg)    
+                self.pub_detection_in_robot_frame.publish(veh_pose_euler_msg)
                 """
 
                 # save the message to the bag file that contains compressed_images

@@ -4,6 +4,7 @@
 
 **TO DO**
 ⁻ Gracefully stop rosbag recording in compressed_image_to_world_frame.launch, so far requires hard-kill via CTRL+C.
+- Bug in compressed_image_to_world_frame: see issues.
 
 **REQUIRED**:
 
@@ -11,6 +12,7 @@ To be able to run the launch file: compressed_image_to_world_frame.launch:
 
 use local_env.sh which sets the DUCKIEFLEET_ROOT to the default location. Make sure to include your calibration folder at DUCKIEFLEET_ROOT.
 
+Install the lastest version of the scipy, as the code uses `ivp_solver` that is introduced in scipy version v1.2.0
 
 This package is an automatic wheels calibration procedure.
 
@@ -23,6 +25,25 @@ This package is an automatic wheels calibration procedure.
 
 ## Data Acquisition
 
+Start camera-related functionality by roslaunching
+
+```shell
+roslaunch pi_camera camera_apriltag_demo.launch veh:=![ROBOT_NAME]
+```
+
+Then start the data-acquisition interface by
+
+```shell
+roslaunch roslaunch calibration data_collector.launch veh:=![ROBOT_NAME]
+```
+With this interface can specify
+
+- the type of the experiment you would like to conduct by choosing amongst the presented options,
+
+- whether to save the collected experiment data by answering the question after the experiment has been completed,
+
+- whether to do another experiment.
+
 ## Calibration  
 
 ### Processing Data
@@ -34,5 +55,7 @@ roslaunch calibration compressed_image_to_world_frame.launch veh:=mete input_ros
 ```
 
 Note the `operation_mode` parameters which runs the image processing pipeline in sequential mode.
+
+Also note that image processing pipeline requires the calibration files to work correctly, currently the calibration files are look for in their default location, for instance intrinsic calibration file must be located at '![HOME_DIRECTORY]/duckiefleet/calibrations/camera_intrinsic/![ROBOT_NAME].yaml'.
 
 ## Test
