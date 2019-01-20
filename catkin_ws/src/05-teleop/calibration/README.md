@@ -20,7 +20,7 @@ This package is an automatic wheels calibration procedure.
 
 - The launchfile calibration.launch calculates the different parameters of the theoretical model that fit best the trajectory of the Duckiebot.
 
-- The launchfile test.launch tests if the callibration has succeded or not.
+- The launchfile test.launch tests if the calibration has succeed or not.
 
 
 ## Data Acquisition
