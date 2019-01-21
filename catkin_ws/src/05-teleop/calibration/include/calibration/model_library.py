@@ -1,12 +1,10 @@
-from abc import ABCMeta, abstractmethod
 import rospy
-from scipy.integrate import solve_ivp
 import numpy as np
+
+from abc import ABCMeta, abstractmethod
+from scipy.integrate import solve_ivp
 from calibration.data_adapter_utils import *
-from duckietown_utils import get_duckiefleet_root
-from math import cos
-import datetime
-import os
+
 
 class BaseModelClass(object):
     __metaclass__ = ABCMeta

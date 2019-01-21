@@ -5,19 +5,20 @@ import numpy as np
 import copy
 import pickle
 from calibration.data_adapter_utils import *
-
+from calibration.plotting_utils import *
 #opy.init_notebook_mode(connected=True)
 
 class DataPreparation():
     DEBUG_MODE = True # convenience flag
     TEST_MODE = False # in test mode no plots are drawn
-    DISCARD_FIRST = 15 # discard first n data
-    DISCARD_LAST = 15  # discard last n data
+    DISCARD_FIRST = 20 # discard first n data
+    DISCARD_LAST = 20  # discard last n data
 
-    def __init__(self, input_bag = None, top_wheel_cmd_exec = None, top_robot_pose = None, save_as = None, dump = False):
+    def __init__(self, input_bag = None, top_wheel_cmd_exec = None, top_robot_pose = None, save_as = None, dump = False, exp_name='', mode='train'):
         self.input_bag = input_bag
         self.wheel_cmd, self.robot_pose = self.load_bag(input_bag, top_wheel_cmd_exec, top_robot_pose)
-
+        self.exp_name = exp_name
+        self.operation_mode = mode
     def process_raw_data(self):
         """
         process the data contained in a rosbag file and bring it to the form accepted by the optimization
@@ -44,6 +45,9 @@ class DataPreparation():
         wheel_cmd_exec_opt = self.u_adapter(wheel_cmd_exec_sel)
         robot_pose_opt = self.x_adapter(robot_pose_sel)
 
+        if self.operation_mode == 'train':
+            robot_pose_opt = self.filter(robot_pose_opt, [5,5,5])
+
         return wheel_cmd_exec_opt, robot_pose_opt, t
 
     def experiment_duration(self):
@@ -65,7 +69,7 @@ class DataPreparation():
         actuated_t = [wheel_cmd['timestamp'][i] for i in actuated_i]
 
         if actuated_t == []:  # there does not exist a time instance when robot is actuated.
-            rospy.logerr('DATA SET DOES NOT CONTAIN ANY ACTUATION COMMANDS')
+            rospy.logerr('DATA SET DOES NOT CONTAIN ANY ACTUATION COMMAND')
 
         start_time = actuated_t[0]  # first time instance when an the vehicle recieves an actuation command
         end_time = actuated_t[-1]  # last time instance when an the vehicle recieves an actuation command. notice that this is not necessarily the stopping instance as the vehicle will keep on moving due to inertia.
@@ -254,6 +258,88 @@ class DataPreparation():
             dict[key] = dict[key][discard_first:-discard_last]
         return dict
 
+    def filter(self, robot_pose_opt, flen_array):
+            (x_pos , y_pos, yaw_pos) = [robot_pose_opt[i,:] for i in range(3)] #unpack position measurements
+            (flen_x, flen_y, flen_yaw) = [flen_array[i] for i in range(3)] #unpack filter lengths
+
+            # apply filters
+            xpos_filt = smooth(x_pos, window_len=flen_x, window='hanning')
+            ypos_filt = smooth(y_pos, window_len=flen_y, window='hanning')
+            yaw_pos_filt = smooth(yaw_pos, window_len=flen_yaw, window='flat')
+
+            # construct filtered output
+            robot_pose_opt_filt = np.zeros((3, xpos_filt.shape[0]))
+            robot_pose_opt_filt[0,:] = xpos_filt
+            robot_pose_opt_filt[1,:] = ypos_filt
+            robot_pose_opt_filt[2,:] = yaw_pos_filt
+
+            # plot original and filtered signals on the same pot
+            multiplot(states_list=[robot_pose_opt, robot_pose_opt_filt],
+                      experiment_name_list=['Original Signal', 'Filtered Signal'],
+                      mode='single_view',
+                      plot_title = self.exp_name + ' filtering')
+
+            return robot_pose_opt_filt
+
+
+def smooth(x, window_len=1, window='hanning'):
+    """
+    taken from: https://scipy-cookbook.readthedocs.io/items/SignalSmooth.html
+    smooth the data using a window with requested size.
+
+    This method is based on the convolution of a scaled window with the signal.
+    The signal is prepared by introducing reflected copies of the signal
+    (with the window size) in both ends so that transient parts are minimized
+    in the begining and end part of the output signal.
+
+    input:
+        x: the input signal
+        window_len: the dimension of the smoothing window; should be an odd integer
+        window: the type of window from 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'
+            flat window will produce a moving average smoothing.
+
+    output:
+        the smoothed signal
+
+    example:
+
+    t=linspace(-2,2,0.1)
+    x=sin(t)+randn(len(t))*0.1
+    y=smooth(x)
+
+    see also:
+
+    numpy.hanning, numpy.hamming, numpy.bartlett, numpy.blackman, numpy.convolve
+    scipy.signal.lfilter
+
+    TODO: the window parameter could be the window itself if an array instead of a string
+    NOTE: length(output) != length(input), to correct this: return y[(window_len/2-1):-(window_len/2)] instead of just y.
+    """
+
+    if x.ndim != 1:
+        raise ValueError, "smooth only accepts 1 dimension arrays."
+
+    if x.size < window_len:
+        raise ValueError, "Input vector needs to be bigger than window size."
+
+
+    if window_len<3:
+        return x
+
+
+    if not window in ['flat', 'hanning', 'hamming', 'bartlett', 'blackman']:
+        raise ValueError, "Window is on of 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'"
+
+    s=np.r_[x[window_len-1:0:-1], x, np.flip(x[x.size - window_len:x.size-1])]
+    #print(len(s))
+    if window == 'flat': #moving average
+        w=np.ones(window_len,'d')
+    else:
+        w=eval('np.'+window+'(window_len)')
+
+    y=np.convolve(w/w.sum(),s,mode='valid')
+    return y[0:x.size]
+    #return y[(window_len/2-1):-(window_len/2-1)]
 
 # UTILITY FUNCTIONS AND CLASSES
 

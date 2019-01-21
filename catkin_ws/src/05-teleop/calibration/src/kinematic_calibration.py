@@ -1,93 +1,23 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import numpy as np
-import rosbag
 import rospy
-import time
 import datetime
 import os
-import math
-import yaml
 import os.path
 
-from duckietown_utils.path_utils import get_ros_package_path
-from duckietown_utils.yaml_wrap import (yaml_load_file, yaml_write_to_file)
-from duckietown_utils import (logger, get_duckiefleet_root)
-#from duckietown_utils import rgb_from_ros
 from scipy.optimize import minimize
-from os.path import expanduser
 from os.path import join
 
+from duckietown_utils.yaml_wrap import (yaml_load_file, yaml_write_to_file)
 from calibration.data_preperation_utils import DataPreparation
 from calibration.data_preperation_utils import load_pickle, save_pickle
 from calibration.model_library import model_generator, simulate
 from calibration.data_adapter_utils import *
 from calibration.plotting_utils import *
+from calibration.metrics import *
+from calibration.utils import *
 
-
-def norm_rmse(x, x_sim):
-    norm_mse_x = rmse(x[0, :], x_sim[0, :]) / (max(x[0, :]) - min(x[0, :]))
-    norm_mse_y = rmse(x[1, :], x_sim[1, :]) / (max(x[1, :]) - min(x[1, :]))
-    norm_mse_yaw = rmse(x[2, :], x_sim[2, :]) / (max(x[2, :]) - min(x[2, :]))
-    return np.mean(norm_mse_x + norm_mse_y + norm_mse_yaw)
-
-def rmse(x, x_sim):
-    return np.sqrt(np.mean(np.power((x - x_sim),2)))
-
-
-def defined_ros_param(ros_param_name):
-    try:
-        param_val = rospy.get_param(ros_param_name)
-    except KeyError:
-        rospy.logfatal('Parameter {} is not defined in ROS parameter server'.format(ros_param_name))
-        param_val = None
-    return param_val
-
-def get_file_path(veh_name, model_name):
-    if model_name == 'gt':
-        return (get_duckiefleet_root()+'/calibrations/kinematics/' + veh_name + ".yaml")
-    elif model_name == 'sysid':
-        return (get_duckiefleet_root()+'/calibrations/kinematics/' + veh_name + "_sysid" + ".yaml")
-    elif model_name == 'kinematic_drive':
-        return (get_duckiefleet_root() + '/calibrations/kinematics/' + veh_name + "_" + model_name + ".yaml")
-
-def read_param_from_file(veh_name,model_object):
-    # Check file existence
-    fname = get_file_path(veh_name, model_object.name)
-    # Use default.yaml if file doesn't exsit
-    if not os.path.isfile(fname):
-        rospy.logwarn("[%s] %s does not exist, will use model defaults" %('kinematic_calibration',fname))
-        return None
-
-    with open(fname, 'r') as in_file:
-        try:
-            yaml_dict = yaml.load(in_file)
-        except yaml.YAMLError as exc:
-            rospy.logfatal("[%s] YAML syntax error. File: %s fname. Exc: %s" %('kinematic_calibration', fname, exc))
-            rospy.signal_shutdown()
-            return
-
-    if yaml_dict is None:
-        # Empty yaml file
-        rospy.logwarn('[{}] calibration file exists, but has no content, see: {}'.format('kinematic_calibration', fname))
-        return
-    else:
-        rospy.loginfo('[{}] using the parameter values from existing YAML file as the initial guesses: {}'.format('kinematic_calibration', fname))
-        model_param_dict = {}
-        for param in model_object.model_params.keys():
-            try:
-                model_param_dict[param] = yaml_dict[param]
-            except KeyError:
-                rospy.logfatal(
-                    '[{}] attempting to access non-existing key [{}], is it defined in the YAML file?'.format('kinematic_calibration', param))
-        return model_param_dict
-
-def dict_to_ordered_array(model_object, param_dict):
-    param_array = []
-    for param in model_object.param_ordered_list:
-        param_array.append(param_dict[param])
-    return param_array
 
 class calib():
     def __init__(self):
@@ -129,8 +59,11 @@ class calib():
 
         # load and process experiment data to be used in in the optimization
         if source == 'folder':
-            for exp in experiments.keys():
-                data_raw = DataPreparation(input_bag=experiments[exp]['path'], top_wheel_cmd_exec=top_wheel_cmd_exec, top_robot_pose=top_robot_pose)
+            for i, exp in enumerate(experiments.keys()):
+                data_raw = DataPreparation(input_bag=experiments[exp]['path'],
+                                           top_wheel_cmd_exec=top_wheel_cmd_exec,
+                                           top_robot_pose=top_robot_pose,
+                                           exp_name='Training Data {}: {}'.format(i + 1,exp))
                 experiments[exp]['wheel_cmd_exec'], experiments[exp]['robot_pose'], experiments[exp]['timestamp']= data_raw.process_raw_data() # bring data set to format usable by the optimizer
             save_pickle(object=experiments, save_as=set_name)
         elif source == 'pickle':
@@ -161,12 +94,15 @@ class calib():
         test_dataset = self.input_folder_to_experiment_dict(path_test_data)
 
         # load and process the experiment data to be used in for testing the model
-        for exp in test_dataset.keys():
-            data_raw = DataPreparation(input_bag=test_dataset[exp]['path'], top_wheel_cmd_exec=top_wheel_cmd_exec,top_robot_pose=top_robot_pose)
-            test_dataset[exp]['wheel_cmd_exec'], test_dataset[exp]['robot_pose'], test_dataset[exp]['timestamp'] = data_raw.process_raw_data()  # bring data set to format usable by the optimizer
+        for i, exp in enumerate(test_dataset.keys()):
+            test_data_raw = DataPreparation(input_bag=test_dataset[exp]['path'],
+                                            top_wheel_cmd_exec=top_wheel_cmd_exec,
+                                            top_robot_pose=top_robot_pose,
+                                            exp_name='Test Data {}: {}'.format(i+1, exp))
+            test_dataset[exp]['wheel_cmd_exec'], test_dataset[exp]['robot_pose'], test_dataset[exp]['timestamp'] = test_data_raw.process_raw_data()  # bring data set to format usable by the optimizer
 
-        self.model_predictions(model_object, experiments, popt)
-        #self.model_predictions(model_object, test_dataset, popt)
+        #self.model_predictions(model_object, experiments, popt)
+        self.model_predictions(model_object, test_dataset, popt, plot_title= "Model: {} DataSet: {}".format(model_object.name, test_data_raw.exp_name))
 
         # write to the kinematic calibration file
         self.write_calibration(model_object, popt)
@@ -205,7 +141,7 @@ class calib():
                     )
                 """
 
-
+                """
                 obj_cost += (
                              ((x_sim[0, i] - x[0, i])) ** 2 +
                              ((x_sim[1, i] - x[1, i])) ** 2 +
@@ -217,7 +153,7 @@ class calib():
                              ((x_sim[1, i] - x[1, i]) / range_y) ** 2  +
                              ((x_sim[2, i] - x[2, i]) / range_yaw) ** 2
                             )
-                """
+
         return obj_cost
 
     def nonlinear_model_fit(self, model_object, experiments):
@@ -229,7 +165,7 @@ class calib():
 
         return result.x
 
-    def model_predictions(self, model_object, experiments, popt):
+    def model_predictions(self, model_object, experiments, popt, plot_title=''):
         for exp_name in experiments.keys():
             exp_data = experiments[exp_name]
             t = exp_data['timestamp']
@@ -242,11 +178,7 @@ class calib():
             x_sim_opt = simulate(model_object, t, x0, u, popt)
             x_sim_init = simulate(model_object, t, x0, u, self.p0)
 
-            """
-            plot_system(states=x, time=t, experiment_name=exp_name + '_measurement')
-            plot_system(states=x_sim_init, time=t, experiment_name=exp_name + '_simulated_init')
-            plot_system(states=x_sim_opt, time=t, experiment_name=exp_name + '_simulated_optimal')
-            """
+            # calculate the error metric
             exp_mse = norm_rmse(x, x_sim_opt)
 
             print('\nModel Performance Evaluation:\nModel Name: {}\nMSE: {}'.format(exp_name, exp_mse))
@@ -256,7 +188,8 @@ class calib():
                       input_list=[u,u,u],
                       time_list=[t,t,t],
                       experiment_name_list=[exp_name + '_measurement', exp_name + '_simulated_init', exp_name + '_simulated_optimal'],
-                      mode = 'single_view')
+                      mode = 'single_view',
+                      plot_title=plot_title)
 
 
     @staticmethod
