@@ -19,6 +19,7 @@ class TestRun:
         rospy.init_node('Command', anonymous=True)
         self.rate = rospy.Rate(30) # 30 Hz
 
+        veh = "mete"
         # Publisher
         publisher= '/' + veh + "/joy_mapper_node/car_cmd"
         self.pub_car_cmd = rospy.Publisher(publisher, Twist2DStamped, queue_size=1)
@@ -60,7 +61,7 @@ class TestRun:
             """
 
             self.straight()
-                
+
             rospy.loginfo("\n\nDo you want run another test round? (respond with yes or no)\n\n")
             user_wish = raw_input()
 
@@ -100,4 +101,34 @@ if __name__ == '__main__':
     calib = TestRun()
     calib.perform_experiments()
 
-    #os.system("rosnode kill /record")
+"""
+# self.omega = rospy.get_param("~omega")
+self.omega1=2.0*pi / 8.0
+self.omega2=-2.0*pi / 8.0
+
+def sendCommand(self, vel_right, vel_left):
+    # Put the wheel commands in a message and publish
+    msg_wheels_cmd = Twist2DStamped()
+    msg_wheels_cmd.header.stamp = rospy.Time.now()
+    msg_wheels_cmd.v =vel_right
+    msg_wheels_cmd.omega =vel_left
+    self.pub_wheels_cmd.publish(msg_wheels_cmd)
+
+def straight(self):
+    for n in range(0,10):
+        self.sendCommand(0.2, 0)
+        rospy.sleep(0.5)
+    self.sendCommand(0, 0)
+
+def turn1(self):
+    for i in range(0,16):
+        self.sendCommand(0.2,self.omega1)
+        rospy.sleep(0.5)
+    self.sendCommand(0,0)
+
+def turn2(self):
+    for i in range(0,16):
+        self.sendCommand(0.2,self.omega2)
+        rospy.sleep(0.5)
+    self.sendCommand(0,0)
+"""

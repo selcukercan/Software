@@ -2,6 +2,7 @@
 import rospy
 from duckietown_msgs.msg import WheelsCmdStamped, Twist2DStamped, BoolStamped
 from duckietown_msgs.srv import SetValueRequest, SetValueResponse, SetValue
+from calibration.model_library import model_generator
 from std_srvs.srv import EmptyRequest, EmptyResponse, Empty
 from numpy import *
 import yaml
@@ -28,13 +29,12 @@ class InverseKinematicsNode(object):
         self.readParamFromFile()
         # Set local variables (class variables) by reading the values from ROS parameters server
         self.setModelParams()
+
         self.v_max = 999.0     # TODO: Calculate v_max !
         self.omega_max = 999.0     # TODO: Calculate v_max !
 
         # Prepare services
         self.setModelServices()
-        # Common services
-        self.srv_save = rospy.Service("~save_calibration", Empty, self.cbSrvSaveCalibration)
 
         # Setup the publisher and subscriber
         self.sub_car_cmd = rospy.Subscriber("~car_cmd", Twist2DStamped, self.car_cmd_callback)
@@ -86,10 +86,15 @@ class InverseKinematicsNode(object):
     def getModelParamList(self):
         if self.model_type == 'gt':
             return ["gain", "trim", "baseline", "k", "radius", "limit"]
-        elif self.model_type == 'sysid':
+        elif self.model_type == 'kinematic_drive':
             return ["dr", "dl", "L"]
 
     def setModelParams(self):
+        # common parameters
+        self.limit = self.setup_parameter("~limit", 1.0)
+        self.limit_max = 1.0
+        self.limit_min = 0.0
+
         if self.model_type == 'gt':
             # Set local variable by reading parameters
             self.gain = self.setup_parameter("~gain", 0.6)
@@ -97,10 +102,7 @@ class InverseKinematicsNode(object):
             self.baseline = self.setup_parameter("~baseline", 0.1)
             self.radius = self.setup_parameter("~radius", 0.0318)
             self.k = self.setup_parameter("~k", 27.0)
-            self.limit = self.setup_parameter("~limit", 1.0)
-            self.limit_max = 1.0
-            self.limit_min = 0.0
-        elif self.model_type == 'sysid':
+        elif self.model_type == 'kinematic_drive':
             self.dr = self.setup_parameter("~dr", 1)
             self.dl = self.setup_parameter("~dl", 1)
             self.L = self.setup_parameter("~L", 1)
@@ -110,6 +112,9 @@ class InverseKinematicsNode(object):
             return
 
     def setModelServices(self):
+        # Common services
+        self.srv_save = rospy.Service("~save_calibration", Empty, self.cbSrvSaveCalibration)
+
         if self.model_type == 'gt':
             self.srv_set_gain = rospy.Service("~set_gain", SetValue, self.cbSrvSetGain)
             self.srv_set_trim = rospy.Service("~set_trim", SetValue, self.cbSrvSetTrim)
@@ -117,7 +122,7 @@ class InverseKinematicsNode(object):
             self.srv_set_radius = rospy.Service("~set_radius", SetValue, self.cbSrvSetRadius)
             self.srv_set_k = rospy.Service("~set_k", SetValue, self.cbSrvSetK)
             self.srv_set_limit = rospy.Service("~set_limit", SetValue, self.cbSrvSetLimit)
-        elif self.model_type == 'sysid':
+        elif self.model_type == 'kinematic_drive':
             self.srv_set_dr = rospy.Service("~set_dr", SetValue, self.cbSrvSetDR)
             self.srv_set_dl = rospy.Service("~set_dl", SetValue, self.cbSrvSetDL)
             self.srv_set_L = rospy.Service("~set_L", SetValue, self.cbSrvSetL)
@@ -127,9 +132,9 @@ class InverseKinematicsNode(object):
     def getFilePath(self, name):
         if self.model_type == 'gt':
             return (get_duckiefleet_root()+'/calibrations/kinematics/' + name + ".yaml")
-        elif self.model_type == 'sysid':
-            if not 'default':
-                return (get_duckiefleet_root()+'/calibrations/kinematics/' + name + "_sysid" + ".yaml")
+        elif self.model_type == 'kinematic_drive':
+            if name != 'default':
+                return (get_duckiefleet_root()+'/calibrations/kinematics/' + name + "_" + self.model_type + ".yaml")
             else:
                 rospy.logfatal('\n\nyou must run the calibration script first to generate the model parameters.\n\n')
 
@@ -156,7 +161,7 @@ class InverseKinematicsNode(object):
         self.printValues()
         rospy.loginfo("[%s] Saved to %s" %(self.node_name, file_name))
 
-    # [Start] Sysid Model Services
+    # [Start] Kinematic Drive Model Services
     def cbSrvSetDR(self, req):
         self.dr = req.value
         self.printValues()
@@ -180,7 +185,7 @@ class InverseKinematicsNode(object):
         self.msg_actuator_limits.omega = self.omega_max     # TODO: Calculate omega_max !
         self.pub_actuator_limits.publish(self.msg_actuator_limits)
         return SetValueResponse()
-    # [End] Sysid Model Services
+    # [End] Kinematic Drive Model Services
 
     # [Start] GT Model Services
     def cbSrvSaveCalibration(self, req):
@@ -250,7 +255,7 @@ class InverseKinematicsNode(object):
     def printValues(self):
         if self.model_type == 'gt':
             rospy.loginfo("[%s] gain: %s trim: %s baseline: %s radius: %s k: %s limit: %s" % (self.node_name, self.gain, self.trim, self.baseline, self.radius, self.k, self.limit))
-        elif self.model_type == 'sysid':
+        elif self.model_type == 'kinematic_drive':
             rospy.loginfo("[%s] dr: %s dl: %s L: %s " % (self.node_name, self.dr, self.dl, self.L))
 
     def car_cmd_callback(self, msg_car_cmd):
@@ -301,7 +306,7 @@ class InverseKinematicsNode(object):
     def select_model(self):
         if self.model_type == 'gt':
             return self.gt
-        elif self.model_type == 'sysid':
+        elif self.model_type == 'kinematic_drive':
             return self.kinematic_drive
 
     def setup_parameter(self, param_name, default_value):
