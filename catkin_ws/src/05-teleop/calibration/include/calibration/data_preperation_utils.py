@@ -5,7 +5,7 @@ import numpy as np
 import copy
 import pickle
 from calibration.data_adapter_utils import *
-from calibration.plotting_utils import *
+#from calibration.plotting_utils import *
 #opy.init_notebook_mode(connected=True)
 
 class DataPreparation():
@@ -46,7 +46,7 @@ class DataPreparation():
         robot_pose_opt = self.x_adapter(robot_pose_sel)
 
         if self.operation_mode == 'train':
-            robot_pose_opt = self.filter(robot_pose_opt, [5,5,5])
+            robot_pose_opt = self.filter(robot_pose_opt, [3,3,3], ["flat" , "flat", "flat"])
 
         return wheel_cmd_exec_opt, robot_pose_opt, t
 
@@ -258,14 +258,15 @@ class DataPreparation():
             dict[key] = dict[key][discard_first:-discard_last]
         return dict
 
-    def filter(self, robot_pose_opt, flen_array):
+    def filter(self, robot_pose_opt, flen_array, filter_type):
             (x_pos , y_pos, yaw_pos) = [robot_pose_opt[i,:] for i in range(3)] #unpack position measurements
             (flen_x, flen_y, flen_yaw) = [flen_array[i] for i in range(3)] #unpack filter lengths
+            (ftype_x, ftype_y, ftype_yaw) = [filter_type[i] for i in range(3)] #unpack filter types
 
             # apply filters
-            xpos_filt = smooth(x_pos, window_len=flen_x, window='hanning')
-            ypos_filt = smooth(y_pos, window_len=flen_y, window='hanning')
-            yaw_pos_filt = smooth(yaw_pos, window_len=flen_yaw, window='flat')
+            xpos_filt = smooth(x_pos, window_len=flen_x, window=ftype_x)
+            ypos_filt = smooth(y_pos, window_len=flen_y, window=ftype_y)
+            yaw_pos_filt = smooth(yaw_pos, window_len=flen_yaw, window=ftype_yaw)
 
             # construct filtered output
             robot_pose_opt_filt = np.zeros((3, xpos_filt.shape[0]))
@@ -330,8 +331,10 @@ def smooth(x, window_len=1, window='hanning'):
     if not window in ['flat', 'hanning', 'hamming', 'bartlett', 'blackman']:
         raise ValueError, "Window is on of 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'"
 
+    #  mirror the beginning and end of the sequence with window length -1 elements
+    # if array x = [1,2,3,4,5] and window_len = 2, then s = [2, 1, 2, 3, 4, 5, 4]
     s=np.r_[x[window_len-1:0:-1], x, np.flip(x[x.size - window_len:x.size-1])]
-    #print(len(s))
+
     if window == 'flat': #moving average
         w=np.ones(window_len,'d')
     else:

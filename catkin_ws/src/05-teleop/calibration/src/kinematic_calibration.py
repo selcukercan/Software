@@ -43,6 +43,9 @@ class calib():
         param_folder_path = host_package_node + '/' + "folder_path"
         #path_training_data = rospy.get_param(param_folder_path)
         path_training_data = defined_ros_param(param_folder_path)
+        param_model_type = host_package_node + '/' + "model"
+        model_type = defined_ros_param(param_model_type)
+
         path_test_data = '/home/selcuk/test_bags/test_set'
 
         # training data set container
@@ -72,7 +75,7 @@ class calib():
             rospy.logfatal('[{}] is not a valid source type'.format(source))
 
         # construct a model by specifying which model to use
-        model_object = model_generator('kinematic_drive')
+        model_object = model_generator(model_type)
 
         # Optimization Settings - for details refer to "https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html"
         # see if there already is a yaml file for the model we can use

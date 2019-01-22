@@ -21,8 +21,8 @@
 standalone_tags:
   [
     {id: 1, size: 0.065, name: Tag1},
-    {id: 2, size: 0.065, name: Tag2},
-    {id: 3, size: 0.065, name: Tag3},
+    {id: 2, size: 0.1735, name: Tag2},
+    {id: 3, size: 0.1735, name: Tag3},
     {id: 4, size: 0.065, name: Tag4},
     {id: 5, size: 0.065, name: Tag5},
     {id: 6, size: 0.065, name: Tag6},

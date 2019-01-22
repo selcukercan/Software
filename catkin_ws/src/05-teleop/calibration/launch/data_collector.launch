@@ -2,16 +2,6 @@
   <arg name="veh" doc="Name of vehicle. ex: megaman"/>
   <arg name="package_namespace" default="calibration" />
   <arg name="node_namespace" default="data_collector" />
-  <!-- input sequence related arguments -->
-  <!-- ramp-up experiment-->
-  <arg name="vFin" default="0.5" doc="Final command value for straight calibration."/>
-  <arg name="Nstep" default="180" doc="Step size for straight calibration."/>
-  <!-- arg name="stepTime" default="0.5" doc="Step duration for straight calibration."/ -->
-  <!-- sine experiment-->
-  <arg name="k1" default="0.2" doc="Mean command for sine calibration."/>
-  <arg name="k2" default="0.06" doc="Amplitude of sines."/>
-  <arg name="omega" default="0.007" doc="Angular velocity."/>
-  <arg name="duration" default="2000" doc="Duration of sine calibration."/>
 
   <!-- Launch the rosbag_recorder node to start/stop bag file inside a node in this package -->
   <node  pkg="rosbag_recorder" type="rosbag_recorder_server.py" name="rosbag_recorder_server" output="screen"/>
@@ -28,16 +18,6 @@
   <group ns="$(arg veh)/$(arg package_namespace)">
     <node  pkg="calibration" type="$(arg node_namespace).py" name="$(arg node_namespace)" output="screen" clear_params="true" required="true">
       <param name="veh" value="$(arg veh)"/>
-      <!-- parameters describing the ramp-up input sequence -->
-      <param name="vFin" value="$(arg vFin)"/>
-      <param name="Nstep" value="$(arg Nstep)"/>
-      <!-- param name="stepTime" value="$(arg stepTime)"/ -->
-
-      <!-- parameters describing the sine input sequence -->
-      <param name="k1" value="$(arg k1)"/>
-      <param name="k2" value="$(arg k2)"/>
-      <param name="omega" value="$(arg omega)"/>
-      <param name="duration" value="$(arg duration)"/>
     </node>
   </group>
 </launch>

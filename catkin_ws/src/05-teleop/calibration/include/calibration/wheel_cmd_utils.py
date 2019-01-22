@@ -2,6 +2,8 @@ from abc import ABCMeta, abstractmethod
 import rospy
 from math import cos
 import datetime
+from scipy.signal import sweep_poly
+import numpy as np
 
 class BaseExperimentClass(object):
     __metaclass__ = ABCMeta
@@ -11,12 +13,12 @@ class BaseExperimentClass(object):
         pass
 
     @abstractmethod
-    def generate_input(self, param_dict):
-        """gets a dictionary containing the parameter values that are required to generate the input sequence for the particular input genre"""
+    def generate_input(self, req_parameter_dict):
+        """gets a dictionary containing the parameter values that are required to generate the input sequence for the particular input genre and returns a python list"""
         return
 
     def generate_experiment_label(self):
-        """generates a custom experiment label considering experiment time, experiment type, parameter names and their values"""
+        """generates a custom experiment label with experiment time, experiment type, parameter names and their values"""
         now = datetime.datetime.now().strftime("%Y_%m_%d_%H:%M")
         experiment_name_base = self.name + "_"+ now
 
@@ -34,14 +36,12 @@ class RampUp(BaseExperimentClass):
         self.name = "ramp_up"
         self.parameter_dict = {'Nstep': 180, 'vFin': 0.5}
 
-    def generate_input(self, parameter_dict):
-        parameter_dict = self.parameter_dict
-
+    def generate_input(self, req_parameter_dict):
         input_sequence = {'left_wheel': [], 'right_wheel': []}
-        rospy.loginfo("[generate_input] generating input sequence of type {} with parameters {}".format("RampUp", str(parameter_dict)))
+        rospy.loginfo("[generate_input] generating input sequence of type {} with parameters {}".format("RampUp", str(req_parameter_dict)))
 
-        for n in range(1, int(parameter_dict['Nstep']) + 1):
-            v = parameter_dict['vFin']/parameter_dict['Nstep'] * n
+        for n in range(1, int(req_parameter_dict['Nstep']) + 1):
+            v = req_parameter_dict['vFin']/req_parameter_dict['Nstep'] * n
             input_sequence['left_wheel'].append(v)
             input_sequence['right_wheel'].append(v)
         input_sequence['left_wheel'].append(0)
@@ -55,22 +55,46 @@ class Sine(BaseExperimentClass):
     def __init__(self):
         rospy.loginfo("\ninitialized Sine experiment with the default values for parameters")
         self.name = "sine"
-        self.parameter_dict = {'k1': 0.2, 'k2': 0.06, 'omega': 0.007, 'duration': 2000}
+        self.parameter_dict = {'k1': 0.2, 'k2': 0.06, 'omega': 0.007, 'duration': 1500}
 
-    def generate_input(self, parameter_dict):
-        parameter_dict = self.parameter_dict
-
+    def generate_input(self, req_parameter_dict):
         input_sequence = {'left_wheel': [], 'right_wheel': []}
-        rospy.loginfo("[generate_input] generating input sequence of type {} with parameters {}".format("Sine", str(parameter_dict)))
+        rospy.loginfo("[generate_input] generating input sequence of type {} with parameters {}".format("Sine", str(req_parameter_dict)))
 
-        for t in range(0,int(parameter_dict['duration']),10):
-            input_sequence['left_wheel'].append(parameter_dict['k1'] - parameter_dict['k2'] * cos(parameter_dict['omega'] * t))
-            input_sequence['right_wheel'].append(parameter_dict['k1'] + parameter_dict['k2'] * cos(parameter_dict['omega'] * t))
+        for t in range(0,int(req_parameter_dict['duration']), 10): # increments of 10 ms
+            input_sequence['left_wheel'].append(req_parameter_dict['k1'] - req_parameter_dict['k2'] * cos(req_parameter_dict['omega'] * t))
+            input_sequence['right_wheel'].append(req_parameter_dict['k1'] + req_parameter_dict['k2'] * cos(req_parameter_dict['omega'] * t))
         input_sequence['left_wheel'].append(0)
         input_sequence['right_wheel'].append(0)
 
         return input_sequence
 
+class SweepSine(BaseExperimentClass):
+
+    def __init__(self):
+        rospy.loginfo("\ninitialized SweepSine experiment with the default values for parameters")
+        self.name = "sweep_sine"
+        self.parameter_dict = {'k1': 0.2, 'k2': 0.06, 'omega_low': 0.005, 'omega_high': 0.008, 'duration': 1500}
+
+    def generate_input(self, req_parameter_dict):
+
+        input_sequence = {'left_wheel': [], 'right_wheel': []}
+        rospy.loginfo("[generate_input] generating input sequence of type {} with parameters {}".format("Sine", str(req_parameter_dict)))
+
+        poly = np.poly1d([(req_parameter_dict['omega_high'] - req_parameter_dict['omega_low']) / req_parameter_dict['duration'], req_parameter_dict['omega_low']])
+        t = np.arange(0,int(req_parameter_dict['duration']), 10)
+        fval = sweep_poly(t, poly)
+
+        input_sequence['left_wheel'] = req_parameter_dict['k1'] - req_parameter_dict['k2'] * fval
+        input_sequence['right_wheel'] = req_parameter_dict['k1'] + req_parameter_dict['k2'] * fval
+
+        input_sequence['left_wheel'] = np.append(input_sequence['left_wheel'], 0).tolist()
+        input_sequence['right_wheel'] = np.append(input_sequence['right_wheel'], 0).tolist()
+
+        simple_plot(t, input_sequence['left_wheel'], plot_name="left_wheel")
+        #simple_plot(t, input_sequence['right_wheel'], plot_name="right_wheel")
+
+        return input_sequence
 
 class ExperimentUI():
 
@@ -108,5 +132,21 @@ class ExperimentUI():
         return param_dict
 
 
+if __name__ == "__main__":
+    from plotting_utils import simple_plot
+    """
+    dur = 5.
+    omega_low = 0.
+    omega_high = 10.
 
+    poly = np.poly1d([(omega_high - omega_low) / dur, omega_low])
+    t = np.arange(0,dur,0.01)
+    fval = sweep_poly(t, poly)
+
+    simple_plot(t,fval, plot_name="test")
+    """
+    req_parameter_dict = {'k1': 0.2, 'k2': 0.06, 'omega_low': 0.003, 'omega_high': 0.007, 'duration': 1500}
+    sweep_sine = SweepSine()
+    sine_val = sweep_sine .generate_input(req_parameter_dict)
+    print("sel")
 # Include basic utility functions here

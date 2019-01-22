@@ -108,3 +108,13 @@ def multiplot_single_view(states_list=None, time_list=None, input_list=None, exp
     else:
         rospy.loginfo('[plotting_utils] unable to plot as data no data provided')
 
+def simple_plot(x_val, y_val, plot_name=""):
+    data = []
+    p1 = go.Scatter(
+        x=x_val,
+        y=y_val,
+    )
+    data.extend([p1])
+    layout = dict(title=plot_name)
+    fig = dict(data=data, layout=layout)
+    opy.plot(fig)
