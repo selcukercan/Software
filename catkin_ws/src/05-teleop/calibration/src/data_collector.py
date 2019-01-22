@@ -50,6 +50,7 @@ class DataCollector:
         rospy.loginfo('[Data Collector Node] AFTER SERVICE REGISTER')
         self.wait_start_rosbag = 5 # wait for wait_for_rosbag seconds to make sure that the bag has started recording
         self.wait_write_rosbag = 8
+
     def exp_name_to_exp_object(self, exp_name):
         """
         accepts a valid experiment name and create the corresponding experiment object
@@ -61,6 +62,8 @@ class DataCollector:
             return RampUp()
         elif exp_name == "sine":
             return Sine()
+        elif exp_name == "sweep_sine":
+            return SweepSine()
         else:
             rospy.loginfo('[{}] is not a valid experiment name'.format(exp_name))
             return None
@@ -69,7 +72,7 @@ class DataCollector:
     def perform_experiments(self):
 
         DO_EXPERIMENT = "yes"
-        available_experiments = ["ramp_up", "sine"]
+        available_experiments = ["ramp_up", "sine", "sweep_sine"]
         ui = ExperimentUI()
 
         while DO_EXPERIMENT == "yes":
@@ -140,5 +143,3 @@ class DataCollector:
 if __name__ == '__main__':
     calib = DataCollector()
     calib.perform_experiments()
-
-    #os.system("rosnode kill /record")

@@ -68,7 +68,63 @@ class KinematicDrive(BaseModelClass):
 
         return [x_dot, y_dot, theta_dot]
 
-class Model2(BaseModelClass):
+class KinematicDrive2(BaseModelClass):
+
+    def __init__(self):
+        self.name = "kinematic_drive2"
+        self.param_ordered_list = ['c', 'tr', 'L'] # it is used to enforce an order (to avoid possible confusions) while importing params from YAML as bounds are imported from model always.
+        self.model_params = {'c': {'param_init_guess':1.0, 'param_bounds': (None, None)},
+                             'tr': {'param_init_guess':0.0, 'param_bounds': (None, None)},
+                             'L' : {'param_init_guess':0.055, 'param_bounds': (0.05, 0.06)}}
+
+        rospy.loginfo("\nusing model type: [{}]".format(self.name))
+
+    def model(self, t, x, u, p):
+        # input commands + model params
+        (cmd_right, cmd_left) = u
+        (c, tr, L) = p
+
+        # kinetic states through actuation
+        vx_pred = (c * (cmd_right + cmd_left) + tr * cmd_right) / 2.0
+        omega_pred = (c * (cmd_right - cmd_left) + tr * cmd_right) / (2.0 * L)
+
+        # position states in relation to kinetic states
+        yaw_pred = (omega_pred)
+        x_pred = (np.cos(yaw_pred) * vx_pred)
+        y_pred = (np.sin(yaw_pred) * vx_pred)
+
+        return [x_pred, y_pred, yaw_pred]
+
+class KinematicDrive3(BaseModelClass):
+
+    def __init__(self):
+        self.name = "kinematic_drive3"
+        self.param_ordered_list = ['c', 'tr', 'tl', 'L'] # it is used to enforce an order (to avoid possible confusions) while importing params from YAML as bounds are imported from model always.
+        self.model_params = {'c': {'param_init_guess':1.0, 'param_bounds': (None, None)},
+                             'tr': {'param_init_guess':0.0, 'param_bounds': (None, None)},
+                             'tl': {'param_init_guess': 0.0, 'param_bounds': (None, None)},
+                             'L' : {'param_init_guess':0.055, 'param_bounds': (0.05, 0.06)}}
+
+        rospy.loginfo("\nusing model type: [{}]".format(self.name))
+
+    def model(self, t, x, u, p):
+        # input commands + model params
+        (cmd_right, cmd_left) = u
+        (c, tr, tl, L) = p
+
+        # kinetic states through actuation
+        vx_pred = (c * (cmd_right + cmd_left) + tr * cmd_right + tl * cmd_left) / 2.0
+        omega_pred = (c * (cmd_right - cmd_left) + tr * cmd_right - tl * cmd_left) / (2.0 * L)
+
+        # position states in relation to kinetic state
+        yaw_pred = (omega_pred)
+        x_pred = (np.cos(yaw_pred) * vx_pred)
+        y_pred = (np.sin(yaw_pred) * vx_pred)
+
+        return [x_pred, y_pred, yaw_pred]
+
+"""
+class Model4(BaseModelClass):
 
     def __init__(self):
         self.name = "model1"
@@ -89,7 +145,7 @@ class Model2(BaseModelClass):
         y_pred = (np.sin(yaw_pred) * vx_pred)
 
         return [x_pred, y_pred, yaw_pred]
-
+"""
 # Include basic utility functions here
 
 # Motivation for introducing this fn:
@@ -97,8 +153,12 @@ class Model2(BaseModelClass):
 def model_generator(model_name = None):
     if model_name == None:
         rospy.logwarn('[model_library] model is not initialized'.format(model_name))
-    if model_name == 'kinematic_drive':
+    elif model_name == 'kinematic_drive':
         return KinematicDrive()
+    elif model_name == 'kinematic_drive2':
+        return KinematicDrive2()
+    elif model_name == 'kinematic_drive3':
+        return KinematicDrive3()
     else:
         rospy.logwarn('[model_library] model name {} is not valid!'.format(model_name))
 

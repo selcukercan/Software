@@ -14,9 +14,7 @@ def defined_ros_param(ros_param_name):
 def get_file_path(veh_name, model_name):
     if model_name == 'gt':
         return (get_duckiefleet_root()+'/calibrations/kinematics/' + veh_name + ".yaml")
-    elif model_name == 'sysid':
-        return (get_duckiefleet_root()+'/calibrations/kinematics/' + veh_name + "_sysid" + ".yaml")
-    elif model_name == 'kinematic_drive':
+    else:
         return (get_duckiefleet_root() + '/calibrations/kinematics/' + veh_name + "_" + model_name + ".yaml")
 
 def read_param_from_file(veh_name,model_object):
