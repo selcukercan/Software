@@ -88,15 +88,22 @@ class calib():
         # use the parameter bounds defined in the class of our model choice
         self.bounds = model_object.get_param_bounds_list()
 
+        # optimization results-related
+        self.param_hist = self.init_param_hist(model_object.model_params)
+        self.cost_fn_val_list = []
         # self.delta =  0.00
 
         # run the optimization problem
         popt = self.nonlinear_model_fit(model_object, experiments)
 
+        # parameter converge plots and cost fn
+        param_convergence_plot(self.param_hist)
+        simple_plot(range(len(self.cost_fn_val_list)), self.cost_fn_val_list, 'Cost Function')
+
         # test data set container
         test_dataset = self.input_folder_to_experiment_dict(path_test_data)
 
-        # load and process the experiment data to be used in for testing the model
+        # load and process the experiment data to be used for testing the model
         for i, exp in enumerate(test_dataset.keys()):
             test_data_raw = DataPreparation(input_bag=test_dataset[exp]['path'],
                                             top_wheel_cmd_exec=top_wheel_cmd_exec,
@@ -157,12 +164,18 @@ class calib():
                              ((x_sim[2, i] - x[2, i]) / range_yaw) ** 2
                             )
 
+        self.update_param_hist(model_object.param_ordered_list, p)
+        self.cost_fn_val_list.append(obj_cost)
         return obj_cost
 
     def nonlinear_model_fit(self, model_object, experiments):
-        print 'IN NONLINEAR MODEL FIT'
+        """ for more information on scipy.optimize.min fn:
+        https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html
+        """
+        
+        rospy.loginfo('started the nonlinear optimization ... ')
         # Actual Parameter Optimization/Fitting
-        # Minimize the least squares error between the model prediction
+        # Minimize the error between the model predictions and position estimations
         result = minimize(self.cost_function, self.p0, args=(model_object, experiments), bounds=self.bounds)
         print('[BEGIN] Optimization Result\n {} [END] Optimization Result\n'.format(result))
 
@@ -184,7 +197,7 @@ class calib():
             # calculate the error metric
             exp_mse = norm_rmse(x, x_sim_opt)
 
-            print('\nModel Performance Evaluation:\nModel Name: {}\nMSE: {}'.format(exp_name, exp_mse))
+            print('\nModel Performance Evaluation:\nModel Name: {}\nnormRMSE: {}'.format(exp_name, exp_mse))
 
 
             multiplot(states_list=[x, x_sim_init, x_sim_opt],
@@ -193,7 +206,6 @@ class calib():
                       experiment_name_list=[exp_name + '_measurement', exp_name + '_simulated_init', exp_name + '_simulated_optimal'],
                       mode = 'single_view',
                       plot_title=plot_title)
-
 
     @staticmethod
     def input_folder_to_experiment_dict(folder_path):
@@ -218,6 +230,16 @@ class calib():
            os.mknod(filename)
        rospy.loginfo('writing the YAML file to: [{}]'.format(filename))
        yaml_write_to_file(yaml_dict, filename)
+
+    def init_param_hist(self, model_params):
+        param_hist = {}
+        for param_name in model_params:
+            param_hist[param_name] = []
+        return param_hist
+    def update_param_hist(self, model_ordered_param_list, p):
+        for i, param_name in enumerate(model_ordered_param_list):
+            self.param_hist[param_name].append(p[i])
+
 
 
 

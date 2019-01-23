@@ -118,3 +118,8 @@ def simple_plot(x_val, y_val, plot_name=""):
     layout = dict(title=plot_name)
     fig = dict(data=data, layout=layout)
     opy.plot(fig)
+
+def param_convergence_plot(param_hist):
+    for param in param_hist.keys():
+        iter = range(len(param_hist[param]))
+        simple_plot(iter, param_hist[param], 'Parameter {}'.format(param))

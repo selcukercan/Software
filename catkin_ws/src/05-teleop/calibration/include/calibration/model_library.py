@@ -46,7 +46,7 @@ class KinematicDrive(BaseModelClass):
         self.param_ordered_list = ['dr', 'dl', 'L'] # it is used to enforce an order (to avoid possible confusions) while importing params from YAML as bounds are imported from model always.
         self.model_params = {'dr': {'param_init_guess':0.85, 'param_bounds': (None, None)},
                              'dl': {'param_init_guess':0.85, 'param_bounds': (None, None)},
-                             'L' : {'param_init_guess':0.055, 'param_bounds': (0.05, 0.06)}}
+                             'L' : {'param_init_guess':0.055, 'param_bounds': (0.05, None)}}
 
         rospy.loginfo("\nusing model type: [{}]".format(self.name))
 
@@ -162,7 +162,6 @@ def model_generator(model_name = None):
     else:
         rospy.logwarn('[model_library] model name {} is not valid!'.format(model_name))
 
-
 def simulate(model_object, t, x0, u, p):
     """
     Args:
@@ -180,7 +179,34 @@ def simulate(model_object, t, x0, u, p):
     for i in range(len(t) - 1):
         t_cur, t_next = t[i:i + 2] # prediction will be made in between two consecutive time steps, note that this does not require fixed time step.
         # one-step-ahead prediction
+
         sol = solve_ivp(fun=lambda t, x: model_object.model(t, x0, u[:,i], p), t_span=(t_cur, t_next), y0=x0, t_eval=[t_next])
         x_sim = np.hstack([x_sim, sol.y]) # add the output to the x history
         x0 = row(sol.y).tolist()[0] # current solution will be used as the initial step for the next step
+        """
+        sol = forwardEuler(model_object, (t_next - t_cur), x0, u[:,i], p)
+        a = np.hstack([x_sim, np.array(sol).reshape(3,1)])
+        x_sim = a.copy()
+        x0 = sol
+        """
     return x_sim
+
+def forwardEuler(model_object, dt, x_cur, u_cur, p_cur,):
+    x_next = [0,0,0]
+    ds = model_object.model(dt, x_cur, u_cur, p_cur)
+    for i, s in enumerate(ds):
+        x_next[i] = x_cur[i] + ds[i] * dt
+    return x_next
+
+if __name__ == '__main__':
+    from plotting_utils import plot_system
+    # Testing model and simulate functions
+    kd =model_generator('kinematic_drive')
+
+    t = np.arange(0,1000,0.1)
+    x0 = [0, 0, 0]
+    u = np.vstack([np.ones(np.size(t)) * 1.0, np.ones(np.size(t)) * 0])
+    p = [1, 1, 1]
+
+    x_sim = simulate(kd, t, x0, u, p)
+    plot_system(states=x_sim, time=t)

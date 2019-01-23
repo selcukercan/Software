@@ -5,14 +5,13 @@ import numpy as np
 import copy
 import pickle
 from calibration.data_adapter_utils import *
-#from calibration.plotting_utils import *
-#opy.init_notebook_mode(connected=True)
+
 
 class DataPreparation():
     DEBUG_MODE = True # convenience flag
     TEST_MODE = False # in test mode no plots are drawn
-    DISCARD_FIRST = 20 # discard first n data
-    DISCARD_LAST = 20  # discard last n data
+    DISCARD_FIRST = 30 # discard first n data
+    DISCARD_LAST = 10  # discard last n data
 
     def __init__(self, input_bag = None, top_wheel_cmd_exec = None, top_robot_pose = None, save_as = None, dump = False, exp_name='', mode='train'):
         self.input_bag = input_bag
@@ -259,6 +258,8 @@ class DataPreparation():
         return dict
 
     def filter(self, robot_pose_opt, flen_array, filter_type):
+            from calibration.plotting_utils import multiplot
+
             (x_pos , y_pos, yaw_pos) = [robot_pose_opt[i,:] for i in range(3)] #unpack position measurements
             (flen_x, flen_y, flen_yaw) = [flen_array[i] for i in range(3)] #unpack filter lengths
             (ftype_x, ftype_y, ftype_yaw) = [filter_type[i] for i in range(3)] #unpack filter types
@@ -285,7 +286,7 @@ class DataPreparation():
 
 def smooth(x, window_len=1, window='hanning'):
     """
-    taken from: https://scipy-cookbook.readthedocs.io/items/SignalSmooth.html
+    adapted from:
     smooth the data using a window with requested size.
 
     This method is based on the convolution of a scaled window with the signal.
@@ -368,22 +369,3 @@ def load_pickle(experiment_name):
 class ExperimentData():
     pass
 
-
-"""
-def listFilter(self,x,N):
-    x = np.convolve(x, np.ones((N,)) / N, mode='valid')
-    return x
-
-def poseFilter(self,pose,N):
-    for key in pose:
-        print key
-        if key != "timestamp":
-            pose[key]= np.reshape(pose[key], len(pose[key]))
-            pose[key]=np.convolve(pose[key], np.ones((N,)) / N, mode='valid')
-    return pose
-
-def compressArray(self,ref_size,arr):
-    arr_interp = interp.interp1d(np.arange(arr.size), arr)
-    arr_compress = arr_interp(np.linspace(0, arr.size - 1, ref_size))
-    return arr_compress
-"""
