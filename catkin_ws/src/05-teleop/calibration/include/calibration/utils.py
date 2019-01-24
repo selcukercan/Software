@@ -1,6 +1,9 @@
 import rospy
 import os
 import yaml
+import datetime
+from os.path import join
+from os import mkdir
 from duckietown_utils import (logger, get_duckiefleet_root)
 
 def defined_ros_param(ros_param_name):
@@ -53,3 +56,23 @@ def dict_to_ordered_array(model_object, param_dict):
     for param in model_object.param_ordered_list:
         param_array.append(param_dict[param])
     return param_array
+
+def get_package_root(package_name):
+    import rospkg
+    rospack = rospkg.RosPack()
+    return rospack.get_path(package_name)
+
+def create_results_dir(package_root):
+    """ create a results directory under the package root with the date and time information """
+    time_label = datetime.datetime.now().strftime('%Y-%m-%d__%H:%M:%S')
+    result_dir = join(str(time_label), package_root, "results", time_label)
+    mkdir(result_dir)
+    return result_dir
+
+def input_folder_to_experiment_dict(folder_path):
+    experiments = {}
+    bag_files = os.listdir(folder_path)
+    for bag in bag_files:
+        bag_name = bag.split('.')[0]
+        experiments[bag_name] = {'wheel_cmd_exec': None, 'robot_pose': None, 'path': join(folder_path, bag)}
+    return experiments

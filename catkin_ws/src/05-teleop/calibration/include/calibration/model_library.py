@@ -191,7 +191,7 @@ def simulate(model_object, t, x0, u, p):
         """
     return x_sim
 
-def forwardEuler(model_object, dt, x_cur, u_cur, p_cur,):
+def forwardEuler(model_object, dt, x_cur, u_cur, p_cur):
     x_next = [0,0,0]
     ds = model_object.model(dt, x_cur, u_cur, p_cur)
     for i, s in enumerate(ds):

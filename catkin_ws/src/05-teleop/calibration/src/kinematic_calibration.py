@@ -5,9 +5,7 @@ import rospy
 import datetime
 import os
 import os.path
-
 from scipy.optimize import minimize
-from os.path import join
 
 from duckietown_utils.yaml_wrap import (yaml_load_file, yaml_write_to_file)
 from calibration.data_preperation_utils import DataPreparation
@@ -23,6 +21,14 @@ class calib():
     def __init__(self):
         PREPARE_CALIBRATION_DATA_FOR_OPTIMIZATION = True
         DEBUG = True
+        self.save_experiment_results = True
+
+        # initialize the node with rospy
+        rospy.init_node('calibration', anonymous=True)
+
+        # configure the results directory where the plots and optimization outcome etc will be used.
+        package_root = get_package_root("calibration")
+        self.results_dir = create_results_dir(package_root)
 
         # namespace variables
         if not DEBUG:
@@ -31,53 +37,22 @@ class calib():
             host_package = "/mete/calibration/"
 
         self.node_name = 'kinematic_calibration'  # node name , as defined in launch file
-        host_package_node = host_package + self.node_name
-        self.veh = host_package.split('/')[1]
-        # Initialize the node with rospy
-        rospy.init_node('calibration', anonymous=True)
+        self.host_package_node = host_package + self.node_name
 
-        # Parameters
-        param_veh = host_package_node + '/' + "veh"
-        self.robot_name = defined_ros_param(param_veh)
-        #self.robot_name = rospy.get_param(param_veh)
-        param_folder_path = host_package_node + '/' + "folder_path"
-        #path_training_data = rospy.get_param(param_folder_path)
-        path_training_data = defined_ros_param(param_folder_path)
-        param_model_type = host_package_node + '/' + "model"
-        model_type = defined_ros_param(param_model_type)
-
-        path_test_data = '/home/selcuk/test_bags/test_set'
-
-        # training data set container
-        experiments = self.input_folder_to_experiment_dict(path_training_data)
+        # parameters
+        self.rosparam_to_program()
 
         # topics of interest
-        top_wheel_cmd_exec = "/" + self.robot_name + "/wheels_driver_node/wheels_cmd_executed"
-        top_robot_pose = "/" + self.robot_name + "/apriltags2_ros/publish_detections_in_local_frame/tag_detections_local_frame"
+        self.top_wheel_cmd_exec = "/" + self.robot_name + "/wheels_driver_node/wheels_cmd_executed"
+        self.top_robot_pose = "/" + self.robot_name + "/apriltags2_ros/publish_detections_in_local_frame/tag_detections_local_frame"
 
-        source = 'folder'
-        load_from_pickle = 'test_run'
-        save_to_pickle = True # True/False
-        set_name = 'test_run'
-
-        # load and process experiment data to be used in in the optimization
-        if source == 'folder':
-            for i, exp in enumerate(experiments.keys()):
-                data_raw = DataPreparation(input_bag=experiments[exp]['path'],
-                                           top_wheel_cmd_exec=top_wheel_cmd_exec,
-                                           top_robot_pose=top_robot_pose,
-                                           exp_name='Training Data {}: {}'.format(i + 1,exp))
-                experiments[exp]['wheel_cmd_exec'], experiments[exp]['robot_pose'], experiments[exp]['timestamp']= data_raw.process_raw_data() # bring data set to format usable by the optimizer
-            save_pickle(object=experiments, save_as=set_name)
-        elif source == 'pickle':
-            experiments = load_pickle(load_from_pickle)
-        else:
-            rospy.logfatal('[{}] is not a valid source type'.format(source))
+        # load data for use in optimization
+        experiments, data_raw = self.load_fitting_data_routine()
 
         # construct a model by specifying which model to use
-        model_object = model_generator(model_type)
+        model_object = model_generator(self.model_type)
 
-        # Optimization Settings - for details refer to "https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html"
+        # optimization Settings - for details refer to "https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html"
         # see if there already is a yaml file for the model we can use
         model_param_dict = read_param_from_file(self.robot_name, model_object)
         if model_param_dict is not None:
@@ -100,17 +75,10 @@ class calib():
         param_convergence_plot(self.param_hist)
         simple_plot(range(len(self.cost_fn_val_list)), self.cost_fn_val_list, 'Cost Function')
 
-        # test data set container
-        test_dataset = self.input_folder_to_experiment_dict(path_test_data)
-
         # load and process the experiment data to be used for testing the model
-        for i, exp in enumerate(test_dataset.keys()):
-            test_data_raw = DataPreparation(input_bag=test_dataset[exp]['path'],
-                                            top_wheel_cmd_exec=top_wheel_cmd_exec,
-                                            top_robot_pose=top_robot_pose,
-                                            exp_name='Test Data {}: {}'.format(i+1, exp))
-            test_dataset[exp]['wheel_cmd_exec'], test_dataset[exp]['robot_pose'], test_dataset[exp]['timestamp'] = test_data_raw.process_raw_data()  # bring data set to format usable by the optimizer
+        test_dataset, test_data_raw = self.load_testing_data_routine()
 
+        # make predictions with the optimization results
         #self.model_predictions(model_object, experiments, popt)
         self.model_predictions(model_object, test_dataset, popt, plot_title= "Model: {} DataSet: {}".format(model_object.name, test_data_raw.exp_name))
 
@@ -205,16 +173,9 @@ class calib():
                       time_list=[t,t,t],
                       experiment_name_list=[exp_name + '_measurement', exp_name + '_simulated_init', exp_name + '_simulated_optimal'],
                       mode = 'single_view',
-                      plot_title=plot_title)
-
-    @staticmethod
-    def input_folder_to_experiment_dict(folder_path):
-        experiments = {}
-        bag_files = os.listdir(folder_path)
-        for bag in bag_files:
-            bag_name = bag.split('.')[0]
-            experiments[bag_name] = {'wheel_cmd_exec': None, 'robot_pose': None, 'path': join(folder_path, bag)}
-        return experiments
+                      plot_title=plot_title,
+                      save=self.save_experiment_results,
+                      save_dir=self.results_dir)
 
     def write_calibration(self, model_object, popt):
        # Form yaml content to write
@@ -231,16 +192,66 @@ class calib():
        rospy.loginfo('writing the YAML file to: [{}]'.format(filename))
        yaml_write_to_file(yaml_dict, filename)
 
-    def init_param_hist(self, model_params):
+    @staticmethod
+    def init_param_hist(model_params):
         param_hist = {}
         for param_name in model_params:
             param_hist[param_name] = []
         return param_hist
+
     def update_param_hist(self, model_ordered_param_list, p):
         for i, param_name in enumerate(model_ordered_param_list):
             self.param_hist[param_name].append(p[i])
 
+    def load_fitting_data_routine(self):
+        # training data set container
+        experiments = input_folder_to_experiment_dict(self.path_training_data)
 
+        source = 'folder'
+        load_from_pickle = 'test_run'
+        save_to_pickle = True # True/False
+        set_name = 'test_run'
+
+        # load and process experiment data to be used in the optimization
+        if source == 'folder':
+            for i, exp in enumerate(experiments.keys()):
+                data_raw = DataPreparation(input_bag=experiments[exp]['path'],
+                                           top_wheel_cmd_exec=self.top_wheel_cmd_exec,
+                                           top_robot_pose=self.top_robot_pose,
+                                           exp_name='Training Data {}: {}'.format(i + 1,exp))
+                experiments[exp]['wheel_cmd_exec'], experiments[exp]['robot_pose'], experiments[exp]['timestamp']= data_raw.process_raw_data() # bring data set to format usable by the optimizer
+            save_pickle(object=experiments, save_as=set_name)
+        elif source == 'pickle':
+            experiments = load_pickle(load_from_pickle)
+        else:
+            rospy.logfatal('[{}] is not a valid source type'.format(source))
+
+        return experiments, data_raw
+
+    def load_testing_data_routine(self):
+        # test data set container
+        path_test_data = '/home/selcuk/test_bags/test_set'
+        test_dataset = input_folder_to_experiment_dict(path_test_data)
+
+        for i, exp in enumerate(test_dataset.keys()):
+            test_data_raw = DataPreparation(input_bag=test_dataset[exp]['path'],
+                                            top_wheel_cmd_exec=self.top_wheel_cmd_exec,
+                                            top_robot_pose=self.top_robot_pose,
+                                            exp_name='Test Data {}: {}'.format(i+1, exp))
+            test_dataset[exp]['wheel_cmd_exec'], test_dataset[exp]['robot_pose'], test_dataset[exp]['timestamp'] = test_data_raw.process_raw_data()  # bring data set to format usable by the optimizer
+
+        return test_dataset, test_data_raw
+
+    def rosparam_to_program(self):
+        # rosparam server addresses
+        param_veh = self.host_package_node + '/' + "veh"
+        param_folder_path = self.host_package_node + '/' + "folder_path"
+        param_model_type = self.host_package_node + '/' + "model"
+
+        # rosparam values
+        self.robot_name = defined_ros_param(param_veh)
+        self.path_training_data = defined_ros_param(param_folder_path)
+        self.model_type = defined_ros_param(param_model_type)
 
 
 if __name__ == '__main__':

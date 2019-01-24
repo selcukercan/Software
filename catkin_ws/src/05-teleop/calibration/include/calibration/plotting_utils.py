@@ -1,6 +1,7 @@
 import plotly.graph_objs as go
 import plotly.offline as opy
 import rospy
+from os.path import join
 from numpy import arange
 from itertools import izip
 
@@ -69,11 +70,11 @@ def plot_system(states= None, time= None, input = None, experiment_name=""):
         else:
             rospy.loginfo('[plotting_utils] unable to plot as data no data provided')
 
-def multiplot(states_list=None, time_list=None, input_list=None, experiment_name_list=None, mode='single_view', plot_title=''):
+def multiplot(states_list=None, time_list=None, input_list=None, experiment_name_list=None, mode='single_view', plot_title='', save=False, save_dir=""):
     if mode == 'single_view':
-        multiplot_single_view(states_list=states_list, time_list=time_list, input_list=input_list, experiment_name_list=experiment_name_list, plot_title=plot_title)
+        multiplot_single_view(states_list=states_list, time_list=time_list, input_list=input_list, experiment_name_list=experiment_name_list, plot_title=plot_title, save=save, save_dir=save_dir)
     elif mode == 'separate_views':
-        multiplot_seperate_views(states_list=states_list, time_list=time_list, input_list=input_list,experiment_name_list=experiment_name_list)
+        multiplot_seperate_views(states_list=states_list, time_list=time_list, input_list=input_list,experiment_name_list=experiment_name_list, save=save)
     else:
         rospy.loginfo('[plotting_utils] invalid mode passed to multiplot')
 
@@ -85,7 +86,7 @@ def multiplot_seperate_views(states_list=None, time_list=None, input_list=None, 
         for states, time, experiment_name in izip(states_list,time_list, experiment_name_list):
             plot_system(states=states, time=time, experiment_name=experiment_name)
 
-def multiplot_single_view(states_list=None, time_list=None, input_list=None, experiment_name_list=None, plot_title=''):
+def multiplot_single_view(states_list=None, time_list=None, input_list=None, experiment_name_list=None, plot_title='', save=False, save_dir=""):
     plot_datas = []
     # generate arange time data if time is not provided to faciliate debugging
     if time_list is None:
@@ -104,9 +105,13 @@ def multiplot_single_view(states_list=None, time_list=None, input_list=None, exp
     if len(plot_datas) is not 0:
         layout = dict(title=plot_title)
         fig = dict(data=plot_datas, layout=layout)
-        opy.plot(fig)
+        if save:
+            opy.plot(fig, auto_open=False, filename=join(save_dir, plot_title + ".html"))
+        else:
+            opy.plot(fig)
     else:
-        rospy.loginfo('[plotting_utils] unable to plot as data no data provided')
+            rospy.loginfo('[plotting_utils] unable to plot as data no data provided')
+
 
 def simple_plot(x_val, y_val, plot_name=""):
     data = []

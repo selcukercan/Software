@@ -44,8 +44,10 @@ class DataPreparation():
         wheel_cmd_exec_opt = self.u_adapter(wheel_cmd_exec_sel)
         robot_pose_opt = self.x_adapter(robot_pose_sel)
 
+        """
         if self.operation_mode == 'train':
             robot_pose_opt = self.filter(robot_pose_opt, [3,3,3], ["flat" , "flat", "flat"])
+        """
 
         return wheel_cmd_exec_opt, robot_pose_opt, t
 
