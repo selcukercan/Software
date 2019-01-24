@@ -5,6 +5,7 @@ import rospy
 import datetime
 import os
 import os.path
+import numpy as np
 from scipy.optimize import minimize
 
 from duckietown_utils.yaml_wrap import (yaml_load_file, yaml_write_to_file)
@@ -52,6 +53,15 @@ class calib():
         # construct a model by specifying which model to use
         model_object = model_generator(self.model_type)
 
+        # optimization results-related
+        self.param_hist = self.init_param_hist(model_object.model_params)
+        self.cost_fn_val_list = []
+        cost, dr_list, dl_list, L_list = self.cost_function_over_param_space(model_object, experiments)
+        param_space_cost_plot(cost, dr_list, dl_list, L_list)
+
+        print("sel")
+
+        """
         # optimization Settings - for details refer to "https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html"
         # see if there already is a yaml file for the model we can use
         model_param_dict = read_param_from_file(self.robot_name, model_object)
@@ -84,6 +94,26 @@ class calib():
 
         # write to the kinematic calibration file
         self.write_calibration(model_object, popt)
+        """
+    def cost_function_over_param_space(self, model_object, experiments):
+        cost=[]
+        param_list = np.array([[], [], []])
+
+        i = 0
+        param_list = model_object.param_ordered_list
+        tup_dr, tup_dl, tup_L = [model_object.model_params[param_list[i]]['search'] for i in range(3)]
+        init_dr, init_dl, init_L = [model_object.model_params[param_list[i]]['param_init_guess'] for i in range(3)]
+        dr_list = np.arange((init_dr - tup_dr[0]), (init_dr + tup_dr[0]), tup_dr[1])
+        dl_list = np.arange((init_dl - tup_dl[0]), (init_dl + tup_dl[0]), tup_dl[1])
+        L_list = np.arange((init_L - tup_L[0]), (init_L + tup_L[0]), tup_L[1])
+        for dr in dr_list:
+            for dl in dl_list:
+                for L in L_list:
+                    cost.append(self.cost_function((dr, dl, L), model_object, experiments))
+                    param_list
+                    print(i)
+                    i+=1
+        return cost, dr_list, dl_list, L_list
 
     def cost_function(self, p, model_object, experiments):
         obj_cost = 0.0

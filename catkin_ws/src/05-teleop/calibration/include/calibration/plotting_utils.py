@@ -128,3 +128,30 @@ def param_convergence_plot(param_hist):
     for param in param_hist.keys():
         iter = range(len(param_hist[param]))
         simple_plot(iter, param_hist[param], 'Parameter {}'.format(param))
+
+def param_space_cost_plot(cost, dr_list, dl_list, L_list):
+
+    trace1 = go.Scatter3d(
+        x=dr_list,
+        y=dl_list,
+        z=L_list,
+        mode='markers',
+        marker=dict(
+            size=12,
+            color=cost,  # set color to an array/list of desired values
+            colorscale='Viridis',  # choose a colorscale
+            opacity=0.8
+        )
+    )
+
+    data = [trace1]
+    layout = go.Layout(
+        margin=dict(
+            l=0,
+            r=0,
+            b=0,
+            t=0
+        )
+    )
+    fig = go.Figure(data=data, layout=layout)
+    opy.plot(fig)
