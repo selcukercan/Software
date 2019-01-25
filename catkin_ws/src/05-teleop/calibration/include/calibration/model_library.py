@@ -44,8 +44,8 @@ class KinematicDrive(BaseModelClass):
     def __init__(self):
         self.name = "kinematic_drive"
         self.param_ordered_list = ['dr', 'dl', 'L'] # it is used to enforce an order (to avoid possible confusions) while importing params from YAML as bounds are imported from model always.
-        self.model_params = {'dr': {'param_init_guess':0.85, 'param_bounds': (None, None), 'search': (1.0, 0.5)},
-                             'dl': {'param_init_guess':0.85, 'param_bounds': (None, None), 'search': (1.0, 0.5)},
+        self.model_params = {'dr': {'param_init_guess':0.85, 'param_bounds': (None, None), 'search': (1.0, 0.4)},
+                             'dl': {'param_init_guess':0.85, 'param_bounds': (None, None), 'search': (1.0, 0.4)},
                              'L' : {'param_init_guess':0.055, 'param_bounds': (0.05, None), 'search': (0.050, 0.010)}}
         # "search" is used for for brute-force cost function value evaluatiom: (magnitude of variation in both directions, decimation)
         rospy.loginfo("\nusing model type: [{}]".format(self.name))

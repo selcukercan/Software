@@ -28,13 +28,13 @@ This package is an automatic wheels calibration procedure.
 Start camera-related functionality by roslaunching
 
 ```shell
-roslaunch pi_camera camera_apriltag_demo.launch veh:=![ROBOT_NAME]
+roslaunch pi_camera camera_node.launch veh:=![ROBOT_NAME]
 ```
 
 Then start the data-acquisition interface by
 
 ```shell
-roslaunch roslaunch calibration data_collector.launch veh:=![ROBOT_NAME]
+roslaunch calibration data_collector.launch veh:=![ROBOT_NAME] param_file_name:=![PARAM_FILE]
 ```
 With this interface can specify
 
@@ -43,6 +43,10 @@ With this interface can specify
 - whether to save the collected experiment data by answering the question after the experiment has been completed,
 
 - whether to do another experiment.
+
+Note that we can specisify the resolution of the images taken with ´![PARAM_FILE]´. This file must be placed under ´´
+
+´$(duckietown)/config/baseline/pi_camera/camera_node´.
 
 ## Calibration  
 

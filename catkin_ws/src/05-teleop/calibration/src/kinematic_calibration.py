@@ -17,6 +17,7 @@ from calibration.plotting_utils import *
 from calibration.metrics import *
 from calibration.utils import *
 
+# TODO: why cost fn plot values are different from brute-force param space exploration?
 
 class calib():
     def __init__(self):
@@ -56,10 +57,10 @@ class calib():
         # optimization results-related
         self.param_hist = self.init_param_hist(model_object.model_params)
         self.cost_fn_val_list = []
-        cost, dr_list, dl_list, L_list = self.cost_function_over_param_space(model_object, experiments)
-        param_space_cost_plot(cost, dr_list, dl_list, L_list)
+        cost, params_space_list = self.cost_function_over_param_space(model_object, experiments)
+        param_space_cost_plot(cost, params_space_list)
 
-        print("sel")
+
 
         """
         # optimization Settings - for details refer to "https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html"
@@ -97,7 +98,7 @@ class calib():
         """
     def cost_function_over_param_space(self, model_object, experiments):
         cost=[]
-        param_list = np.array([[], [], []])
+        params_space_list = []
 
         i = 0
         param_list = model_object.param_ordered_list
@@ -110,10 +111,10 @@ class calib():
             for dl in dl_list:
                 for L in L_list:
                     cost.append(self.cost_function((dr, dl, L), model_object, experiments))
-                    param_list
+                    params_space_list.append((dr, dl, L))
                     print(i)
                     i+=1
-        return cost, dr_list, dl_list, L_list
+        return cost, params_space_list
 
     def cost_function(self, p, model_object, experiments):
         obj_cost = 0.0

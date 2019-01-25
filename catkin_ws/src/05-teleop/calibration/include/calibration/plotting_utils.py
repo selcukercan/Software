@@ -2,7 +2,7 @@ import plotly.graph_objs as go
 import plotly.offline as opy
 import rospy
 from os.path import join
-from numpy import arange
+from numpy import arange, array
 from itertools import izip
 
 opy.init_notebook_mode(connected=True)
@@ -129,23 +129,31 @@ def param_convergence_plot(param_hist):
         iter = range(len(param_hist[param]))
         simple_plot(iter, param_hist[param], 'Parameter {}'.format(param))
 
-def param_space_cost_plot(cost, dr_list, dl_list, L_list):
-
+def param_space_cost_plot(cost, params_space_list):
+    a = array(params_space_list)
     trace1 = go.Scatter3d(
-        x=dr_list,
-        y=dl_list,
-        z=L_list,
+        x=a[:,0],
+        y=a[:,1],
+        z=a[:,2],
         mode='markers',
         marker=dict(
             size=12,
-            color=cost,  # set color to an array/list of desired values
+            color=array(cost)/a.size,  # set color to an array/list of desired values
             colorscale='Viridis',  # choose a colorscale
-            opacity=0.8
-        )
+            opacity=0.8,
+            showscale=True,
+            cmax=0.03,
+            cmin=0,
+            colorbar=dict(title='Total nMSE Error'))
     )
 
     data = [trace1]
     layout = go.Layout(
+        title='Parameter Space and Cost Function Value [Horizon Length:{}]'.format(a.shape),
+        scene=dict(xaxis=dict(title='dr'),
+                   yaxis=dict(title='dl'),
+                   zaxis=dict(title='L')
+                   ),
         margin=dict(
             l=0,
             r=0,
