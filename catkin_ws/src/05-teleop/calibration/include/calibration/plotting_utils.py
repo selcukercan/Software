@@ -1,8 +1,9 @@
 import plotly.graph_objs as go
 import plotly.offline as opy
+import plotly.figure_factory as ff
 import rospy
 from os.path import join
-from numpy import arange, array
+from numpy import arange, array, cos, sin, pi
 from itertools import izip
 
 opy.init_notebook_mode(connected=True)
@@ -163,3 +164,33 @@ def param_space_cost_plot(cost, params_space_list):
     )
     fig = go.Figure(data=data, layout=layout)
     opy.plot(fig)
+
+def path_plot(experiment, plot_name=''):
+    time = experiment['timestamp']
+    path_data = experiment['robot_pose']
+    # Create quiver figure
+    fig = ff.create_quiver(path_data[0,:], path_data[1,:], cos(path_data[2,:] * pi / 180), sin(path_data[2,:] * pi / 180),
+                           scale=.04,
+                           arrow_scale=.05,
+                           name='quiver',
+                           line=dict(width=1)
+                           )
+    layout = go.Layout(
+        title=plot_name,
+        xaxis=dict(
+            title='x position [m]',
+            ticklen=5,
+            zeroline=False,
+            gridwidth=2,
+        ),
+        yaxis=dict(
+            title='y position [m]',
+            ticklen=5,
+            gridwidth=2,
+        )
+    )
+
+    fig['layout'] = layout
+    #fig = dict(data=data, layout=layout)
+    opy.plot(fig)
+

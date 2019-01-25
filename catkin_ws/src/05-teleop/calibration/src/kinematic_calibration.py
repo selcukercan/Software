@@ -21,11 +21,12 @@ from calibration.utils import *
 
 class calib():
     def __init__(self):
+        # flow-control parameters
         PREPARE_CALIBRATION_DATA_FOR_OPTIMIZATION = True
         DEBUG = True
         self.save_experiment_results = True
 
-        # initialize the node with rospy
+        # initialize the node
         rospy.init_node('calibration', anonymous=True)
 
         # configure the results directory where the plots and optimization outcome etc will be used.
@@ -57,13 +58,12 @@ class calib():
         # optimization results-related
         self.param_hist = self.init_param_hist(model_object.model_params)
         self.cost_fn_val_list = []
-        cost, params_space_list = self.cost_function_over_param_space(model_object, experiments)
-        param_space_cost_plot(cost, params_space_list)
 
+        # brute-force cost calculation and plotting over parameter-space
+        #cost, params_space_list = self.cost_function_over_param_space(model_object, experiments)
+        #param_space_cost_plot(cost, params_space_list)
 
-
-        """
-        # optimization Settings - for details refer to "https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html"
+        # optimization settings - for details refer to "https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html"
         # see if there already is a yaml file for the model we can use
         model_param_dict = read_param_from_file(self.robot_name, model_object)
         if model_param_dict is not None:
@@ -71,6 +71,10 @@ class calib():
         else:
             self.p0 = dict_to_ordered_array(model_object, model_object.get_param_initial_guess_dict()) # otherwise use the default initial guesses as defined in the class of our model choice
             rospy.logwarn('[{}] using default initial guesses defined in model {}'.format('kinematic_calibration', model_object.name))
+
+        path_plot(experiments['ramp_up_2019_01_19_15_04_Nstep_120'], plot_name='measured_traj')
+
+        """
         # use the parameter bounds defined in the class of our model choice
         self.bounds = model_object.get_param_bounds_list()
 
