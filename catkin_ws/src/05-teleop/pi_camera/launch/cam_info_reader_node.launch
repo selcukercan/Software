@@ -7,6 +7,7 @@
 	<arg name="node_name" default="cam_info_reader_node"/>
 	<arg name="image_type" default="compressed" />
     <arg name="cali_file_name" default="$(arg veh)" />
+	<arg name="custom_resolution" default="no" doc="to process images with non-default dimension, i.e. (640, 480),  enter a tuple (HIGH, LOW)"/>
 
 	<!-- Run on local (laptop) -->
 	<node if="$(arg local)" ns="$(arg veh)" pkg="pi_camera" type="cam_info_reader_node.py" name="$(arg node_name)" output="screen" clear_params="true" required="true">
@@ -15,6 +16,7 @@
 		<param name="~config" value="$(arg config)"/>
 		<param name="~cali_file_name" value="$(arg cali_file_name)"/>
 		<param name="~image_type" value="$(arg image_type)"/>
+		<param name="~custom_resolution" value="$(arg custom_resolution)"/>
 	</node>
 
 	<!-- Run on remote (vehicle) -->

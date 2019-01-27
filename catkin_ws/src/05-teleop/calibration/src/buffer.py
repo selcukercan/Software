@@ -74,7 +74,6 @@ class Buffer:
 
     def pub_single_compressed_image(self):
         if self.cur_image_i < self.total_msg_count: # if not all the messages are sent yet.
-            print self.cur_image_i
             view_output = next(self.view_generator) # view_output class : <class 'rosbag.bag.BagMessage'>, has return value (topic_name, msg, time_stamp of the message)
 
             # message generation

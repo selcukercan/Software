@@ -195,6 +195,11 @@ AprilTagDetectionArray TagDetector::detectTags (
                                   .buf = gray_image.data
   };
 
+  // Inspect the dimensions fed into the algorithm
+  //printf(gray_image.cols);
+  //printf(gray_image.rows);
+  //ROS_INFO("COL %d   ROW %d", gray_image.cols, gray_image.rows);
+
   // Get camera intrinsic properties
   double fx = camera_info->K[0]; // focal length in camera x-direction [px]
   double fy = camera_info->K[4]; // focal length in camera y-direction [px]

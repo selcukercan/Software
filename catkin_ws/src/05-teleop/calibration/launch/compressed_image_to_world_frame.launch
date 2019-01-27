@@ -8,7 +8,11 @@
   <arg name="cam_info" default="true" doc="If set to true, use cam_info_reader_node to pusblish CameraInfo."/>
   <arg name="live" default="true" doc="live set to false means we don't run the actual camera (i.e. running from a log file" />
   <arg name="rect" default="true" />
-  <!-- Calibration -->
+
+
+    <arg name="custom_resolution" default="no" doc="to process images with non-default dimension, i.e. (640, 480),  enter a tuple (HIGH, LOW)"/>
+
+    <!-- Calibration -->
   <arg name="package_namespace" default="calibration" />
   <arg name="node_namespace" default="data_collector" />
 
@@ -40,9 +44,11 @@
           <arg name="local" value="$(arg local)"/>
           <arg name="config" value="$(arg config)"/>
           <arg name="param_file_name" value="$(arg param_file_name)"/>
+          <arg name="custom_resolution" value="$(arg custom_resolution)"/>
       </include>
 
       <group if="$(arg raw)">
+
           <remap from="raw_cam_info_reader_node/camera_info" to="camera_node/raw_camera_info"/>
           <remap from="raw_cam_info_reader_node/compressed_image" to="camera_node/image/raw"/>
           <include file="$(find pi_camera)/launch/cam_info_reader_node.launch">
@@ -52,7 +58,9 @@
               <arg name="param_file_name" value="$(arg param_file_name)"/>
               <arg name="node_name" value="raw_cam_info_reader_node" />
               <arg name="image_type" value="raw" />
+              <arg name="custom_resolution" value="$(arg custom_resolution)"/>
           </include>
+
           <!-- Rectification -->
           <group if="$(arg rect)">
             <remap from="image_raw" to="camera_node/image/raw"/>

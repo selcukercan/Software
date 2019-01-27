@@ -184,6 +184,9 @@ class GroundProjectionGeometry(object):
         H = int(self.pcm.height * ratio)
 #        mapx = np.ndarray(shape=(H, W, 1), dtype='float32')
 #        mapy = np.ndarray(shape=(H, W, 1), dtype='float32')
+        print('PCM Before W: {} H: {}'.format(self.pcm.width, self.pcm.height))
+        print('PCM Ratio: {}'.format(ratio))
+        print('After W: {} H: {}'.format(W,H))
         #print('K: %s' % self.pcm.K)
         #print('P: %s' % self.pcm.P)
 

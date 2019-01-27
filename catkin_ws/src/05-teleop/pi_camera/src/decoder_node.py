@@ -5,7 +5,8 @@ import cv2
 import numpy as np
 from sensor_msgs.msg import CompressedImage,Image
 from duckietown_msgs.msg import BoolStamped
-
+from duckietown_utils import write_bgr_as_jpg
+from os.path import expanduser
 
 class DecoderNode(object):
     def __init__(self):
@@ -26,6 +27,9 @@ class DecoderNode(object):
         # Subscribers
         self.sub_compressed_img = rospy.Subscriber("~compressed_image", CompressedImage, self.cbImg, queue_size=1)
         self.sub_switch = rospy.Subscriber("~switch", BoolStamped, self.cbSwitch, queue_size=1)
+
+        # Debug
+        self.saved_first_image = False
 
     def setupParam(self,param_name,default_value):
         value = rospy.get_param(param_name,default_value)
@@ -56,6 +60,12 @@ class DecoderNode(object):
         img_msg.header.frame_id = msg.header.frame_id
         self.pub_raw.publish(img_msg)
         self.pub_compressed.publish(msg)
+
+        if self.saved_first_image != True:
+            #write_bgr_as_jpg(cv_image, expanduser('~' + '/input_to_dec'))
+            write_bgr_as_jpg(cv_image, expanduser('~' + '/out_from_decoder'))
+            self.saved_first_image = True
+
         # time_3 = time.time()
         # rospy.loginfo("[%s] Took %f sec to decompress."%(self.node_name,time_1 - time_start))
         # rospy.loginfo("[%s] Took %f sec to conver to Image."%(self.node_name,time_2 - time_1))

@@ -16,7 +16,8 @@ from ground_projection.ground_projection_geometry import GroundProjectionGeometr
 from ground_projection.ground_projection_interface import estimate_homography, \
      HomographyEstimationResult, save_homography
 from pi_camera.camera_info import get_camera_info_for_robot
-
+from duckietown_utils import write_bgr_as_jpg
+from os.path import expanduser
 
 class ImgRectFullRatio(object):
     """docstring for ImgRectFullRatio"""
@@ -41,6 +42,9 @@ class ImgRectFullRatio(object):
         self.sub_switch = rospy.Subscriber("~switch",BoolStamped, self.cbSwitch, queue_size=1)
         self.sub_img = rospy.Subscriber("image_raw", Image, self.cbImg, queue_size=1)
 
+        # Debug
+        self.saved_first_image = False
+
     def cbSwitch(self,switch_msg):
         self.active = switch_msg.data
 
@@ -57,8 +61,10 @@ class ImgRectFullRatio(object):
             robot_name = robot_name[1:-1]
             disable_old_homography(robot_name)
             homography_dummy = get_homography_default()
+
             self.gpg = GroundProjectionGeometry(self.cam_info, homography_dummy)
 
+        #rospy.logwarn('[{}]  camera info {}\n\n'.format(self.node_name, self.cam_info))
 
     def cbImg(self,msg):
         if self.operation_mode:
@@ -82,8 +88,13 @@ class ImgRectFullRatio(object):
         cv_image = self.bridge.imgmsg_to_cv2(msg, "mono8")
 
         # undistort the image
-        # Oriin ratio = 1.65, change to lower ratio to increase the speed of apriltags detection
+        # Original ratio = 1.65, change to lower ratio to increase the speed of apriltags detection
         new_matrix, result_img = self.gpg.rectify_full(cv_image, ratio=1.65)
+
+        if self.saved_first_image != True:
+            write_bgr_as_jpg(cv_image, expanduser('~' + '/input_to_rect'))
+            write_bgr_as_jpg(result_img, expanduser('~' + '/out_from_rect'))
+            self.saved_first_image = True
 
         # resulting image has a different size
         # bring back the image to the old size, also crop a little from the outside
@@ -104,7 +115,8 @@ class ImgRectFullRatio(object):
         # result_img = cv2.resize(result_img,(int(result_img.shape[1]*ratio), int(result_img.shape[0]*ratio)), interpolation = cv2.INTER_AREA)
 
         img_msg = self.bridge.cv2_to_imgmsg(result_img, "mono8")
-        #print "Old Image h,w =", cv_image.shape
+        rospy.loginfo("[{}] Input image resolution [{}]".format(self.node_name, cv_image.shape))
+
         img_msg.header.stamp = msg.header.stamp
         img_msg.header.frame_id = msg.header.frame_id
 
@@ -120,7 +132,8 @@ class ImgRectFullRatio(object):
         #print "new_K, ", new_K
         rect_cam_info.K = new_K
 
-        #print "Image h, w = ", rect_cam_info.height, rect_cam_info.width
+        rospy.loginfo("[{}] Output image resolution [{}]".format(self.node_name, (rect_cam_info.height, rect_cam_info.width)))
+
         self.pub_rect.publish(img_msg)
         self.pub_cam_info.publish(rect_cam_info)
 

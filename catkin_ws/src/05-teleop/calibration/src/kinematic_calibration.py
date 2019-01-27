@@ -72,7 +72,8 @@ class calib():
             self.p0 = dict_to_ordered_array(model_object, model_object.get_param_initial_guess_dict()) # otherwise use the default initial guesses as defined in the class of our model choice
             rospy.logwarn('[{}] using default initial guesses defined in model {}'.format('kinematic_calibration', model_object.name))
 
-        path_plot(experiments['ramp_up_2019_01_19_15_04_Nstep_120'], plot_name='measured_traj')
+        # inspect the 2D path vehicle followed
+        #path_plot(experiments['ramp_up_2019_01_19_15_04_Nstep_120'], plot_name='measured_traj')
 
         """
         # use the parameter bounds defined in the class of our model choice
