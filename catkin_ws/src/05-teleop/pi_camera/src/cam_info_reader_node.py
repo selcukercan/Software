@@ -45,7 +45,7 @@ class CamInfoReader(object):
         rospy.logwarn(self.camera_info_msg)
         print 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'
 
-        if self.custom_resolution:
+        if self.custom_resolution != "no":
             # rospy.logwarn("[{}] ============== [{}] ==============".format(self.node_name, self.custom_resolution))
             self.im_width, self.im_height = self.parse_custom_resolution(self.custom_resolution)
             # rospy.logwarn("============== COL: [{}] ROW: [{}] ==============".format(col, row))
@@ -53,7 +53,7 @@ class CamInfoReader(object):
             self.camera_info_msg.height = int(self.im_height)
             self.camera_info_msg.width = int(self.im_width)
 
-            print 'XXXXXXXXXXXXXXXXX  CORRECTED CAM INFO FOR NEW RESOLUTIONXXXXXXXXXXXXXXXXX'
+            print 'XXXXXXXXXXXXXXXXX  CORRECTED CAM INFO FOR NEW RESOLUTION   XXXXXXXXXXXXXXXXX'
             rospy.logwarn(self.camera_info_msg)
             print 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'
 

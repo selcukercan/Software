@@ -202,4 +202,4 @@ if __name__ == '__main__':
     # Setup proper shutdown behavior
     #rospy.on_shutdown(node.on_shutdown)
     # Keep it spinning to keep the node alive
-rospy.spin()
+    rospy.spin()

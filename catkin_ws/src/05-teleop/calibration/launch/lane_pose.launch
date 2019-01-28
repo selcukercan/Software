@@ -1,17 +1,28 @@
 <launch>
-    <arg name="veh"/>
-    <arg name="config" default="baseline" />
-    <arg name="param_file_name" default="default" />
-    <arg name="line_detector_param_file_name" default="$(arg param_file_name)"/>
-    <arg name="verbose" default="true" />
+   <arg name="veh"/>
+   <arg name="config" default="baseline" />
+   <arg name="param_file_name" default="default" />
+   <arg name="line_detector_param_file_name" default="$(arg param_file_name)"/>>
+	 <arg name="fsm_file_name" default="default" />
 
+   <arg name="anti_instagram" default="true" />
+   <arg name="ai_trafo_mode" default="cb" doc="'cb' for colo balance only; 'both' for color balance and linear trafo"/>
+	 <arg name="ai_interval" default="5" doc="interval with which the linear trafo gets updated. color balance is performed every second."/>
+
+    <arg name="verbose" default="true"/>
+    <arg name="visualization" default="true"/>
+
+
+    <arg name="vehicle_avoidance" default="false"/>
     <arg name="lane_following" default="true"/>
     <arg name="/lane_following/line_detection" default="true"/>
     <arg name="/lane_following/ground_projection" default="true"/>
     <arg name="/lane_following/lane_filter" default="true"/>
     <arg name="/lane_following/stop_line_filter" default="true"/>
     <arg name="/lane_following/lane_controller" default="true"/>
-    <arg name="visualization" default="true"/>
+    <arg name="fsm" default="true"/>
+
+    <arg name="local" default="false" doc="true for running everything you possibly can on laptop. false for everything running on vehicle."/>
 
     <!-- include the machines file  -->
   <include file="$(find duckietown)/machines"/>
@@ -19,74 +30,104 @@
     <!-- Start Lane Following -->
     <group if="$(arg lane_following)">
 
+        <!-- Start anti-instagram -->
+        <group if="$(arg anti_instagram)">
+            <!-- NOT LOADING PARAMS FROM A YAML FILE -->
+            <remap from="cont_anti_instagram_node/uncorrected_image" to="camera_node/image/compressed" />
+            <include file="$(find anti_instagram)/launch/cont_anti_instagram_node.launch">
+                <arg name="veh" value="$(arg veh)"/>
+                <arg name="ai_trafo_mode" value="$(arg ai_trafo_mode)"/>
+                <arg name="ai_interval" value="$(arg ai_interval)"/>
+            </include>
+        </group>
+        <!-- End anti-instagram -->
+
         <!-- Line Detector -->
         <group if="$(arg /lane_following/line_detection)">
-            <remap from="line_detector_node/image" to="camera_node/image/compressed"/>
             <remap from="line_detector_node/transform" to="anti_instagram_node/transform"/>
+            <remap from="line_detector_node/fsm_mode" to="fsm_node/mode" />
+            <remap from="line_detector_node/corrected_image/compressed" to="image_transformer_node/corrected_image/compressed"/>
             <include file="$(find line_detector)/launch/line_detector_node.launch">
                 <arg name="veh" value="$(arg veh)"/>
                 <arg name="config" value="$(arg config)"/>
                 <!-- NOTE: "line_detector_param_file_name" as special case -->
                 <arg name="param_file_name" value="$(arg line_detector_param_file_name)"/>
                 <arg name="verbose" value="$(arg verbose)" />
+                <arg name="local" value="$(arg local)"/>
             </include>
         </group>
 
         <!-- Ground projection -->
         <group if="$(arg /lane_following/ground_projection)">
+            <remap from="ground_projection/lineseglist_in" to="line_detector_node/segment_list"/>
             <include file="$(find ground_projection)/launch/ground_projection.launch">
                 <arg name="veh" value="$(arg veh)"/>
                 <arg name="config" value="$(arg config)"/>
                 <arg name="param_file_name" value="$(arg param_file_name)"/>
+                <arg name="local" value="$(arg local)"/>
             </include>
             <group if="$(arg visualization)">
-              <remap from="duckiebot_visualizer/segment_list" to="ground_projection/lineseglist_out"/>
-              <include file="$(find duckiebot_visualizer)/launch/duckiebot_visualizer.launch">
-                <arg name="veh" value="$(arg veh)" />
-              </include>
+                <remap from="duckiebot_visualizer/segment_list" to="ground_projection/lineseglist_out"/>
+                <include file="$(find duckiebot_visualizer)/launch/duckiebot_visualizer.launch">
+                    <arg name="veh" value="$(arg veh)" />
+                </include>
             </group>
         </group>
 
         <!-- Lane Filter -->
         <group if="$(arg /lane_following/lane_filter)">
-          <remap from="lane_filter_node/segment_list" to="ground_projection/lineseglist_out"/>
-          <remap from="lane_filter_node/car_cmd" to="car_cmd_switch_node/cmd"/>
+            <remap from="lane_filter_node/segment_list" to="ground_projection/lineseglist_out"/>
+            <remap from="lane_filter_node/car_cmd" to="car_cmd_switch_node/cmd"/>
+            <remap from="lane_filter_node/fsm_mode" to="fsm_node/mode" />
             <include file="$(find lane_filter)/launch/lane_filter_node.launch">
                 <arg name="veh" value="$(arg veh)"/>
                 <arg name="config" value="$(arg config)"/>
                 <arg name="param_file_name" value="$(arg param_file_name)"/>
+                <arg name="local" value="$(arg local)"/>
             </include>
         </group>
 
-        <!-- Stop Line Filter -->
-        <group if="$(arg /lane_following/stop_line_filter)">
-            <remap from="stop_line_filter_node/lanewidth" to="lane_filter_node/lanewidth"/>
-            <remap from="stop_line_filter_node/lane_pose" to="lane_filter_node/lane_pose"/>
-            <remap from="stop_line_filter_node/segment_list" to="ground_projection/lineseglist_out"/>
-            <include file="$(find stop_line_filter)/launch/stop_line_filter_node.launch">
+        <!-- Start FSM -->
+        <group if="$(arg fsm)">
+            <!-- FSM -->
+            <!-- no remapping for FSM - full topic names specified in params yaml -->
+            <include file="$(find fsm)/launch/fsm_node.launch">
+                <arg name="veh" value="$(arg veh)"/>
+                <arg name="config" value="$(arg config)"/>
+                <arg name="param_file_name" value="$(arg fsm_file_name)"/>
+                <arg name="local" value="$(arg local)"/>
+            </include>
+
+            <!-- car_cmd_switch_node -->
+            <!-- no remappings for car_cmd_switch - full topic names specified in params yaml -->
+            <remap from="car_cmd_switch_node/cmd_lane_following" to="lane_controller_node/lane_control"/>
+            <group unless="$(arg vehicle_avoidance)">
+                    <remap from="vehicle_avoidance_control_node/car_cmd" to="lane_controller_node/car_cmd" />
+            </group>
+
+            <!-- need either lots more of these or none of these -->
+            <include file="$(find dagu_car)/launch/car_cmd_switch_node.launch">
                 <arg name="veh" value="$(arg veh)"/>
                 <arg name="config" value="$(arg config)"/>
                 <arg name="param_file_name" value="$(arg param_file_name)"/>
+                <arg name="local" value="$(arg local)"/>
             </include>
-        </group>
 
-        <!-- Lane controller -->
-        <group if="$(arg /lane_following/lane_controller)">
-            <remap from="lane_controller_node/lane_pose" to="lane_filter_node/lane_pose"/>
-            <include file="$(find lane_control)/launch/lane_controller_node.launch">
+         <!-- <remap from="implicit_coordination_node/intersection_go" to="logic_gate_node/implicit_intersection_go" />
+         <remap from="coordinator_node/intersection_go" to="logic_gate_node/explicit_intersection_go" /> -->
+            <include file="$(find fsm)/launch/logic_gate_node.launch">
                 <arg name="veh" value="$(arg veh)"/>
                 <arg name="config" value="$(arg config)"/>
                 <arg name="param_file_name" value="$(arg param_file_name)"/>
+                <arg name="local" value="$(arg local)"/>
             </include>
         </group>
 
-        <!-- Visualization -->
-        <group if="$(arg visualization)">
-            <include file="$(find lane_filter)/launch/lane_pose_visualizer_node.launch">
-                <arg name="veh" value="$(arg veh)"/>
-            </include>
-        </group>
+        <!--End FSM -->
+
 
     </group>
+
+
 	<!-- End Lane Control -->
 </launch>

@@ -10,7 +10,7 @@
   <arg name="rect" default="true" />
 
 
-    <arg name="custom_resolution" default="no" doc="to process images with non-default dimension, i.e. (640, 480),  enter a tuple (HIGH, LOW)"/>
+  <arg name="custom_resolution" default="no" doc="to process images with non-default dimension, i.e. (640, 480),  enter a tuple (HIGH, LOW)"/>
 
     <!-- Calibration -->
   <arg name="package_namespace" default="calibration" />

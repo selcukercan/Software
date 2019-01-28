@@ -28,13 +28,13 @@ This package is an automatic wheels calibration procedure.
 Start camera-related functionality by roslaunching
 
 ```shell
-roslaunch pi_camera camera_node.launch veh:=![ROBOT_NAME]
+roslaunch pi_camera cal_camera.launch veh:=![ROBOT_NAME] cam_param_file_name:=![PARAM_FILE]
 ```
 
 Then start the data-acquisition interface by
 
 ```shell
-roslaunch calibration data_collector.launch veh:=![ROBOT_NAME] param_file_name:=![PARAM_FILE]
+roslaunch calibration data_collector.launch veh:=![ROBOT_NAME]
 ```
 With this interface can specify
 
@@ -44,7 +44,11 @@ With this interface can specify
 
 - whether to do another experiment.
 
-Note that we can specisify the resolution of the images taken with ´![PARAM_FILE]´. This file must be placed under ´´
+Note that we can specify the resolution of the images taken with ´![PARAM_FILE]´. This file must be placed under
+
+´/home/software/catkin_ws/src/00-infrastructure/duckietown/config/baseline/pi_camera/camera_node´
+
+
 
 ´$(duckietown)/config/baseline/pi_camera/camera_node´.
 
@@ -55,10 +59,12 @@ Note that we can specisify the resolution of the images taken with ´![PARAM_FIL
 The data recorded during the experiment is /compressed_image, but calibration script requires /tag_detections_local_frame. To get a bag file with the correct topic.
 
 ```shell
-roslaunch calibration compressed_image_to_world_frame.launch veh:=mete input_rosbag:=/home/selcuk/input.bag output_rosbag:=/home/selcuk/![OUTPUT_FILE_NAME].bag operation_mode:=1
+roslaunch calibration compressed_image_to_world_frame.launch veh:=mete input_rosbag:=/home/selcuk/input.bag output_rosbag:=/home/selcuk/![OUTPUT_FILE_NAME].bag operation_mode:=1 custom_resolution:=![WIDTH_HEIGT_OF_IMAGE]
 ```
 
 Note the `operation_mode` parameters which runs the image processing pipeline in sequential mode.
+
+Also note if you choose to record the bag at a resolution that is different from the custom one (640, 480), you should pass the new resolution for (1440, 1080) as `1440_1080`.
 
 Also note that image processing pipeline requires the calibration files to work correctly, currently the calibration files are look for in their default location, for instance intrinsic calibration file must be located at '![HOME_DIRECTORY]/duckiefleet/calibrations/camera_intrinsic/![ROBOT_NAME].yaml'.
 
@@ -85,3 +91,31 @@ Run the test script with
 scp /home/selcuk/duckiefleet/calibrations/kinematics/mete_kinematic_drive.yaml selcuk@mete:~/
 sudo mv ~/mete_kinematic_drive.yaml /data/config/calibrations/kinematics/
 ```
+
+## Development Notes
+## Pose estimation from Lane Filter
+
+Develop offline by recording a bag by following the instructions above. Make sure bag contains compressed_image and cam_info. At this point, in case you use a different resolution than the custom one, the readings are expected to be off.
+
+```shell
+roslaunch calibration lane_pose.launch veh:=![ROBOT_NAME] local:=true
+```
+
+the program will not start until you play the bag, in a separate window
+
+```shell
+rosbag play --loop ROSBAG.bag
+```
+
+access the pose estiamtes through rostopic
+
+```shell
+rostopic echo /![ROBOT_NAME]/lane_filter_node/lane_pose
+```
+
+## Post-Processing the recorded bag
+
+
+Remarks:
+
+maximum allowed resolution to retain the default aspect ratio (4/3) is 1440 * 1080

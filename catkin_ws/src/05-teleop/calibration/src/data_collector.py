@@ -32,11 +32,12 @@ class DataCollector:
         sub_topic_pose_in_world_frame =  '/' + veh + '/apriltags2_ros/publish_detections_in_local_frame/tag_detections_local_frame'
         sub_topic_rect_image = '/' + veh + '/camera_node/image/rect' # 4-5 Hz
         sub_topic_comp_image = '/' + veh + '/camera_node/image/compressed' # 30 Hz
+        sub_topic_cam_info = '/' + veh +'/camera_node/camera_info'
         # Input End
         sub_topic_wheels_cmd_executed = '/' + veh + '/wheels_driver_node/wheels_cmd_executed'
         sub_topic_wheels_cmd = '/' + veh + '/wheels_driver_node/wheels_cmd'
 
-        self.topics_to_follow = [sub_topic_pose_in_world_frame, sub_topic_rect_image, sub_topic_comp_image, sub_topic_wheels_cmd_executed, sub_topic_wheels_cmd]
+        self.topics_to_follow = [sub_topic_pose_in_world_frame, sub_topic_rect_image, sub_topic_comp_image, sub_topic_cam_info, sub_topic_wheels_cmd_executed, sub_topic_wheels_cmd]
 
         # Wait for service server - rosbag-recorder services to start
         rospy.loginfo('[Data Collector Node] BEFORE SERVICE REGISTER')
@@ -49,7 +50,7 @@ class DataCollector:
         self.recording_stop= rospy.ServiceProxy('/stop_recording', StopRecording)
         rospy.loginfo('[Data Collector Node] AFTER SERVICE REGISTER')
         self.wait_start_rosbag = 5 # wait for wait_for_rosbag seconds to make sure that the bag has started recording
-        self.wait_write_rosbag = 8
+        self.wait_write_rosbag = 0
 
     def exp_name_to_exp_object(self, exp_name):
         """

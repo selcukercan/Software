@@ -13,6 +13,7 @@ from sensor_msgs.msg import (Image, CameraInfo)
 class GroundProjectionNode(object):
 
     def __init__(self):
+
         self.node_name = "Ground Projection"
         self.active = True
         self.bridge = CvBridge()
@@ -26,13 +27,14 @@ class GroundProjectionNode(object):
 
         self.gp = GroundProjection(self.robot_name)
 
-        self.gpg = get_ground_projection_geometry_for_robot(self.robot_name)
+        self.gpg = get_ground_projection_geometry_for_robot(
+            self.robot_name)
 
         camera_info_topic = "/" + self.robot_name + "/camera_node/camera_info"
-        rospy.loginfo("camera info topic is " + camera_info_topic)
-        rospy.loginfo("waiting for camera info")
+        rospy.loginfo("[{}] camera info topic is {}".format(self.node_name, camera_info_topic))
+        rospy.loginfo("[{}] waiting for camera info".format(self.node_name))
         camera_info = rospy.wait_for_message(camera_info_topic, CameraInfo)
-        rospy.loginfo("camera info received")
+        rospy.loginfo("[{}] camera info received".format(self.node_name))
 
         if False:
             self.gp.initialize_pinhole_camera_model(camera_info)
@@ -47,6 +49,7 @@ class GroundProjectionNode(object):
         self.pub_lineseglist_ = rospy.Publisher("~lineseglist_out", SegmentList, queue_size=1)
         self.sub_lineseglist_ = rospy.Subscriber("~lineseglist_in", SegmentList, self.lineseglist_cb)
 
+        #rospy.logwarn(self.sub_lineseglist)
         # TODO prepare services
         self.service_homog_ = rospy.Service("~estimate_homography", EstimateHomography, self.estimate_homography_cb)
         self.service_gnd_coord_ = rospy.Service("~get_ground_coordinate", GetGroundCoord, self.get_ground_coordinate_cb)
@@ -60,6 +63,7 @@ class GroundProjectionNode(object):
         return self.gpg.rectify(cv_image)
 
     def lineseglist_cb(self, seglist_msg):
+        rospy.loginfo("in linesegmentlist_cb")
         seglist_out = SegmentList()
         seglist_out.header = seglist_msg.header
         for received_segment in seglist_msg.segments:

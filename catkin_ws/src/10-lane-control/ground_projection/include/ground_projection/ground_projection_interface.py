@@ -11,7 +11,7 @@ from pi_camera import get_camera_info_for_robot
 
 from .configuration import get_homography_for_robot
 from .ground_projection_geometry import GroundProjectionGeometry
-
+from rospy import logwarn
 __all__ = [
     'GroundProjection',
 ]
@@ -32,7 +32,9 @@ class GroundProjection(object):
 
     def __init__(self, robot_name):
         camera_info = get_camera_info_for_robot(robot_name)
+        logwarn("Camera Info: [{}]".format(camera_info))
         homography = get_homography_for_robot(robot_name)
+        logwarn("Homography Info: [{}]".format(homography))
         self._gpg = GroundProjectionGeometry(camera_info, homography)
 
         self.robot_name = robot_name
