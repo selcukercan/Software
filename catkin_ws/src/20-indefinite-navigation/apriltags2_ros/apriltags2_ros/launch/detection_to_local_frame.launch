@@ -5,13 +5,15 @@
   <arg name="topic_name" default="image_rect" />
   <arg name="input_rosbag" doc="path to rosbag that is collected during the experiments."/>
   <arg name="output_rosbag" doc="path to rosbag that will be generated." />
+  <arg name="save_lane_filter" default="false" doc="specify if you would like to save the output returned by lane filter. Note that this launch file does not start lane filter."/>
 
   <!-- Set parameters -->
   <group ns="$(arg veh)/$(arg package_namespace)">
-  <node pkg="apriltags2_ros" type="$(arg node_namespace).py" name="$(arg node_namespace)" clear_params="true" required="true" output="screen">
-    <param name="veh" value="$(arg veh)"/>
-    <param name="input_rosbag" value="$(arg input_rosbag)"/>
-    <param name="output_rosbag" value="$(arg output_rosbag)"/>
-  </node>
+    <node pkg="apriltags2_ros" type="$(arg node_namespace).py" name="$(arg node_namespace)" clear_params="true" required="true" output="screen">
+      <param name="veh" value="$(arg veh)"/>
+      <param name="input_rosbag" value="$(arg input_rosbag)"/>
+      <param name="output_rosbag" value="$(arg output_rosbag)"/>
+      <param name="save_lane_filter" value="$(arg save_lane_filter)"/>
+    </node>
   </group>
 </launch>

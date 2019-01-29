@@ -63,7 +63,7 @@ class GroundProjectionNode(object):
         return self.gpg.rectify(cv_image)
 
     def lineseglist_cb(self, seglist_msg):
-        rospy.loginfo("in linesegmentlist_cb")
+        #rospy.loginfo("in linesegmentlist_cb")
         seglist_out = SegmentList()
         seglist_out.header = seglist_msg.header
         for received_segment in seglist_msg.segments:
