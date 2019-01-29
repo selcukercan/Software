@@ -33,6 +33,7 @@ class GroundProjectionNode(object):
         camera_info_topic = "/" + self.robot_name + "/camera_node/camera_info"
         rospy.loginfo("[{}] camera info topic is {}".format(self.node_name, camera_info_topic))
         rospy.loginfo("[{}] waiting for camera info".format(self.node_name))
+        #rospy.logwarn("11111111111111111111111111111111")
         camera_info = rospy.wait_for_message(camera_info_topic, CameraInfo)
         rospy.loginfo("[{}] camera info received".format(self.node_name))
 
@@ -42,7 +43,7 @@ class GroundProjectionNode(object):
 
             self.gp.robot_name = self.robot_name
             self.gp.rectified_input_ = rospy.get_param("rectified_input", False)
-
+        #rospy.logwarn("222222222222222222222222222222222")
         self.image_channel_name = "image_raw"
 
         # Subs and Pubs
@@ -63,9 +64,12 @@ class GroundProjectionNode(object):
         return self.gpg.rectify(cv_image)
 
     def lineseglist_cb(self, seglist_msg):
-        #rospy.loginfo("in linesegmentlist_cb")
         seglist_out = SegmentList()
+
+        #print("Seglist out: \n{}".format(seglist_msg))
+
         seglist_out.header = seglist_msg.header
+
         for received_segment in seglist_msg.segments:
             new_segment = Segment()
             new_segment.points[0] = self.gpg.vector2ground(received_segment.pixels_normalized[0])

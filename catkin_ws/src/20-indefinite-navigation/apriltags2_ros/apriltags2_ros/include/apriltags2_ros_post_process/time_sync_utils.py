@@ -20,6 +20,7 @@ def time_sync(input_bag, veh_name):
 
     top_compressed_image = "/" + veh_name + "/camera_node/image/compressed"
     top_tag_detections = "/" + veh_name + "/apriltags2_ros/publish_detections_in_local_frame/tag_detections_local_frame"
+    top_lane_filter = "/" + veh_name + "/lane_filter_node/lane_pose"
 
     # record the ros times of compressed_image and tag_detections topics into a list
     for topic, msg, t in rosbag.Bag(input_bag).read_messages():

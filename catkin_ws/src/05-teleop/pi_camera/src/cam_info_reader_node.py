@@ -41,9 +41,9 @@ class CamInfoReader(object):
         rospy.loginfo("[%s] Using calibration file: %s" % (self.node_name, self.cali_file))
         self.camera_info_msg = load_camera_info_2(self.cali_file)
 
-        print 'XXXXXXXXXXXXXX  CALIBRATION CAM INFO  XXXXXXXXXXXXXXXXXXXX'
-        rospy.logwarn(self.camera_info_msg)
-        print 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'
+        #print 'XXXXXXXXXXXXXX  CALIBRATION CAM INFO  XXXXXXXXXXXXXXXXXXXX'
+        #rospy.logwarn(self.camera_info_msg)
+        #print 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'
 
         if self.custom_resolution != "no":
             # rospy.logwarn("[{}] ============== [{}] ==============".format(self.node_name, self.custom_resolution))
@@ -53,9 +53,9 @@ class CamInfoReader(object):
             self.camera_info_msg.height = int(self.im_height)
             self.camera_info_msg.width = int(self.im_width)
 
-            print 'XXXXXXXXXXXXXXXXX  CORRECTED CAM INFO FOR NEW RESOLUTION   XXXXXXXXXXXXXXXXX'
-            rospy.logwarn(self.camera_info_msg)
-            print 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'
+            #print 'XXXXXXXXXXXXXXXXX  CORRECTED CAM INFO FOR NEW RESOLUTION   XXXXXXXXXXXXXXXXX'
+            #rospy.logwarn(self.camera_info_msg)
+            #print 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'
 
 
         self.camera_info_msg.header.frame_id = rospy.get_namespace() + "camera_optical_frame"
