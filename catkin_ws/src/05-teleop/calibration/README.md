@@ -10,9 +10,13 @@
 
 To be able to run the launch file: compressed_image_to_world_frame.launch:
 
-use local_env.sh which sets the DUCKIEFLEET_ROOT to the default location. Make sure to include your calibration folder at DUCKIEFLEET_ROOT.
+* use local_env.sh which sets the DUCKIEFLEET_ROOT to the default location. Make sure to include your calibration folder at DUCKIEFLEET_ROOT.
 
-Install the lastest version of the scipy, as the code uses `ivp_solver` that is introduced in scipy version v1.2.0
+* Install the lastest version of the scipy, as the code uses `ivp_solver` that is introduced in scipy version v1.2.0: "pip install scipy"
+
+* pip install pyyaml
+
+* sudo apt-get install python-rospkg
 
 This package is an automatic wheels calibration procedure.
 
@@ -93,7 +97,7 @@ sudo mv ~/mete_kinematic_drive.yaml /data/config/calibrations/kinematics/
 ```
 
 ## Development Notes
-## Pose estimation from Lane Filter
+### Pose estimation from Lane Filter
 
 Develop offline by recording a bag by following the instructions above. Make sure bag contains compressed_image and cam_info. At this point, in case you use a different resolution than the custom one, the readings are expected to be off.
 
@@ -113,9 +117,36 @@ access the pose estiamtes through rostopic
 rostopic echo /![ROBOT_NAME]/lane_filter_node/lane_pose
 ```
 
-## Post-Processing the recorded bag
-
+### Post-Processing the recorded bag
 
 Remarks:
 
 maximum allowed resolution to retain the default aspect ratio (4/3) is 1440 * 1080
+
+### Giving Reference velocity and manual tuning of model parameters
+
+This procedure is useful to get a feeling about the reasonable values of each parameter, and can be fed to optimization problem as initial condition.
+
+```shell
+roslaunch dagu_car inverse_kinematics_node.launch veh:=mete local:=true model:=sysid
+```
+
+publish to car_cmd (reference velocities for car to follow)
+rostopic pub /mete/inverse_kinematics_node/car_cmd duckietown_msgs/Twist2DStamped '{header: {}, v: 0.5, omega: 0.05}'
+
+
+### Notes
+
+If working with old software architecture and install the dependencies in a virtual environment
+
+```shell
+virtualenv my_venv
+source my_venv/bin/activate
+pip install numpy scipy
+```
+
+to exit virtual environment
+
+```shell
+source my_venv/bin/deactivate
+```

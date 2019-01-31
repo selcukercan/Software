@@ -24,15 +24,15 @@ class ToLocalPose:
 
         # initialize the node
         rospy.init_node('publish_detections_in_local_frame_node', anonymous=False)
-        rospy.sleep(2) # to ensure that the the rosparam service is initialized before the values requested below (an observed issue)  
+        rospy.sleep(2) # to ensure that the the rosparam service is initialized before the values requested below (an observed issue)
         # Parameters
         # determine we work synchronously or asynchronously, where asynchronous is the default
         # mode of operation. synchronous operation is benefitial when post-processing the recorded
         # experiment data. For example it is beneficial when only compressed image is available from the experiment and we want to
         # pass exach image through a localization pipeline (compressed_image -> decoder -> rectification -> apriltags_detection -> to_local_pose)
         # to extract the pose in world frame
-        self.synchronous_mode = rospy.get_param(param_name="/operation_mode")
-        self.total_msg_count =  rospy.get_param(param_name="/" + self.veh + "/buffer_node/message_count")
+        self.synchronous_mode = self.setupParam("/operation_mode", 0)
+        self.total_msg_count = rospy.get_param(param_name="/" + self.veh + "/buffer_node/message_count")
         rospy.logwarn("TOTAL_MSG_COUNT: {}".format(self.total_msg_count))
 
         # Publisher
@@ -78,7 +78,7 @@ class ToLocalPose:
     def setupParam(self,param_name,default_value):
         value = rospy.get_param(param_name,default_value)
         rospy.set_param(param_name,value) #Write to parameter server for transparancy
-        rospy.loginfo("[%s] %s = %s " %(self.node_name,param_name,value))
+        rospy.loginfo("[{}] {} = {} from {}".format(self.node_name,param_name,value, "param_server" if rospy.has_param(param_name) else "script"))
         return value
 
     def cbDetection(self,msg):
@@ -122,11 +122,10 @@ class ToLocalPose:
                     # wait until a new pose estimate arrives from lane filter
                     while self.new_lane_pose_available == False:
                         try:
-                            rospy.loginfo(
-                                "[{}] recieved new Lane Filter Pose".format(self.node_name))
+                            rospy.loginfo("[{}] waiting for lane filter pose ...".format(self.node_name))
                             lane_filter_pose_msg = rospy.wait_for_message(self.top_lane_filter, LanePose, self.timeout)
                         except rospy.ROSException:
-                            rospy.loginfo("[{}] Timeout waiting for new lane filter pose estimate.".format(self.node_name))
+                            rospy.loginfo("[{}] timeout waiting for new lane filter pose estimate.".format(self.node_name))
                             return False
                     else:
                         lane_filter_pose_msg = self.lane_pose_msg
@@ -139,11 +138,10 @@ class ToLocalPose:
                     output_rosbag.write(self.top_lane_filter, lane_filter_pose_msg)
                     rospy.loginfo("WROTE TO BAG LANE POSE")
                 output_rosbag.close()
-                self.lock.release()
-
                 # after writing the values new_lane_pose_available needs to be reset to False
                 rospy.loginfo("[{}] self.new_lane_pose_available des: False  actual: {}".format(self.node_name, self.new_lane_pose_available))
                 self.new_lane_pose_available = False
+                self.lock.release()
 
                 rospy.loginfo("[{}] wrote image {}".format(self.node_name, self.numb_written_images))
                 self.numb_written_images += 1
