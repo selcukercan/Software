@@ -2,7 +2,7 @@
 # system imports
 import rospy
 from os.path import expanduser
-from os import remove
+from os import remove, mknod
 
 # package utilities import
 from std_msgs.msg import String #Imports msg
@@ -37,6 +37,9 @@ class DataCollector:
         sub_topic_wheels_cmd_executed = '/' + veh + '/wheels_driver_node/wheels_cmd_executed'
         sub_topic_wheels_cmd = '/' + veh + '/wheels_driver_node/wheels_cmd'
 
+        # Parameters
+        self.rosbag_dir = rospy.get_param("~output_rosbag_dir")
+
         self.topics_to_follow = [sub_topic_pose_in_world_frame, sub_topic_rect_image, sub_topic_comp_image, sub_topic_cam_info, sub_topic_wheels_cmd_executed, sub_topic_wheels_cmd]
 
         # Wait for service server - rosbag-recorder services to start
@@ -51,7 +54,24 @@ class DataCollector:
         rospy.loginfo('[Data Collector Node] AFTER SERVICE REGISTER')
         self.wait_start_rosbag = 5 # wait for wait_for_rosbag seconds to make sure that the bag has started recording
         self.wait_write_rosbag = 0
+        
+        """
+        # Wait for service server - rosbag-recorder services to start
+        srv_record_topic = "/" + veh + "/rosbag_recorder" + '/record_topics'
+        srv_stop_topic = "/" + veh + "/rosbag_recorder" + '/stop_recording'
 
+        rospy.loginfo('[Data Collector Node] BEFORE SERVICE REGISTER')
+        rospy.wait_for_service(srv_record_topic)
+        rospy.wait_for_service(srv_stop_topic)
+
+        # rospy.ServiceProxy(SERVICE_NAME, SERVICE_TYPE), SERVICE_TYPE is defined under /srv of rosbag_recorder
+        # call these fns with the right input/output arguments similar to local fns.
+        self.topic_recorder = rospy.ServiceProxy(srv_record_topic, RecordTopics)
+        self.recording_stop= rospy.ServiceProxy(srv_stop_topic, StopRecording)
+        rospy.loginfo('[Data Collector Node] AFTER SERVICE REGISTER')
+        self.wait_start_rosbag = 5 # wait for wait_for_rosbag seconds to make sure that the bag has started recording
+        self.wait_write_rosbag = 10
+        """
     def exp_name_to_exp_object(self, exp_name):
         """
         accepts a valid experiment name and create the corresponding experiment object
@@ -89,7 +109,9 @@ class DataCollector:
 
                 wheel_cmds = experiment_object.generate_input(param_dict_request)
                 rosbag_name = experiment_object.generate_experiment_label()
-
+                rosbag_path = self.rosbag_dir + "/" + rosbag_name + ".bag"
+                #mknod(rosbag_path) # create file
+                #file = open("/home/megaduck/usb/" + rosbag_name + ".bag", 'w')
                 # start recording rosbag
                 record_topic_response = self.topic_recorder(rosbag_name, self.topics_to_follow)
                 record_topic_response_val = record_topic_response.success
@@ -105,18 +127,20 @@ class DataCollector:
 
                 # stop recording rosbag.
                 rospy.loginfo("[Data Collector Node] waiting {} seconds to ensure all data is recorded into rosbag ...".format(str(self.wait_write_rosbag)))
+
                 rospy.sleep(self.wait_write_rosbag)  # wait for the bag to record all data
                 recording_stop_response = self.recording_stop(rosbag_name)
+                rospy.sleep(self.wait_write_rosbag)  # wait for the bag to record all data
 
+                print "recording_stop_response: {} ".format(recording_stop_response)
                 #ask whether user wants to keep the current measurements
                 rospy.loginfo('do you want to keep the current experiments bag file? (respond with yes or no)')
                 user_input = raw_input()
-                bag_file_path = expanduser("~") + "/" + rosbag_name + ".bag"
                 if user_input.strip().lower() == 'no':
-                    rospy.loginfo('removing the bag file {} ...'.format(bag_file_path))
-                    remove(bag_file_path)
+                    rospy.loginfo('removing the bag file {} ...'.format(rosbag_path))
+                    remove(rosbag_path)
                 else:
-                    rospy.loginfo('keeping the bag file {}.'.format(bag_file_path))
+                    rospy.loginfo('keeping the bag file {}.'.format(rosbag_path))
 
             rospy.loginfo("\n\nDo you want to do another experiment? (respond with yes or no)\n\n")
             user_wish = raw_input()

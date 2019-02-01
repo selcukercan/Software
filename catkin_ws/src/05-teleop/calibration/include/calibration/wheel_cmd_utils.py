@@ -19,7 +19,7 @@ class BaseExperimentClass(object):
 
     def generate_experiment_label(self):
         """generates a custom experiment label with experiment time, experiment type, parameter names and their values"""
-        now = datetime.datetime.now().strftime("%Y_%m_%d_%H:%M")
+        now = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M")
         experiment_name_base = self.name + "_"+ now
 
         param_val_label = ""
