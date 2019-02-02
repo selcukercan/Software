@@ -11,7 +11,7 @@ class DataPreparation():
     DEBUG_MODE = True # convenience flag
     TEST_MODE = False # in test mode no plots are drawn
     DISCARD_FIRST = 30 # discard first n data
-    DISCARD_LAST = 10  # discard last n data
+    DISCARD_LAST = 30  # discard last n data
 
     def __init__(self, input_bag = None, top_wheel_cmd_exec = None, top_robot_pose = None, save_as = None, dump = False, exp_name='', mode='train'):
         self.input_bag = input_bag
@@ -44,10 +44,10 @@ class DataPreparation():
         wheel_cmd_exec_opt = self.u_adapter(wheel_cmd_exec_sel)
         robot_pose_opt = self.x_adapter(robot_pose_sel)
 
-        """
+
         if self.operation_mode == 'train':
-            robot_pose_opt = self.filter(robot_pose_opt, [3,3,3], ["flat" , "flat", "flat"])
-        """
+            robot_pose_opt = self.filter(robot_pose_opt, [11,11,11], ["flat" , "flat", "flat"])
+
 
         return wheel_cmd_exec_opt, robot_pose_opt, t
 

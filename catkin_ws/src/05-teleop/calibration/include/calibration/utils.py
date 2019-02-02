@@ -73,6 +73,6 @@ def input_folder_to_experiment_dict(folder_path):
     experiments = {}
     bag_files = os.listdir(folder_path)
     for bag in bag_files:
-        bag_name = bag.split('.')[0]
+        bag_name = os.path.splitext(bag)[0]
         experiments[bag_name] = {'wheel_cmd_exec': None, 'robot_pose': None, 'path': join(folder_path, bag)}
     return experiments
