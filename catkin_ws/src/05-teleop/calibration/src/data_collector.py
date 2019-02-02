@@ -49,6 +49,7 @@ class DataCollector:
         self.topic_recorder = rospy.ServiceProxy('/record_topics', RecordTopics)
         self.recording_stop= rospy.ServiceProxy('/stop_recording', StopRecording)
         rospy.loginfo('[Data Collector Node] AFTER SERVICE REGISTER')
+        
         self.wait_start_rosbag = 5 # wait for wait_for_rosbag seconds to make sure that the bag has started recording
         self.wait_write_rosbag = 0
 
@@ -65,21 +66,28 @@ class DataCollector:
             return Sine()
         elif exp_name == "sweep_sine":
             return SweepSine()
+        elif exp_name == "step_salsa":
+            return StepSalsa()
         else:
-            rospy.loginfo('[{}] is not a valid experiment name'.format(exp_name))
+            print('[{}] is not a valid experiment name, please enter a valid one '.format(exp_name))
             return None
 
+    def get_valid_experiment(self):
+        experiment_object = None
+        while experiment_object == None:
+            experiment_type = raw_input()
+            experiment_object = self.exp_name_to_exp_object(experiment_type)
+        return experiment_type, experiment_object
 
     def perform_experiments(self):
 
         DO_EXPERIMENT = "yes"
-        available_experiments = ["ramp_up", "sine", "sweep_sine"]
+        available_experiments = ["ramp_up", "sine", "sweep_sine", "step_salsa"]
         ui = ExperimentUI()
 
         while DO_EXPERIMENT == "yes":
-            rospy.loginfo("\nType the experiment type you want to do: {}".format(str(available_experiments)))
-            experiment_type = raw_input()
-            experiment_object = self.exp_name_to_exp_object(experiment_type)
+            print("\nType in the name of the experiment to conduct: {}".format(str(available_experiments)))
+            experiment_type, experiment_object = self.get_valid_experiment()
 
             if experiment_type != None:
                 #ramp_up = RampUp()
@@ -108,7 +116,7 @@ class DataCollector:
                 rospy.sleep(self.wait_write_rosbag)  # wait for the bag to record all data
                 recording_stop_response = self.recording_stop(rosbag_name)
 
-                #ask whether user wants to keep the current measurements
+                # ask whether user wants to keep the current measurements
                 rospy.loginfo('do you want to keep the current experiments bag file? (respond with yes or no)')
                 user_input = raw_input()
                 bag_file_path = expanduser("~") + "/" + rosbag_name + ".bag"

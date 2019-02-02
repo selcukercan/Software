@@ -73,7 +73,7 @@ class calib():
             rospy.logwarn('[{}] using default initial guesses defined in model {}'.format('kinematic_calibration', model_object.name))
 
         # inspect the 2D path vehicle followed
-        #path_plot(experiments['ramp_up_2019_01_19_15_04_Nstep_120'], plot_name='measured_traj')
+        path_plot(experiments['ramp_up_2019_01_19_15_04_Nstep_120.0_vFin_0.5_pp'], plot_name='measured_traj')
 
         """
         # use the parameter bounds defined in the class of our model choice

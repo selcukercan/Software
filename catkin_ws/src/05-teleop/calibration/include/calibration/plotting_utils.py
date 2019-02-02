@@ -116,9 +116,14 @@ def multiplot_single_view(states_list=None, time_list=None, input_list=None, exp
 
 def simple_plot(x_val, y_val, plot_name=""):
     data = []
+
+    if x_val is None:
+        x_val= arange(len(y_val))
+
     p1 = go.Scatter(
         x=x_val,
         y=y_val,
+        mode='markers'
     )
     data.extend([p1])
     layout = dict(title=plot_name)
