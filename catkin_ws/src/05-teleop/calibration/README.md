@@ -117,6 +117,14 @@ access the pose estiamtes through rostopic
 rostopic echo /![ROBOT_NAME]/lane_filter_node/lane_pose
 ```
 
+### Getting estimates from both Lane Filter and AprilTags
+
+Note that the input bag is expected to contain cam_info topic as it is required by the Lane Filter.
+
+```shell
+roslaunch calibration calculate_poses.launch veh:=![ROBOT_NAME] input_rosbag:=![INPUT_ROSBAG] output_rosbag:=![OUTPUT_ROSBAG] local:=true operation_mode:=1
+```
+
 ### Post-Processing the recorded bag
 
 Remarks:
