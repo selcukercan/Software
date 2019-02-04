@@ -109,12 +109,12 @@ class StepSalsa(BaseExperimentClass):
         """rosinfo brief description of the experiment, specifically the interpretation of parameters"""
         info_msg = """
         Experiment Description:
-        
-        Move that duckie!!  
-        
+
+        Move that duckie!!
+
         Paramaters:
-        
-        d:\t\tduty cycle command send to motors, takes values between 0 and 1, higher the faster.  
+
+        d:\t\tduty cycle command send to motors, takes values between 0 and 1, higher the faster.
         duration:\tspecifies how long the step input will be applied during forward/backward moves.
         repeat:\t\tnumber of times to repeat full-motion-cycle (right forward, right backward, left forward, left backward).
         """
@@ -127,7 +127,7 @@ class StepSalsa(BaseExperimentClass):
         forward = []
         backward = []
         no_motion = []
-        for t in np.arange(0,int(req_parameter_dict['duration']), 1 / float(frequency)): #each command is executed at experiment frequency rate
+        for t in np.arange(0,req_parameter_dict['duration'], 1 / float(frequency)): #each command is executed at experiment frequency rate
             forward.append(req_parameter_dict['d']) #forward motion at the specified constant duty-cycle
             backward.append(-req_parameter_dict['d'])  #backward motion at the specified constant duty-cycle
             no_motion.append(0) #no motion command for non-active wheel
@@ -135,7 +135,7 @@ class StepSalsa(BaseExperimentClass):
         backward.append(0)
         no_motion.append(0)
 
-        for rep in range(req_parameter_dict['repeat']):
+        for rep in range(int(req_parameter_dict['repeat'])):
             input_sequence['right_wheel'].extend(forward) #right wheel move forward
             input_sequence['left_wheel'].extend(no_motion) #left wheel do not move
             input_sequence['right_wheel'].extend(backward) #right wheel move backward
@@ -205,7 +205,7 @@ if __name__ == "__main__":
     req_parameter_dict = {'k1': 0.2, 'k2': 0.06, 'omega_low': 0.003, 'omega_high': 0.007, 'duration': 1500}
     sweep_sine = SweepSine()
     sine_val = sweep_sine .generate_input(req_parameter_dict)
-    print("sel")    
+    print("sel")
     """
     step_salsa = StepSalsa()
     step_salsa.generate_input(step_salsa.parameter_dict)
