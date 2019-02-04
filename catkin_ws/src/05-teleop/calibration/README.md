@@ -115,7 +115,18 @@ rostopic echo /![ROBOT_NAME]/lane_filter_node/lane_pose
 
 ## Post-Processing the recorded bag
 
-
 Remarks:
 
 maximum allowed resolution to retain the default aspect ratio (4/3) is 1440 * 1080
+
+## Only launching AprilTag detection
+
+```shell
+roslaunch pi_camera camera_apriltag_demo.launch veh:=![ROBOT_NAME]
+```
+
+```shell
+roslaunch apriltags2_ros apriltag2_demo.launch veh:=![ROBOT_NAME]
+```
+
+## Launch Local pose detection
