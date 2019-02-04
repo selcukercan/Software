@@ -23,21 +23,16 @@ class ToLocalPose:
 
         # initialize the node
         rospy.init_node('publish_detections_in_local_frame_node', anonymous=False)
-        rospy.sleep(2) # to ensure that the the rosparam service is initialized before the values requested below (an observed issue)  
+        rospy.sleep(2) # to ensure that the the rosparam service is initialized before the values requested below (an observed issue)
         # Parameters
         # determine we work synchronously or asynchronously, where asynchronous is the default
         # mode of operation. synchronous operation is benefitial when post-processing the recorded
         # experiment data. For example it is beneficial when only compressed image is available from the experiment and we want to
         # pass exach image through a localization pipeline (compressed_image -> decoder -> rectification -> apriltags_detection -> to_local_pose)
         # to extract the pose in world frame
-        self.synchronous_mode = rospy.get_param(param_name="/operation_mode")
-        self.total_msg_count =  rospy.get_param(param_name="/" + self.veh + "/buffer_node/message_count")
-        rospy.logwarn("TOTAL_MSG_COUNT: {}".format(self.total_msg_count))
-
+        self.synchronous_mode = self.setupParam("/operation_mode", 0)
+	
         # Publisher
-        self.pub_topic_image_request = "/" + self.veh + "/" + self.node_name + "/" + "image_requested"
-        self.pub_image_request = rospy.Publisher(self.pub_topic_image_request, Bool, queue_size=1)
-
         self.pub_topic_name = host_package_node + '/tag_detections_local_frame'
         self.pub_detection_in_robot_frame = rospy.Publisher(self.pub_topic_name ,VehiclePoseEuler,queue_size=1)
 
@@ -45,8 +40,15 @@ class ToLocalPose:
         sub_topic_name =  '/' + self.veh + '/tag_detections'
         self.sub_img = rospy.Subscriber(sub_topic_name, AprilTagDetectionArray, self.cbDetection)
 
-
         if self.synchronous_mode:
+	    rospy.logwarn('[publish_detections_in_local_frame] operating in asynchronous mode')
+            # read the messages from the buffer node
+            self.total_msg_count =  rospy.get_param(param_name="/" + self.veh + "/buffer_node/message_count")
+            rospy.logwarn("TOTAL_MSG_COUNT: {}".format(self.total_msg_count))
+            # request image after processing of a single image is completed
+            self.pub_topic_image_request = "/" + self.veh + "/" + self.node_name + "/" + "image_requested"
+            self.pub_image_request = rospy.Publisher(self.pub_topic_image_request, Bool, queue_size=1)
+
             # get the input rosbags, and name of the output bag we wish the create
             input_bag = rospy.get_param(param_name= host_package_node + "/input_rosbag")
             self.output_bag = rospy.get_param(param_name= host_package_node + "/output_rosbag")
@@ -60,7 +62,7 @@ class ToLocalPose:
             self.numb_written_images = 0
             self.wrote_all_images = False
         else:
-            rospy.logwarn('INVALID MODE OF OPERATION in publish_detections_in_local_frame')
+            rospy.logwarn('[publish_detections_in_local_frame] operating in asynchronous mode')
 
     def setupParam(self,param_name,default_value):
         value = rospy.get_param(param_name,default_value)
@@ -122,7 +124,7 @@ class ToLocalPose:
 
 
         else:
-            rospy.loginfo("[{}] empty apriltag detection recieved".format(self.node_name, self.numb_written_images))
+            rospy.loginfo("[{}] empty apriltag detection recieved".format(self.node_name))
 
             if self.synchronous_mode:
                 rospy.loginfo("[{}] in synchronous mode publishing VehiclePoseEuler with entries equal to 0.0".format(self.node_name,self.numb_written_images))
