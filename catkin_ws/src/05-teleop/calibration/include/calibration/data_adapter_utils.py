@@ -21,3 +21,6 @@ def row(a):
     """
 
     return a.reshape(1, a.size)
+
+def data_mat_to_dict(mat):
+    pass

@@ -31,7 +31,7 @@ class ToLocalPose:
         # pass exach image through a localization pipeline (compressed_image -> decoder -> rectification -> apriltags_detection -> to_local_pose)
         # to extract the pose in world frame
         self.synchronous_mode = self.setupParam("/operation_mode", 0)
-	
+
         # Publisher
         self.pub_topic_name = host_package_node + '/tag_detections_local_frame'
         self.pub_detection_in_robot_frame = rospy.Publisher(self.pub_topic_name ,VehiclePoseEuler,queue_size=1)
@@ -82,7 +82,7 @@ class ToLocalPose:
             q = np.array([q_msg.x, q_msg.y, q_msg.z, q_msg.w])
 
             # express relative rotation of the robot wrt the global frame.
-            world_R_veh, world_t_veh = worldTveh(q,t)
+            world_R_veh, world_t_veh = vehTworld(q,t)
             veh_feaXYZ_world = rotation_matrix_to_euler(world_R_veh)
 
             # convert from numpy float to standart python float to be written into the message
@@ -103,7 +103,8 @@ class ToLocalPose:
 
             # finally publish the message
             self.pub_detection_in_robot_frame.publish(veh_pose_euler_msg)
-            rospy.loginfo('posx: {} posy:  {} rotz: {}'.format(world_t_veh[0],world_t_veh[1],veh_feaXYZ_world[2]))
+            rospy.loginfo('publish posx: {} posy:  {} rotz: {}'.format(veh_pose_euler_msg.posx,veh_pose_euler_msg.posy,veh_pose_euler_msg.rotz))
+            
             if self.synchronous_mode:
                 # save the message to the bag file that contains compressed_images
                 self.lock.acquire()

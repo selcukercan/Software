@@ -2,7 +2,6 @@
   <arg name="veh"/>
   <arg name="package_namespace" default="apriltags2_ros" />
   <arg name="node_namespace" default="publish_detections_in_local_frame" />
-  <arg name="topic_name" default="image_rect" />
   <arg name="input_rosbag" doc="path to rosbag that is collected during the experiments."/>
   <arg name="output_rosbag" doc="path to rosbag that will be generated." />
 

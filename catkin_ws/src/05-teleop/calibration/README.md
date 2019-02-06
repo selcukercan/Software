@@ -130,3 +130,7 @@ roslaunch apriltags2_ros apriltag2_demo.launch veh:=![ROBOT_NAME]
 ```
 
 ## Launch Local pose detection
+
+```shell
+roslaunch apriltags2_ros detection_to_local_frame.launch veh:=![ROBOT_NAME]
+```

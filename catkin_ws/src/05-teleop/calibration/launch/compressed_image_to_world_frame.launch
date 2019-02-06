@@ -9,10 +9,9 @@
   <arg name="live" default="true" doc="live set to false means we don't run the actual camera (i.e. running from a log file" />
   <arg name="rect" default="true" />
 
-
   <arg name="custom_resolution" default="no" doc="to process images with non-default dimension, i.e. (640, 480),  enter a tuple (HIGH, LOW)"/>
 
-    <!-- Calibration -->
+  <!-- Calibration -->
   <arg name="package_namespace" default="calibration" />
   <arg name="node_namespace" default="data_collector" />
 
@@ -20,9 +19,9 @@
   <arg name="input_rosbag" doc="path to the input rosbag containing the compressed image"/>
   <arg name="output_rosbag" doc="file path to save the processed rosbag."/>
 
-    <!-- General -->
-    <arg name="operation_mode" default="0"  doc="for asynchronous (the standard ros operation):0 (default),for synchronous (sequential) operation:1." />
-    <param name="operation_mode" value="$(arg operation_mode)"/>
+  <!-- General -->
+  <arg name="operation_mode" default="0"  doc="for asynchronous (the standard ros operation):0 (default),for synchronous (sequential) operation:1." />
+  <param name="operation_mode" value="$(arg operation_mode)"/>
 
   <!-- decoder_node -->
   <group if="$(arg raw)">
@@ -86,6 +85,7 @@
       <arg name="veh" value="$(arg veh)"/>
       <arg name="input_rosbag" value="$(arg input_rosbag)"/>
       <arg name="output_rosbag" value="$(arg output_rosbag)"/>
+      <arg name="operation_mode" value="$(arg operation_mode)"/>
   </include>
 
   <!-- start buffer launch -->

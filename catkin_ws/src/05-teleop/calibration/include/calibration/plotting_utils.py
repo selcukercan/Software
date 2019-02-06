@@ -5,9 +5,13 @@ import rospy
 from os.path import join
 from numpy import arange, array, cos, sin, pi
 from itertools import izip
-
+import matplotlib.pyplot as plt
+import matplotlib.cm as cm
+from matplotlib.colors import Normalize
+from matplotlib.pyplot import figure
 opy.init_notebook_mode(connected=True)
 
+SLEEP_DURATION = 1
 def single_plot_data(states= None, time= None, input = None, experiment_name=""):
     data = []
 
@@ -129,11 +133,13 @@ def simple_plot(x_val, y_val, plot_name=""):
     layout = dict(title=plot_name)
     fig = dict(data=data, layout=layout)
     opy.plot(fig)
+    rospy.sleep(SLEEP_DURATION)
 
 def param_convergence_plot(param_hist):
     for param in param_hist.keys():
         iter = range(len(param_hist[param]))
         simple_plot(iter, param_hist[param], 'Parameter {}'.format(param))
+    rospy.sleep(SLEEP_DURATION)
 
 def param_space_cost_plot(cost, params_space_list):
     a = array(params_space_list)
@@ -169,13 +175,94 @@ def param_space_cost_plot(cost, params_space_list):
     )
     fig = go.Figure(data=data, layout=layout)
     opy.plot(fig)
+    rospy.sleep(SLEEP_DURATION)
 
 def path_plot(experiment, plot_name=''):
-    time = experiment['timestamp']
-    path_data = experiment['robot_pose']
+    if type(experiment) == dict:
+        path_data = experiment['robot_pose']
+    else:
+        path_data = experiment
+
+    fig, ax = plt.subplots()
+    #q = ax.quiver(path_data[0,:], path_data[1,:], cos(path_data[2,:] * pi / 180), sin(path_data[2,:] * pi / 180))
+    q = ax.quiver([path_data[0,:], path_data[0,:] * 1.1], [path_data[1,:], path_data[1,:] * 1.1],
+                  [cos(path_data[2,:] * pi / 180), cos(path_data[2,:] * pi / 180)], [sin(path_data[2,:] * pi / 180), sin(path_data[2,:] * pi / 180)])
+
+    ax.quiverkey(q, X=0.3, Y=1.1, U=10,
+                 label='Quiver key, length = 10', labelpos='E')
+    plt.savefig("exercice_2.png")
+    plt.show()
+    rospy.sleep(SLEEP_DURATION)
+
+def multi_path_plot(data_sets, data_set_names):
+    fig, ax = plt.subplots()
+    colormaps = [cm.Reds, cm.Blues, cm.Greens]
+    for i, data in enumerate(data_sets):
+        if type(data) == dict:
+            path_data = data['robot_pose']
+        else:
+            path_data = data
+
+        x_datas = path_data[0, :]
+        y_datas = path_data[1, :]
+        u_datas = cos(path_data[2, :] * pi / 180)
+        v_datas = sin(path_data[2, :] * pi / 180)
+
+        colors = arange(len(x_datas))
+        norm = Normalize()
+        norm.autoscale(colors)
+
+        colormap = colormaps[i]
+
+        q = ax.quiver(x_datas, y_datas, u_datas, v_datas, color=colormap(norm(colors)))
+        #ax.quiverkey(q, X=0.3, Y=1.1, U=10, label='Quiver key', length='10', labelpos='E')
+
+    ax.legend(data_set_names)
+    figure(num=1, figsize=(20, 12), dpi=80, facecolor='w', edgecolor='k')
+    fig.suptitle('Measurements and Model Predictions', fontsize=20)
+    plt.xlabel('X [m]', fontsize=18)
+    plt.ylabel('Y [m]', fontsize=18)
+    plt.savefig("multiple.png")
+
+
+"""
+
+def multi_path_plot(data_sets):
+    x_datas = []
+    y_datas = []
+    u_datas = []
+    v_datas = []
+    for data in data_sets:
+        if type(data) == dict:
+            path_data = data['robot_pose']
+        else:
+            path_data = data
+        x_datas.append(path_data[0, :])
+        y_datas.append(path_data[1, :])
+        u_datas.append(cos(path_data[2, :] * pi / 180))
+        v_datas.append(sin(path_data[2, :] * pi / 180))
+        
+        fig, ax = plt.subplots()
+        colors = arange(len(x_datas))
+        norm = Normalize()
+        norm.autoscale(colors)
+    
+        colormap = cm.Reds
+    
+        q = ax.quiver(x_datas, y_datas, u_datas, v_datas, color=colormap(norm(colors)))
+    ax.quiverkey(q, X=0.3, Y=1.1, U=10, label='Quiver key, length = 10', labelpos='E')
+    plt.savefig("multiple.png")
+
+"""
+def path_plot_plotly(experiment, plot_name=''):
+    #time = experiment['timestamp']
+    if type(experiment) == dict:
+        path_data = experiment['robot_pose']
+    else:
+        path_data = experiment
     # Create quiver figure
     fig = ff.create_quiver(path_data[0,:], path_data[1,:], cos(path_data[2,:] * pi / 180), sin(path_data[2,:] * pi / 180),
-                           scale=.04,
+                           scale=.008,
                            arrow_scale=.05,
                            name='quiver',
                            line=dict(width=1)
@@ -184,13 +271,13 @@ def path_plot(experiment, plot_name=''):
         title=plot_name,
         xaxis=dict(
             title='x position [m]',
-            ticklen=5,
+            ticklen=1,
             zeroline=False,
             gridwidth=2,
         ),
         yaxis=dict(
             title='y position [m]',
-            ticklen=5,
+            ticklen=1,
             gridwidth=2,
         )
     )
@@ -198,4 +285,6 @@ def path_plot(experiment, plot_name=''):
     fig['layout'] = layout
     #fig = dict(data=data, layout=layout)
     opy.plot(fig)
+    rospy.sleep(SLEEP_DURATION)
+
 

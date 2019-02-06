@@ -10,7 +10,7 @@ from calibration.data_adapter_utils import *
 class DataPreparation():
     DEBUG_MODE = True # convenience flag
     TEST_MODE = False # in test mode no plots are drawn
-    DISCARD_FIRST = 30 # discard first n data
+    DISCARD_FIRST = 50 # discard first n data
     DISCARD_LAST = 30  # discard last n data
 
     def __init__(self, input_bag = None, top_wheel_cmd_exec = None, top_robot_pose = None, save_as = None, dump = False, exp_name='', mode='train'):

@@ -17,14 +17,12 @@ from calibration.plotting_utils import *
 from calibration.metrics import *
 from calibration.utils import *
 
-# TODO: why cost fn plot values are different from brute-force param space exploration?
-
 class calib():
     def __init__(self):
         # flow-control parameters
         PREPARE_CALIBRATION_DATA_FOR_OPTIMIZATION = True
         DEBUG = True
-        self.save_experiment_results = True
+        self.save_experiment_results = False
 
         # initialize the node
         rospy.init_node('calibration', anonymous=True)
@@ -73,9 +71,10 @@ class calib():
             rospy.logwarn('[{}] using default initial guesses defined in model {}'.format('kinematic_calibration', model_object.name))
 
         # inspect the 2D path vehicle followed
-        path_plot(experiments['ramp_up_2019_01_19_15_04_Nstep_120.0_vFin_0.5_pp'], plot_name='measured_traj')
+        #exp = "ramp_up_2019_01_19_15_04_Nstep_120.0_vFin_0.5_compensated_pp"
+        #path_plot(experiments[exp], plot_name=exp)
 
-        """
+
         # use the parameter bounds defined in the class of our model choice
         self.bounds = model_object.get_param_bounds_list()
 
@@ -88,10 +87,11 @@ class calib():
         popt = self.nonlinear_model_fit(model_object, experiments)
 
         # parameter converge plots and cost fn
-        param_convergence_plot(self.param_hist)
-        simple_plot(range(len(self.cost_fn_val_list)), self.cost_fn_val_list, 'Cost Function')
+        #param_convergence_plot(self.param_hist)
+        #simple_plot(range(len(self.cost_fn_val_list)), self.cost_fn_val_list, 'Cost Function')
 
         # load and process the experiment data to be used for testing the model
+        self.path_test_data = '/home/selcuk/test_bags/test_set'
         test_dataset, test_data_raw = self.load_testing_data_routine()
 
         # make predictions with the optimization results
@@ -100,7 +100,7 @@ class calib():
 
         # write to the kinematic calibration file
         self.write_calibration(model_object, popt)
-        """
+
     def cost_function_over_param_space(self, model_object, experiments):
         cost=[]
         params_space_list = []
@@ -203,7 +203,6 @@ class calib():
 
             print('\nModel Performance Evaluation:\nModel Name: {}\nnormRMSE: {}'.format(exp_name, exp_mse))
 
-
             multiplot(states_list=[x, x_sim_init, x_sim_opt],
                       input_list=[u,u,u],
                       time_list=[t,t,t],
@@ -212,7 +211,11 @@ class calib():
                       plot_title=plot_title,
                       save=self.save_experiment_results,
                       save_dir=self.results_dir)
-
+            #path_plot(x_sim_opt, plot_name="Simulated")
+            #exp = "ramp_up_2019_01_19_15_04_Nstep_120.0_vFin_0.5_compensated_pp"
+            #path_plot(experiments[exp], plot_name=exp)
+            #path_plot(experiments[exp], plot_name=exp)
+            multi_path_plot([exp_data, x_sim_init, x_sim_opt], ["measurement", "initial_values", "optimal_values"] )
     def write_calibration(self, model_object, popt):
        # Form yaml content to write
        yaml_dict = {}
@@ -266,7 +269,7 @@ class calib():
 
     def load_testing_data_routine(self):
         # test data set container
-        path_test_data = '/home/selcuk/test_bags/test_set'
+        path_test_data = self.path_test_data
         test_dataset = input_folder_to_experiment_dict(path_test_data)
 
         for i, exp in enumerate(test_dataset.keys()):
