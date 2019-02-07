@@ -10,7 +10,8 @@ class BaseModelClass(object):
     __metaclass__ = ABCMeta
 
     @abstractmethod
-    def __init__(self):
+    def __init__(self, measurement_coordinate_system):
+
         pass
 
     @abstractmethod
@@ -39,15 +40,19 @@ class BaseModelClass(object):
     def get_model_param_list(self):
         return self.model_params.keys()
 
+    def set_param(self, param_name, param_val):
+        setattr(self, param_name, param_val)
+
 class KinematicDrive(BaseModelClass):
 
-    def __init__(self):
+    def __init__(self, measurement_coordinate_system):
         self.name = "kinematic_drive"
         self.param_ordered_list = ['dr', 'dl', 'L'] # it is used to enforce an order (to avoid possible confusions) while importing params from YAML as bounds are imported from model always.
         self.model_params = {'dr': {'param_init_guess':0.85, 'param_bounds': (None, None), 'search': (2.0, 0.4)},
                              'dl': {'param_init_guess':0.85, 'param_bounds': (None, None), 'search': (2.0, 0.4)},
                              'L' : {'param_init_guess':0.055, 'param_bounds': (0.05, None), 'search': (0.050, 0.010)}}
         # "search" is used for for brute-force cost function value evaluatiom: (magnitude of variation in both directions, decimation)
+        self.measurement_coordinate_system = measurement_coordinate_system
         rospy.loginfo("\nusing model type: [{}]".format(self.name))
 
     def model(self, t, x, u, p):
@@ -60,23 +65,31 @@ class KinematicDrive(BaseModelClass):
         vx = (dr * cmd_right + dl * cmd_left)
         omega = (dr * cmd_right - dl * cmd_left) / L
 
-        # position states in relation to kinetic states
-        x_dot = (np.cos(theta * np.pi / 180.0) * vx)
-        y_dot = (np.sin(theta * np.pi / 180.0) * vx)
+        if self.measurement_coordinate_system == 'cartesian':
+            # position states in relation to kinetic states
+            x_dot = (np.cos(theta * np.pi / 180.0) * vx)
+            y_dot = (np.sin(theta * np.pi / 180.0) * vx)
+            theta_dot = (omega)
 
-        theta_dot = (omega)
+            return [x_dot, y_dot, theta_dot]
+        elif self.measurement_coordinate_system == 'polar':
+            # position states in relation to kinetic states
+            rho_dot = vx
+            theta_dot = omega
 
-        return [x_dot, y_dot, theta_dot]
+            return [rho_dot, theta_dot]
+
 
 class KinematicDrive2(BaseModelClass):
 
-    def __init__(self):
+    def __init__(self, measurement_coordinate_system):
         self.name = "kinematic_drive2"
         self.param_ordered_list = ['c', 'tr', 'L'] # it is used to enforce an order (to avoid possible confusions) while importing params from YAML as bounds are imported from model always.
         self.model_params = {'c': {'param_init_guess':1.0, 'param_bounds': (None, None)},
                              'tr': {'param_init_guess':0.0, 'param_bounds': (None, None)},
                              'L' : {'param_init_guess':0.055, 'param_bounds': (0.05, 0.06)}}
 
+        self.measurement_coordinate_system = measurement_coordinate_system
         rospy.loginfo("\nusing model type: [{}]".format(self.name))
 
     def model(self, t, x, u, p):
@@ -97,7 +110,7 @@ class KinematicDrive2(BaseModelClass):
 
 class KinematicDrive3(BaseModelClass):
 
-    def __init__(self):
+    def __init__(self, measurement_coordinate_system):
         self.name = "kinematic_drive3"
         self.param_ordered_list = ['c', 'tr', 'tl', 'L'] # it is used to enforce an order (to avoid possible confusions) while importing params from YAML as bounds are imported from model always.
         self.model_params = {'c': {'param_init_guess':1.0, 'param_bounds': (None, None)},
@@ -105,6 +118,7 @@ class KinematicDrive3(BaseModelClass):
                              'tl': {'param_init_guess': 0.0, 'param_bounds': (None, None)},
                              'L' : {'param_init_guess':0.055, 'param_bounds': (0.05, 0.06)}}
 
+        self.measurement_coordinate_system = measurement_coordinate_system
         rospy.loginfo("\nusing model type: [{}]".format(self.name))
 
     def model(self, t, x, u, p):
@@ -126,7 +140,7 @@ class KinematicDrive3(BaseModelClass):
 """
 class Model4(BaseModelClass):
 
-    def __init__(self):
+    def __init__(self, measurement_coordinate_system):
         self.name = "model1"
         rospy.loginfo("\nusing model type: [{}]".format(self.name))
 
@@ -150,15 +164,15 @@ class Model4(BaseModelClass):
 
 # Motivation for introducing this fn:
 #  1) simplify the import procedure in the main script by avoiding the need to explicitly import certain model
-def model_generator(model_name = None):
+def model_generator(model_name = None, measurement_coordinate_system = 'cartesian'):
     if model_name == None:
         rospy.logwarn('[model_library] model is not initialized'.format(model_name))
     elif model_name == 'kinematic_drive':
-        return KinematicDrive()
+        return KinematicDrive(measurement_coordinate_system)
     elif model_name == 'kinematic_drive2':
-        return KinematicDrive2()
+        return KinematicDrive2(measurement_coordinate_system)
     elif model_name == 'kinematic_drive3':
-        return KinematicDrive3()
+        return KinematicDrive3(measurement_coordinate_system)
     else:
         rospy.logwarn('[model_library] model name {} is not valid!'.format(model_name))
 

@@ -13,11 +13,14 @@ class DataPreparation():
     DISCARD_FIRST = 50 # discard first n data
     DISCARD_LAST = 30  # discard last n data
 
-    def __init__(self, input_bag = None, top_wheel_cmd_exec = None, top_robot_pose = None, save_as = None, dump = False, exp_name='', mode='train'):
+    def __init__(self, input_bag = None, top_wheel_cmd_exec = None, top_robot_pose = None,
+                 save_as = None, dump = False, exp_name='', mode='train', measurement_coordinate_frame='cartesian'):
         self.input_bag = input_bag
         self.wheel_cmd, self.robot_pose = self.load_bag(input_bag, top_wheel_cmd_exec, top_robot_pose)
         self.exp_name = exp_name
         self.operation_mode = mode
+        self.measurement_coordinate_frame = measurement_coordinate_frame
+
     def process_raw_data(self):
         """
         process the data contained in a rosbag file and bring it to the form accepted by the optimization
@@ -44,10 +47,12 @@ class DataPreparation():
         wheel_cmd_exec_opt = self.u_adapter(wheel_cmd_exec_sel)
         robot_pose_opt = self.x_adapter(robot_pose_sel)
 
+        if self.measurement_coordinate_frame == 'polar' and self.operation_mode == 'train':
+            robot_pose_opt = self.x_cart_to_polar(robot_pose_opt)
+            #robot_pose_opt = self.filter(robot_pose_opt, [1, 1, 1], ["flat", "flat", "flat"])
 
-        if self.operation_mode == 'train':
+        if self.measurement_coordinate_frame == 'cartesian' and self.operation_mode == 'train':
             robot_pose_opt = self.filter(robot_pose_opt, [11,11,11], ["flat" , "flat", "flat"])
-
 
         return wheel_cmd_exec_opt, robot_pose_opt, t
 
@@ -252,6 +257,15 @@ class DataPreparation():
         rz = row(np.array(x_dict['rz']))
 
         return np.vstack([px, py, rz])
+
+    @staticmethod
+    def x_cart_to_polar(x_cart):
+        # initialize the array for storing measurements represented in polar coordinates
+        # notice that rho will never be 0, so initializing to zero is robust
+        x_polar = np.zeros((2, x_cart.shape[1]))
+        x_polar[0,:] =  np.sqrt(x_cart[0,:] ** 2 + x_cart[1,:] ** 2)
+        x_polar[1,:] = x_cart[2,:]
+        return x_polar
 
     @staticmethod
     def select_interval(dict, discard_first, discard_last):

@@ -16,6 +16,7 @@ from calibration.data_adapter_utils import *
 from calibration.plotting_utils import *
 from calibration.metrics import *
 from calibration.utils import *
+from calibration.cost_function_library import *
 
 class calib():
     def __init__(self):
@@ -48,14 +49,14 @@ class calib():
         self.top_robot_pose = "/" + self.robot_name + "/apriltags2_ros/publish_detections_in_local_frame/tag_detections_local_frame"
 
         # load data for use in optimization
+        self.measurement_coordinate_frame = 'polar'
         experiments, data_raw = self.load_fitting_data_routine()
+        print 'sel'
 
         # construct a model by specifying which model to use
-        model_object = model_generator(self.model_type)
-
-        # optimization results-related
-        self.param_hist = self.init_param_hist(model_object.model_params)
-        self.cost_fn_val_list = []
+        model_object = model_generator(self.model_type, measurement_coordinate_system)
+        # define the type of cost function to use
+        self.cost_fn = cost_fn_selector('nSE')
 
         # brute-force cost calculation and plotting over parameter-space
         #cost, params_space_list = self.cost_function_over_param_space(model_object, experiments)
@@ -73,7 +74,6 @@ class calib():
         # inspect the 2D path vehicle followed
         #exp = "ramp_up_2019_01_19_15_04_Nstep_120.0_vFin_0.5_compensated_pp"
         #path_plot(experiments[exp], plot_name=exp)
-
 
         # use the parameter bounds defined in the class of our model choice
         self.bounds = model_object.get_param_bounds_list()
@@ -122,8 +122,6 @@ class calib():
         return cost, params_space_list
 
     def cost_function(self, p, model_object, experiments):
-        obj_cost = 0.0
-
         for exp_name in experiments.keys():
             exp_data = experiments[exp_name]
             t = exp_data['timestamp']
@@ -132,41 +130,8 @@ class calib():
             x0 = x[:,0]
 
             #simulate the model
-            #states for a particular p set
-            x_sim = simulate(model_object, t, x0, u, p)
-
-            '''
-            if self.cost_fn_plot_measurement:
-                #plot_system(states= x, time=t, experiment_name=exp_name)
-                self.cost_fn_plot_measurement = False
-            #plot_system(states=x_sim, time=t, experiment_name=exp_name + '_simulated')
-            '''
-
-            range_x = float(max(x[0,:]) - min(x[0,:]))
-            range_y = float(max(x[1,:]) - min(x[1, :]))
-            range_yaw = float(max(x[2, :]) - min(x[2, :]))
-            #print('range x: {} range y: {} range yaw: {}'.format(range_x,range_y,range_yaw))
-
-            for i in range(len(t)):
-                """
-                obj_cost += ( abs(((x_sim[0, i] - x[0, i])) / range_x) +
-                              abs(((x_sim[1, i] - x[1, i])) / range_y) +
-                              abs(((x_sim[2, i] - x[2, i])) / range_yaw)
-                    )
-                """
-
-                """
-                obj_cost += (
-                             ((x_sim[0, i] - x[0, i])) ** 2 +
-                             ((x_sim[1, i] - x[1, i])) ** 2 +
-                             ((x_sim[2, i] - x[2, i])) ** 2
-                            )
-                """
-                obj_cost += (
-                             ((x_sim[0, i] - x[0, i]) / range_x) ** 2 +
-                             ((x_sim[1, i] - x[1, i]) / range_y) ** 2  +
-                             ((x_sim[2, i] - x[2, i]) / range_yaw) ** 2
-                            )
+            x_sim = simulate(model_object, t, x0, u, p) # states for a particular p set
+            obj_cost = self.cost_fn(x_sim, x, self.measurement_coordinate_frame)
 
         self.update_param_hist(model_object.param_ordered_list, p)
         self.cost_fn_val_list.append(obj_cost)
@@ -257,7 +222,8 @@ class calib():
                 data_raw = DataPreparation(input_bag=experiments[exp]['path'],
                                            top_wheel_cmd_exec=self.top_wheel_cmd_exec,
                                            top_robot_pose=self.top_robot_pose,
-                                           exp_name='Training Data {}: {}'.format(i + 1,exp))
+                                           exp_name='Training Data {}: {}'.format(i + 1,exp),
+                                           measurement_coordinate_frame=self.measurement_coordinate_frame)
                 experiments[exp]['wheel_cmd_exec'], experiments[exp]['robot_pose'], experiments[exp]['timestamp']= data_raw.process_raw_data() # bring data set to format usable by the optimizer
             save_pickle(object=experiments, save_as=set_name)
         elif source == 'pickle':
@@ -276,7 +242,8 @@ class calib():
             test_data_raw = DataPreparation(input_bag=test_dataset[exp]['path'],
                                             top_wheel_cmd_exec=self.top_wheel_cmd_exec,
                                             top_robot_pose=self.top_robot_pose,
-                                            exp_name='Test Data {}: {}'.format(i+1, exp))
+                                            exp_name='Test Data {}: {}'.format(i+1, exp),
+                                            measurement_coordinate_frame=self.measurement_coordinate_frame)
             test_dataset[exp]['wheel_cmd_exec'], test_dataset[exp]['robot_pose'], test_dataset[exp]['timestamp'] = test_data_raw.process_raw_data()  # bring data set to format usable by the optimizer
 
         return test_dataset, test_data_raw
