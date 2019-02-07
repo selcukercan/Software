@@ -9,7 +9,11 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 from matplotlib.colors import Normalize
 from matplotlib.pyplot import figure
+from utils import get_param_from_config_file
+
 opy.init_notebook_mode(connected=True)
+
+measurement_coordinate_frame = get_param_from_config_file("express_measurements_in")
 
 SLEEP_DURATION = 1
 def single_plot_data(states= None, time= None, input = None, experiment_name=""):

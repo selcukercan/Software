@@ -263,7 +263,9 @@ class DataPreparation():
         # initialize the array for storing measurements represented in polar coordinates
         # notice that rho will never be 0, so initializing to zero is robust
         x_polar = np.zeros((2, x_cart.shape[1]))
-        x_polar[0,:] =  np.sqrt(x_cart[0,:] ** 2 + x_cart[1,:] ** 2)
+        # note the negation of rho values, this is to conform the model definition where positive wheel cmds
+        # leading to increase in rho.
+        x_polar[0,:] = -1 * np.sqrt(x_cart[0,:] ** 2 + x_cart[1,:] ** 2)
         x_polar[1,:] = x_cart[2,:]
         return x_polar
 
@@ -292,10 +294,11 @@ class DataPreparation():
             robot_pose_opt_filt[2,:] = yaw_pos_filt
 
             # plot original and filtered signals on the same pot
-            multiplot(states_list=[robot_pose_opt, robot_pose_opt_filt],
-                      experiment_name_list=['Original Signal', 'Filtered Signal'],
-                      mode='single_view',
-                      plot_title = self.exp_name + ' filtering')
+            if TEST_MODE:
+                multiplot(states_list=[robot_pose_opt, robot_pose_opt_filt],
+                          experiment_name_list=['Original Signal', 'Filtered Signal'],
+                          mode='single_view',
+                          plot_title = self.exp_name + ' filtering')
 
             return robot_pose_opt_filt
 

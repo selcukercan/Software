@@ -20,17 +20,17 @@ from calibration.cost_function_library import *
 
 class calib():
     def __init__(self):
-        # flow-control parameters
-        PREPARE_CALIBRATION_DATA_FOR_OPTIMIZATION = True
-        DEBUG = True
-        self.save_experiment_results = False
-
         # initialize the node
         rospy.init_node('calibration', anonymous=True)
 
         # configure the results directory where the plots and optimization outcome etc will be used.
         package_root = get_package_root("calibration")
         self.results_dir = create_results_dir(package_root)
+        conf = yaml_load_file(package_root + '/config.yaml', plain_yaml=True)
+
+        # flow-control parameters
+        DEBUG = conf['debug']
+        self.save_experiment_results = conf['save_experiment_results']
 
         # namespace variables
         if not DEBUG:
@@ -49,14 +49,14 @@ class calib():
         self.top_robot_pose = "/" + self.robot_name + "/apriltags2_ros/publish_detections_in_local_frame/tag_detections_local_frame"
 
         # load data for use in optimization
-        self.measurement_coordinate_frame = 'polar'
+        self.measurement_coordinate_frame = conf['express_measurements_in']
         experiments, data_raw = self.load_fitting_data_routine()
         print 'sel'
 
         # construct a model by specifying which model to use
-        model_object = model_generator(self.model_type, measurement_coordinate_system)
+        model_object = model_generator(self.model_type, self.measurement_coordinate_frame)
         # define the type of cost function to use
-        self.cost_fn = cost_fn_selector('nSE')
+        self.cost_fn = cost_fn_selector(conf['cost_function_type'])
 
         # brute-force cost calculation and plotting over parameter-space
         #cost, params_space_list = self.cost_function_over_param_space(model_object, experiments)
@@ -131,7 +131,7 @@ class calib():
 
             #simulate the model
             x_sim = simulate(model_object, t, x0, u, p) # states for a particular p set
-            obj_cost = self.cost_fn(x_sim, x, self.measurement_coordinate_frame)
+            obj_cost = self.cost_fn(x_sim, x)
 
         self.update_param_hist(model_object.param_ordered_list, p)
         self.cost_fn_val_list.append(obj_cost)
@@ -186,7 +186,7 @@ class calib():
        yaml_dict = {}
        for i, param in enumerate(model_object.param_ordered_list):
            yaml_dict[param] = popt[i].item()
-       yaml_dict['calibration_time'] =  datetime.datetime.now().strftime('%Y-%m-%d__%H:%M:%S')
+       yaml_dict['calibration_time'] = datetime.datetime.now().strftime('%Y-%m-%d__%H:%M:%S')
 
        # load calibration file
        filename = get_file_path(self.robot_name, model_object.name) #TODO getpath yerine get_name olmali

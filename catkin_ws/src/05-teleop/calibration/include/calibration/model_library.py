@@ -50,14 +50,13 @@ class KinematicDrive(BaseModelClass):
         self.param_ordered_list = ['dr', 'dl', 'L'] # it is used to enforce an order (to avoid possible confusions) while importing params from YAML as bounds are imported from model always.
         self.model_params = {'dr': {'param_init_guess':0.85, 'param_bounds': (None, None), 'search': (2.0, 0.4)},
                              'dl': {'param_init_guess':0.85, 'param_bounds': (None, None), 'search': (2.0, 0.4)},
-                             'L' : {'param_init_guess':0.055, 'param_bounds': (0.05, None), 'search': (0.050, 0.010)}}
+                             'L' : {'param_init_guess':0.055, 'param_bounds': (0.05, 0.06), 'search': (0.050, 0.010)}}
         # "search" is used for for brute-force cost function value evaluatiom: (magnitude of variation in both directions, decimation)
         self.measurement_coordinate_system = measurement_coordinate_system
         rospy.loginfo("\nusing model type: [{}]".format(self.name))
 
     def model(self, t, x, u, p):
         # input commands + model params
-        [x, y, theta] = x
         (cmd_right, cmd_left) = u
         (dr, dl, L) = p
 
@@ -66,6 +65,7 @@ class KinematicDrive(BaseModelClass):
         omega = (dr * cmd_right - dl * cmd_left) / L
 
         if self.measurement_coordinate_system == 'cartesian':
+            [x, y, theta] = x
             # position states in relation to kinetic states
             x_dot = (np.cos(theta * np.pi / 180.0) * vx)
             y_dot = (np.sin(theta * np.pi / 180.0) * vx)
@@ -188,25 +188,38 @@ def simulate(model_object, t, x0, u, p):
     Returns:
         x_sim (numpy.ndarray): 3*n array, containing history of state evolution.
     """
-    x_sim = np.array(x0).reshape(3, 1) #record the evolution of states in an array
+    if model_object.measurement_coordinate_system == 'cartesian':
+        x_sim = np.array(x0).reshape(3, 1) #record the evolution of states in an array
+    elif model_object.measurement_coordinate_system == 'polar':
+        x_sim = np.array(x0).reshape(2, 1)  # record the evolution of states in an array
 
     for i in range(len(t) - 1):
         t_cur, t_next = t[i:i + 2] # prediction will be made in between two consecutive time steps, note that this does not require fixed time step.
         # one-step-ahead prediction
-
+        """
         sol = solve_ivp(fun=lambda t, x: model_object.model(t, x0, u[:,i], p), t_span=(t_cur, t_next), y0=x0, t_eval=[t_next])
         x_sim = np.hstack([x_sim, sol.y]) # add the output to the x history
         x0 = row(sol.y).tolist()[0] # current solution will be used as the initial step for the next step
         """
         sol = forwardEuler(model_object, (t_next - t_cur), x0, u[:,i], p)
-        a = np.hstack([x_sim, np.array(sol).reshape(3,1)])
+
+        if model_object.measurement_coordinate_system == 'cartesian':
+            b = np.array(sol).reshape(3, 1)  # record the evolution of states in an array
+        elif model_object.measurement_coordinate_system == 'polar':
+            b = np.array(sol).reshape(2, 1)# record the evolution of states in an array
+
+        a = np.hstack([x_sim, b])
         x_sim = a.copy()
         x0 = sol
-        """
+
     return x_sim
 
 def forwardEuler(model_object, dt, x_cur, u_cur, p_cur):
-    x_next = [0,0,0]
+    if model_object.measurement_coordinate_system == 'cartesian':
+        x_next = [0, 0, 0]
+    elif model_object.measurement_coordinate_system == 'polar':
+        x_next = [0, 0]
+
     ds = model_object.model(dt, x_cur, u_cur, p_cur)
     for i, s in enumerate(ds):
         x_next[i] = x_cur[i] + ds[i] * dt

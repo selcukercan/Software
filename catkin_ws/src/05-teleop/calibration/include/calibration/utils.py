@@ -5,6 +5,7 @@ import datetime
 from os.path import join
 from os import mkdir
 from duckietown_utils import (logger, get_duckiefleet_root)
+from duckietown_utils.yaml_wrap import yaml_load_file
 
 def defined_ros_param(ros_param_name):
     try:
@@ -76,3 +77,6 @@ def input_folder_to_experiment_dict(folder_path):
         bag_name = os.path.splitext(bag)[0]
         experiments[bag_name] = {'wheel_cmd_exec': None, 'robot_pose': None, 'path': join(folder_path, bag)}
     return experiments
+
+def get_param_from_config_file(param_name):
+    return yaml_load_file(get_package_root("calibration") + '/config.yaml', plain_yaml=True)[param_name]

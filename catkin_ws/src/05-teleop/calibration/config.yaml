@@ -1,0 +1,5 @@
+# General
+debug: True
+save_experiment_results: False
+express_measurements_in: polar
+cost_function_type: nSE
