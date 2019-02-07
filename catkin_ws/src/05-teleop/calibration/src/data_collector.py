@@ -68,6 +68,8 @@ class DataCollector:
             return SweepSine()
         elif exp_name == "step_salsa":
             return StepSalsa()
+        elif exp_name == "step":
+            return Step()
         else:
             print('[{}] is not a valid experiment name, please enter a valid one '.format(exp_name))
             return None
@@ -82,7 +84,7 @@ class DataCollector:
     def perform_experiments(self):
 
         DO_EXPERIMENT = "yes"
-        available_experiments = ["ramp_up", "sine", "sweep_sine", "step_salsa"]
+        available_experiments = ["ramp_up", "sine", "sweep_sine", "step_salsa", "step"]
         ui = ExperimentUI()
 
         while DO_EXPERIMENT == "yes":
@@ -97,6 +99,7 @@ class DataCollector:
 
                 wheel_cmds = experiment_object.generate_input(param_dict_request)
                 rosbag_name = experiment_object.generate_experiment_label()
+
 
                 # start recording rosbag
                 record_topic_response = self.topic_recorder(rosbag_name, self.topics_to_follow)

@@ -18,7 +18,7 @@ class BaseExperimentClass(object):
     def generate_input(self, req_parameter_dict):
         """gets a dictionary containing the parameter values that are required to generate the input sequence for the particular input genre and returns a python list"""
         return
-    @abstractmethod
+
     def advertise_experiment(self):
         """rosinfo brief description of the experiment, specifically the interpretation of parameters"""
         pass
@@ -54,6 +54,24 @@ class RampUp(BaseExperimentClass):
 
         return input_sequence
 
+class Step(BaseExperimentClass):
+
+    def __init__(self):
+        self.name = "step"
+        self.parameter_dict = {'d': 0.5, 'duration': 1.0}
+
+    def generate_input(self, req_parameter_dict):
+        input_sequence = {'left_wheel': [], 'right_wheel': []}
+        rospy.loginfo("[generate_input] generating input sequence of type {} with parameters {}".format(self.name, str(req_parameter_dict)))
+
+        for t in np.arange(0, req_parameter_dict['duration'],1 / float(frequency)):  # each command is executed at experiment frequency rate
+            input_sequence['left_wheel'].append(req_parameter_dict['d'])
+            input_sequence['right_wheel'].append(req_parameter_dict['d'])
+        input_sequence['left_wheel'].append(0)
+        input_sequence['right_wheel'].append(0)
+
+        return input_sequence
+
 class Sine(BaseExperimentClass):
 
     def __init__(self):
@@ -69,6 +87,7 @@ class Sine(BaseExperimentClass):
             input_sequence['right_wheel'].append(req_parameter_dict['k1'] + req_parameter_dict['k2'] * cos(req_parameter_dict['omega'] * t))
         input_sequence['left_wheel'].append(0)
         input_sequence['right_wheel'].append(0)
+
 
         return input_sequence
 
@@ -93,7 +112,7 @@ class SweepSine(BaseExperimentClass):
         input_sequence['left_wheel'] = np.append(input_sequence['left_wheel'], 0).tolist()
         input_sequence['right_wheel'] = np.append(input_sequence['right_wheel'], 0).tolist()
 
-        simple_plot(t, input_sequence['left_wheel'], plot_name="left_wheel")
+        #simple_plot(t, input_sequence['left_wheel'], plot_name="left_wheel")
         #simple_plot(t, input_sequence['right_wheel'], plot_name="right_wheel")
 
         return input_sequence
@@ -102,7 +121,7 @@ class StepSalsa(BaseExperimentClass):
 
     def __init__(self):
         self.name = "step_salsa"
-        self.parameter_dict = {'d': 0.4, 'duration': 1, 'repeat': 2}
+        self.parameter_dict = {'d': 0.2, 'duration': 0.5, 'repeat': 1}
         self.advertise_experiment()
 
     def advertise_experiment(self):
@@ -207,7 +226,10 @@ if __name__ == "__main__":
     sine_val = sweep_sine .generate_input(req_parameter_dict)
     print("sel")
     """
-    step_salsa = StepSalsa()
-    step_salsa.generate_input(step_salsa.parameter_dict)
+    step = Step()
+    input_sequence = step.generate_input(step.parameter_dict)
+
+    #simple_plot(None, input_sequence['left_wheel'], plot_name="left_wheel")
+    #simple_plot(None, input_sequence['right_wheel'], plot_name="right_wheel")
 
 # Include basic utility functions here
