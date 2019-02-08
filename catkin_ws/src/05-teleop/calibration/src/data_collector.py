@@ -56,22 +56,6 @@ class DataCollector:
         self.wait_start_rosbag = 5 # wait for wait_for_rosbag seconds to make sure that the bag has started recording
         self.wait_write_rosbag = 0
 
-        # Wait for service server - rosbag-recorder services to start
-        srv_record_topic = "/" + veh + "/rosbag_recorder" + '/record_topics'
-        srv_stop_topic = "/" + veh + "/rosbag_recorder" + '/stop_recording'
-
-        rospy.loginfo('[Data Collector Node] BEFORE SERVICE REGISTER')
-        rospy.wait_for_service(srv_record_topic)
-        rospy.wait_for_service(srv_stop_topic)
-
-        # rospy.ServiceProxy(SERVICE_NAME, SERVICE_TYPE), SERVICE_TYPE is defined under /srv of rosbag_recorder
-        # call these fns with the right input/output arguments similar to local fns.
-        self.topic_recorder = rospy.ServiceProxy(srv_record_topic, RecordTopics)
-        self.recording_stop= rospy.ServiceProxy(srv_stop_topic, StopRecording)
-        rospy.loginfo('[Data Collector Node] AFTER SERVICE REGISTER')
-        self.wait_start_rosbag = 5 # wait for wait_for_rosbag seconds to make sure that the bag has started recording
-        self.wait_write_rosbag = 10
-
     def exp_name_to_exp_object(self, exp_name):
         """
         accepts a valid experiment name and create the corresponding experiment object

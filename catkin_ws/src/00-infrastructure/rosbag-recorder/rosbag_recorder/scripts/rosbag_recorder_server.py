@@ -41,12 +41,13 @@ def rosbagRecorder():
 	global save_path, veh
 	veh = rospy.get_param("/rosbag_recorder_server/veh")
 	save_path =  rospy.get_param("/rosbag_recorder_server/output_rosbag_dir")
-	rospy.loginfo("[rosbagRecorder] i will save results for vehicle [{}] to [{}]".format(veh, save_path))
 
 	rospy.init_node('~rosbag_recorder_server')
 	recordServ = rospy.Service('record_topics', RecordTopics, recordTopics)
 	stopServ = rospy.Service('stop_recording', StopRecording, stopRecording)
 	print "Ready to record topics"
+	rospy.logwarn("[rosbagRecorder] i will save results for vehicle [{}] to [{}]".format(veh, save_path))
+
 	rospy.spin()
 
 if __name__ == "__main__":
