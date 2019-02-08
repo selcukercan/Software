@@ -6,18 +6,20 @@ import copy
 import pickle
 from calibration.data_adapter_utils import *
 
-
 class DataPreparation():
     DEBUG_MODE = True # convenience flag
     TEST_MODE = False # in test mode no plots are drawn
     DISCARD_FIRST = 50 # discard first n data
     DISCARD_LAST = 30  # discard last n data
 
-    def __init__(self, input_bag = None, top_wheel_cmd_exec = None, top_robot_pose = None, save_as = None, dump = False, exp_name='', mode='train'):
+    def __init__(self, input_bag = None, top_wheel_cmd_exec = None, top_robot_pose = None,
+                 save_as = None, dump = False, exp_name='', mode='train', measurement_coordinate_frame='cartesian'):
         self.input_bag = input_bag
         self.wheel_cmd, self.robot_pose = self.load_bag(input_bag, top_wheel_cmd_exec, top_robot_pose)
         self.exp_name = exp_name
         self.operation_mode = mode
+        self.measurement_coordinate_frame = measurement_coordinate_frame
+
     def process_raw_data(self):
         """
         process the data contained in a rosbag file and bring it to the form accepted by the optimization
@@ -41,13 +43,15 @@ class DataPreparation():
         # at this point the times should be synced so select time from either of them
         # assert(wheel_cmd_exec_sel['timestamp'] == robot_pose_opt['timestamp'])
         t = wheel_cmd_exec_sel['timestamp']
-        wheel_cmd_exec_opt = self.u_adapter(wheel_cmd_exec_sel)
-        robot_pose_opt = self.x_adapter(robot_pose_sel)
+        wheel_cmd_exec_opt = u_adapter(wheel_cmd_exec_sel)
+        robot_pose_opt = x_adapter(robot_pose_sel)
 
+        if self.measurement_coordinate_frame == 'polar' and self.operation_mode == 'train':
+            robot_pose_opt = x_cart_to_polar(robot_pose_opt)
+            #robot_pose_opt = self.filter(robot_pose_opt, [1, 1, 1], ["flat", "flat", "flat"])
 
-        if self.operation_mode == 'train':
+        if self.measurement_coordinate_frame == 'cartesian' and self.operation_mode == 'train':
             robot_pose_opt = self.filter(robot_pose_opt, [11,11,11], ["flat" , "flat", "flat"])
-
 
         return wheel_cmd_exec_opt, robot_pose_opt, t
 
@@ -239,19 +243,6 @@ class DataPreparation():
             pose['timestamp'].append(t.to_sec())
         return pose
 
-    @staticmethod
-    def u_adapter(u_dict):
-        v_l_r = row(np.array(u_dict['vel_l']))
-        v_r_r = row(np.array(u_dict['vel_r']))
-        return np.vstack([v_r_r, v_l_r])
-
-    @staticmethod
-    def x_adapter(x_dict):
-        px = row(np.array(x_dict['px']))
-        py = row(np.array(x_dict['py']))
-        rz = row(np.array(x_dict['rz']))
-
-        return np.vstack([px, py, rz])
 
     @staticmethod
     def select_interval(dict, discard_first, discard_last):
@@ -278,10 +269,11 @@ class DataPreparation():
             robot_pose_opt_filt[2,:] = yaw_pos_filt
 
             # plot original and filtered signals on the same pot
-            multiplot(states_list=[robot_pose_opt, robot_pose_opt_filt],
-                      experiment_name_list=['Original Signal', 'Filtered Signal'],
-                      mode='single_view',
-                      plot_title = self.exp_name + ' filtering')
+            if TEST_MODE:
+                multiplot(states_list=[robot_pose_opt, robot_pose_opt_filt],
+                          experiment_name_list=['Original Signal', 'Filtered Signal'],
+                          mode='single_view',
+                          plot_title = self.exp_name + ' filtering')
 
             return robot_pose_opt_filt
 
