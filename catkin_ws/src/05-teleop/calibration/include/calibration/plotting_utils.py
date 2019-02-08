@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 from matplotlib.colors import Normalize
 from matplotlib.pyplot import figure
+from data_adapter_utils import x_polar_to_cart
 from utils import get_param_from_config_file
 
 opy.init_notebook_mode(connected=True)
@@ -26,6 +27,9 @@ def single_plot_data(states= None, time= None, input = None, experiment_name="")
         t = time
 
     if states is not None:
+        if measurement_coordinate_frame == "polar":
+            states = x_polar_to_cart(states)
+
         px = states[0,:]
         py = states[1,:]
         rz = states[2,:]
@@ -187,6 +191,9 @@ def path_plot(experiment, plot_name=''):
     else:
         path_data = experiment
 
+    if measurement_coordinate_frame == "polar":
+        path_data = x_polar_to_cart(path_data)
+
     fig, ax = plt.subplots()
     #q = ax.quiver(path_data[0,:], path_data[1,:], cos(path_data[2,:] * pi / 180), sin(path_data[2,:] * pi / 180))
     q = ax.quiver([path_data[0,:], path_data[0,:] * 1.1], [path_data[1,:], path_data[1,:] * 1.1],
@@ -207,6 +214,9 @@ def multi_path_plot(data_sets, data_set_names):
         else:
             path_data = data
 
+        if measurement_coordinate_frame == "polar":
+            path_data = x_polar_to_cart(path_data)
+
         x_datas = path_data[0, :]
         y_datas = path_data[1, :]
         u_datas = cos(path_data[2, :] * pi / 180)
@@ -226,7 +236,8 @@ def multi_path_plot(data_sets, data_set_names):
     fig.suptitle('Measurements and Model Predictions', fontsize=20)
     plt.xlabel('X [m]', fontsize=18)
     plt.ylabel('Y [m]', fontsize=18)
-    plt.savefig("multiple.png")
+    plt.savefig("new.png")
+    rospy.sleep(SLEEP_DURATION)
 
 
 """

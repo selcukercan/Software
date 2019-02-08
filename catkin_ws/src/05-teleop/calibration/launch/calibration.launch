@@ -2,13 +2,16 @@
     <arg name="veh" doc="Name of vehicle. ex: megaman"/>
     <arg name="package_namespace" default="calibration" />
     <arg name="node_namespace" default="calibration" />
-    <arg name="folder_path" doc="path to the folder containing rosbags" />
+    <arg name="train_path" doc="path to the folder containing the rosbags that are used during optimization" />
+    <arg name="validation_path" doc="path to the folder containing rosbags that are used for validation of the fitted model" />
+
     <arg name="model" default="gt" doc="Type of the model to be run by the node, ex: gain-trin model (standard one)"/>
 
     <group ns="$(arg veh)/$(arg package_namespace)">
         <node  pkg="calibration" type="kinematic_calibration.py" name="kinematic_calibration" output="screen" clear_params="true" required="true">
             <param name="veh" value="$(arg veh)"/>
-            <param name="folder_path" value="$(arg folder_path)"/>
+            <param name="train_path" value="$(arg train_path)"/>
+            <param name="validation_path" value="$(arg validation_path)"/>
             <param name="model" value="$(arg model)"/>
         </node>
     </group>
