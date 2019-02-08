@@ -23,8 +23,32 @@ This package is an automatic wheels calibration procedure.
 - The launchfile test.launch tests if the calibration has succeed or not.
 
 
+## Docker run command
+
+docker -H 192.168.1.99 run -it --net host --privileged -v /data/logs:/logs -v /data:/data --memory="800m" --memory-swap="2.8g" --name base-dev-log_data selcukercan/rpi-duckiebot-base:base-dev2  /bin/bash
 ## Data Acquisition
 
+### Logging to USB
+It is recommended (or might be necessary depending on the free space available on your device) to use a USB for logging. Note that you have to run your container with `-v /data/logs:/logs`.
+
+First plugging in the USB. SSH to your device and create this folder
+
+```shell
+sudo mkdir /data/logs
+```
+then mount it with:
+
+```shell
+sudo mount -t vfat /dev/sda1 /data/logs -o umask=000
+```
+
+After data-acquisition has been completed unmount the USB
+
+```shell
+sudo umount /data/logs
+```
+
+### Launching required processes  
 Start camera-related functionality by roslaunching
 
 ```shell
@@ -34,8 +58,10 @@ roslaunch pi_camera cal_camera.launch veh:=![ROBOT_NAME] cam_param_file_name:=![
 Then start the data-acquisition interface by
 
 ```shell
-roslaunch calibration data_collector.launch veh:=![ROBOT_NAME]
+roslaunch calibration data_collector.launch veh:=![ROBOT_NAME] output_rosbag_dir:=/logs
 ```
+if `output_rosbag_dir` is not specified the program attempts to save the results to user´s home folder.
+
 With this interface can specify
 
 - the type of the experiment you would like to conduct by choosing amongst the presented options,
