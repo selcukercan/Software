@@ -4,3 +4,4 @@ from . import model_library
 from . import data_adapter_utils
 from . import metrics
 from . import utils
+from . import cost_function_library

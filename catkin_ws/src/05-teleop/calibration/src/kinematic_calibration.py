@@ -7,7 +7,7 @@ import os
 import os.path
 import numpy as np
 from scipy.optimize import minimize
-
+from copy import deepcopy
 from duckietown_utils.yaml_wrap import (yaml_load_file, yaml_write_to_file)
 from calibration.data_preperation_utils import DataPreparation
 from calibration.data_preperation_utils import load_pickle, save_pickle
@@ -16,26 +16,29 @@ from calibration.data_adapter_utils import *
 from calibration.plotting_utils import *
 from calibration.metrics import *
 from calibration.utils import *
+from calibration.cost_function_library import *
 
 class calib():
     def __init__(self):
-        # flow-control parameters
-        PREPARE_CALIBRATION_DATA_FOR_OPTIMIZATION = True
-        DEBUG = True
-        self.save_experiment_results = False
-
         # initialize the node
         rospy.init_node('calibration', anonymous=True)
 
         # configure the results directory where the plots and optimization outcome etc will be used.
         package_root = get_package_root("calibration")
         self.results_dir = create_results_dir(package_root)
+        self.tmp_dir = safe_create_dir(os.path.join(package_root, "tmp"))
+
+        self.conf = yaml_load_file(package_root + '/config.yaml', plain_yaml=True)
+
+        # flow-control parameters
+        DEBUG = self.conf['debug']
+        self.save_experiment_results = self.conf['save_experiment_results']
 
         # namespace variables
         if not DEBUG:
             host_package = rospy.get_namespace()  # as defined by <group> in launch file
         else:
-            host_package = "/mete/calibration/"
+            host_package = "/duckiebot/calibration/"
 
         self.node_name = 'kinematic_calibration'  # node name , as defined in launch file
         self.host_package_node = host_package + self.node_name
@@ -48,18 +51,11 @@ class calib():
         self.top_robot_pose = "/" + self.robot_name + "/apriltags2_ros/publish_detections_in_local_frame/tag_detections_local_frame"
 
         # load data for use in optimization
+        self.measurement_coordinate_frame = self.conf['express_measurements_in']
         experiments, data_raw = self.load_fitting_data_routine()
 
         # construct a model by specifying which model to use
-        model_object = model_generator(self.model_type)
-
-        # optimization results-related
-        self.param_hist = self.init_param_hist(model_object.model_params)
-        self.cost_fn_val_list = []
-
-        # brute-force cost calculation and plotting over parameter-space
-        #cost, params_space_list = self.cost_function_over_param_space(model_object, experiments)
-        #param_space_cost_plot(cost, params_space_list)
+        model_object = model_generator(self.model_type, self.measurement_coordinate_frame)
 
         # optimization settings - for details refer to "https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html"
         # see if there already is a yaml file for the model we can use
@@ -71,9 +67,8 @@ class calib():
             rospy.logwarn('[{}] using default initial guesses defined in model {}'.format('kinematic_calibration', model_object.name))
 
         # inspect the 2D path vehicle followed
-        #exp = "ramp_up_2019_01_19_15_04_Nstep_120.0_vFin_0.5_compensated_pp"
-        #path_plot(experiments[exp], plot_name=exp)
-
+        exp = "ramp_up_2019_02_08_19_47_Nstep_100.0_vFin_0.5_pp"
+        #multiplot(states_list=[data1, data2], plot_title='Deneme', save=False, save_dir="")
 
         # use the parameter bounds defined in the class of our model choice
         self.bounds = model_object.get_param_bounds_list()
@@ -83,24 +78,30 @@ class calib():
         self.cost_fn_val_list = []
         # self.delta =  0.00
 
+        # define the type of cost function to use
+        self.cost_fn = cost_fn_selector(self.conf['cost_function_type'])
+
+        # brute-force cost calculation and plotting over parameter-space
+        #cost, params_space_list = self.cost_function_over_param_space(model_object, experiments)
+        #param_space_cost_plot(cost, params_space_list)
+
+
         # run the optimization problem
         popt = self.nonlinear_model_fit(model_object, experiments)
 
         # parameter converge plots and cost fn
-        #param_convergence_plot(self.param_hist)
-        #simple_plot(range(len(self.cost_fn_val_list)), self.cost_fn_val_list, 'Cost Function')
+        param_convergence_plot(self.param_hist)
+        simple_plot(range(len(self.cost_fn_val_list)), self.cost_fn_val_list, 'Cost Function')
 
         # load and process the experiment data to be used for testing the model
-        self.path_test_data = '/home/selcuk/test_bags/test_set'
-        test_dataset, test_data_raw = self.load_testing_data_routine()
+        validation_dataset, validation_data_raw = self.load_validation_data_routine()
 
         # make predictions with the optimization results
-        #self.model_predictions(model_object, experiments, popt)
-        self.model_predictions(model_object, test_dataset, popt, plot_title= "Model: {} DataSet: {}".format(model_object.name, test_data_raw.exp_name))
-
+        self.model_predictions(model_object, validation_dataset, popt, plot_title= "Model: {} DataSet: {}".format(model_object.name, validation_data_raw.exp_name))
+        """
         # write to the kinematic calibration file
         self.write_calibration(model_object, popt)
-
+        """
     def cost_function_over_param_space(self, model_object, experiments):
         cost=[]
         params_space_list = []
@@ -122,8 +123,6 @@ class calib():
         return cost, params_space_list
 
     def cost_function(self, p, model_object, experiments):
-        obj_cost = 0.0
-
         for exp_name in experiments.keys():
             exp_data = experiments[exp_name]
             t = exp_data['timestamp']
@@ -132,41 +131,8 @@ class calib():
             x0 = x[:,0]
 
             #simulate the model
-            #states for a particular p set
-            x_sim = simulate(model_object, t, x0, u, p)
-
-            '''
-            if self.cost_fn_plot_measurement:
-                #plot_system(states= x, time=t, experiment_name=exp_name)
-                self.cost_fn_plot_measurement = False
-            #plot_system(states=x_sim, time=t, experiment_name=exp_name + '_simulated')
-            '''
-
-            range_x = float(max(x[0,:]) - min(x[0,:]))
-            range_y = float(max(x[1,:]) - min(x[1, :]))
-            range_yaw = float(max(x[2, :]) - min(x[2, :]))
-            #print('range x: {} range y: {} range yaw: {}'.format(range_x,range_y,range_yaw))
-
-            for i in range(len(t)):
-                """
-                obj_cost += ( abs(((x_sim[0, i] - x[0, i])) / range_x) +
-                              abs(((x_sim[1, i] - x[1, i])) / range_y) +
-                              abs(((x_sim[2, i] - x[2, i])) / range_yaw)
-                    )
-                """
-
-                """
-                obj_cost += (
-                             ((x_sim[0, i] - x[0, i])) ** 2 +
-                             ((x_sim[1, i] - x[1, i])) ** 2 +
-                             ((x_sim[2, i] - x[2, i])) ** 2
-                            )
-                """
-                obj_cost += (
-                             ((x_sim[0, i] - x[0, i]) / range_x) ** 2 +
-                             ((x_sim[1, i] - x[1, i]) / range_y) ** 2  +
-                             ((x_sim[2, i] - x[2, i]) / range_yaw) ** 2
-                            )
+            x_sim = simulate(model_object, t, x0, u, p) # states for a particular p set
+            obj_cost = self.cost_fn(x_sim, x)
 
         self.update_param_hist(model_object.param_ordered_list, p)
         self.cost_fn_val_list.append(obj_cost)
@@ -207,7 +173,6 @@ class calib():
                       input_list=[u,u,u],
                       time_list=[t,t,t],
                       experiment_name_list=[exp_name + '_measurement', exp_name + '_simulated_init', exp_name + '_simulated_optimal'],
-                      mode = 'single_view',
                       plot_title=plot_title,
                       save=self.save_experiment_results,
                       save_dir=self.results_dir)
@@ -215,13 +180,15 @@ class calib():
             #exp = "ramp_up_2019_01_19_15_04_Nstep_120.0_vFin_0.5_compensated_pp"
             #path_plot(experiments[exp], plot_name=exp)
             #path_plot(experiments[exp], plot_name=exp)
+            """
             multi_path_plot([exp_data, x_sim_init, x_sim_opt], ["measurement", "initial_values", "optimal_values"] )
+            """
     def write_calibration(self, model_object, popt):
        # Form yaml content to write
        yaml_dict = {}
        for i, param in enumerate(model_object.param_ordered_list):
            yaml_dict[param] = popt[i].item()
-       yaml_dict['calibration_time'] =  datetime.datetime.now().strftime('%Y-%m-%d__%H:%M:%S')
+       yaml_dict['calibration_time'] = datetime.datetime.now().strftime('%Y-%m-%d__%H:%M:%S')
 
        # load calibration file
        filename = get_file_path(self.robot_name, model_object.name) #TODO getpath yerine get_name olmali
@@ -248,7 +215,7 @@ class calib():
 
         source = 'folder'
         load_from_pickle = 'test_run'
-        save_to_pickle = True # True/False
+        save_to_pickle = self.conf["save_to_pickle"]
         set_name = 'test_run'
 
         # load and process experiment data to be used in the optimization
@@ -257,9 +224,11 @@ class calib():
                 data_raw = DataPreparation(input_bag=experiments[exp]['path'],
                                            top_wheel_cmd_exec=self.top_wheel_cmd_exec,
                                            top_robot_pose=self.top_robot_pose,
-                                           exp_name='Training Data {}: {}'.format(i + 1,exp))
+                                           exp_name='Training Data {}: {}'.format(i + 1,exp),
+                                           measurement_coordinate_frame=self.measurement_coordinate_frame)
                 experiments[exp]['wheel_cmd_exec'], experiments[exp]['robot_pose'], experiments[exp]['timestamp']= data_raw.process_raw_data() # bring data set to format usable by the optimizer
-            save_pickle(object=experiments, save_as=set_name)
+            #rospy.logwarn(self.tmp_dir)
+            save_pickle(object=experiments, save_as= os.path.join(self.tmp_dir, set_name))
         elif source == 'pickle':
             experiments = load_pickle(load_from_pickle)
         else:
@@ -267,29 +236,31 @@ class calib():
 
         return experiments, data_raw
 
-    def load_testing_data_routine(self):
-        # test data set container
-        path_test_data = self.path_test_data
-        test_dataset = input_folder_to_experiment_dict(path_test_data)
+    def load_validation_data_routine(self):
+        # validation data set container
+        validation_dataset = input_folder_to_experiment_dict(self.path_validation_data)
 
-        for i, exp in enumerate(test_dataset.keys()):
-            test_data_raw = DataPreparation(input_bag=test_dataset[exp]['path'],
+        for i, exp in enumerate(validation_dataset.keys()):
+            validation_data_raw = DataPreparation(input_bag=validation_dataset[exp]['path'],
                                             top_wheel_cmd_exec=self.top_wheel_cmd_exec,
                                             top_robot_pose=self.top_robot_pose,
-                                            exp_name='Test Data {}: {}'.format(i+1, exp))
-            test_dataset[exp]['wheel_cmd_exec'], test_dataset[exp]['robot_pose'], test_dataset[exp]['timestamp'] = test_data_raw.process_raw_data()  # bring data set to format usable by the optimizer
+                                            exp_name='Validation Data {}: {}'.format(i+1, exp),
+                                            measurement_coordinate_frame=self.measurement_coordinate_frame)
+            validation_dataset[exp]['wheel_cmd_exec'], validation_dataset[exp]['robot_pose'], validation_dataset[exp]['timestamp'] = validation_data_raw.process_raw_data()  # bring data set to format usable by the optimizer
 
-        return test_dataset, test_data_raw
+        return validation_dataset, validation_data_raw
 
     def rosparam_to_program(self):
         # rosparam server addresses
         param_veh = self.host_package_node + '/' + "veh"
-        param_folder_path = self.host_package_node + '/' + "folder_path"
+        param_train_path = self.host_package_node + '/' + "train_path"
+        param_validation_path = self.host_package_node + '/' + "validation_path"
         param_model_type = self.host_package_node + '/' + "model"
 
         # rosparam values
         self.robot_name = defined_ros_param(param_veh)
-        self.path_training_data = defined_ros_param(param_folder_path)
+        self.path_training_data = defined_ros_param(param_train_path)
+        self.path_validation_data = defined_ros_param(param_validation_path)
         self.model_type = defined_ros_param(param_model_type)
 
 
