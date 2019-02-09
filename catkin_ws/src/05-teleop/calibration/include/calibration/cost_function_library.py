@@ -12,9 +12,11 @@ def nSE(x_predict, x_meas):
         range_y = float(max(x_meas[1, :]) - min(x_meas[1, :]))
         range_yaw = float(max(x_meas[2, :]) - min(x_meas[2, :]))
         # print('range x: {} range y: {} range yaw: {}'.format(range_x,range_y,range_yaw))
-        obj_cost = (((x_predict[0,:] - x_meas[0,:]) / range_x) ** 2 +
+        obj_cost = np.sum(
+                    ((x_predict[0,:] - x_meas[0,:]) / range_x) ** 2 +
                     ((x_predict[1,:] - x_meas[1,:]) / range_y) ** 2 +
-                    ((x_predict[2,:] - x_meas[2,:]) / range_yaw) ** 2)
+                    ((x_predict[2,:] - x_meas[2,:]) / range_yaw) ** 2
+                    )
     elif measurement_coordinate_frame == 'polar':
         range_rho = float(max(x_meas[0, :]) - min(x_meas[0, :]))
         range_yaw = float(max(x_meas[1, :]) - min(x_meas[1, :]))

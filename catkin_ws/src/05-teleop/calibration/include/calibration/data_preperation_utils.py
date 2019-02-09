@@ -8,9 +8,8 @@ from calibration.data_adapter_utils import *
 
 class DataPreparation():
     DEBUG_MODE = True # convenience flag
-    TEST_MODE = False # in test mode no plots are drawn
-    DISCARD_FIRST = 50 # discard first n data
-    DISCARD_LAST = 30  # discard last n data
+    DISCARD_FIRST = 30 # discard first n data
+    DISCARD_LAST = 10  # discard last n data
 
     def __init__(self, input_bag = None, top_wheel_cmd_exec = None, top_robot_pose = None,
                  save_as = None, dump = False, exp_name='', mode='train', measurement_coordinate_frame='cartesian'):
@@ -43,16 +42,15 @@ class DataPreparation():
         # at this point the times should be synced so select time from either of them
         # assert(wheel_cmd_exec_sel['timestamp'] == robot_pose_opt['timestamp'])
         t = wheel_cmd_exec_sel['timestamp']
-        wheel_cmd_exec_opt = u_adapter(wheel_cmd_exec_sel)
-        robot_pose_opt = x_adapter(robot_pose_sel)
+        wheel_cmd_exec_np = u_adapter(wheel_cmd_exec_sel)
+        robot_pose_opt_np = x_adapter(robot_pose_sel)
 
-        if self.measurement_coordinate_frame == 'polar' and self.operation_mode == 'train':
+        # apply filtering
+        robot_pose_opt = self.filter(robot_pose_opt_np, [5, 5, 5], ["flat", "flat", "flat"])
+        if self.measurement_coordinate_frame == 'polar':
             robot_pose_opt = x_cart_to_polar(robot_pose_opt)
-            #robot_pose_opt = self.filter(robot_pose_opt, [1, 1, 1], ["flat", "flat", "flat"])
 
-        if self.measurement_coordinate_frame == 'cartesian' and self.operation_mode == 'train':
-            robot_pose_opt = self.filter(robot_pose_opt, [11,11,11], ["flat" , "flat", "flat"])
-
+        wheel_cmd_exec_opt = wheel_cmd_exec_np
         return wheel_cmd_exec_opt, robot_pose_opt, t
 
     def experiment_duration(self):
@@ -251,6 +249,14 @@ class DataPreparation():
         return dict
 
     def filter(self, robot_pose_opt, flen_array, filter_type):
+        return self.filter_cartesian(robot_pose_opt, flen_array, filter_type)
+        """
+        if self.measurement_coordinate_frame == 'cartesian':
+            self.filter_cartesian(robot_pose_opt, flen_array, filter_type)
+        elif self.measurement_coordinate_frame == 'polar':
+            self.filter_polar(robot_pose_opt, flen_array, filter_type)
+        """
+    def filter_cartesian(self, robot_pose_opt, flen_array, filter_type):
             from calibration.plotting_utils import multiplot
 
             (x_pos , y_pos, yaw_pos) = [robot_pose_opt[i,:] for i in range(3)] #unpack position measurements
@@ -269,14 +275,39 @@ class DataPreparation():
             robot_pose_opt_filt[2,:] = yaw_pos_filt
 
             # plot original and filtered signals on the same pot
-            if TEST_MODE:
+            if self.DEBUG_MODE:
                 multiplot(states_list=[robot_pose_opt, robot_pose_opt_filt],
                           experiment_name_list=['Original Signal', 'Filtered Signal'],
-                          mode='single_view',
                           plot_title = self.exp_name + ' filtering')
 
             return robot_pose_opt_filt
 
+    """
+    def filter_polar(self, robot_pose_opt, flen_array, filter_type):
+            from calibration.plotting_utils import multiplot
+
+            (rho_pos, yaw_pos) = [robot_pose_opt[i,:] for i in range(2)] #unpack position measurements
+            (flen_rho, flen_yaw) = [flen_array[i] for i in range(2)] #unpack filter lengths
+            (ftype_rho, ftype_yaw) = [filter_type[i] for i in range(2)] #unpack filter types
+
+            # apply filters
+            rho_filt = smooth(rho_pos, window_len=flen_rho, window=ftype_rho)
+            yaw_filt = smooth(yaw_pos, window_len=flen_yaw, window=ftype_yaw)
+
+            # construct filtered output
+            robot_pose_opt_filt = np.zeros((2, rho_filt.shape[0]))
+            robot_pose_opt_filt[0,:] = rho_filt
+            robot_pose_opt_filt[1,:] = yaw_filt
+
+            
+            # plot original and filtered signals on the same pot
+            if TEST_MODE:
+                multiplot(states_list=[robot_pose_opt, robot_pose_opt_filt],
+                          experiment_name_list=['Original Signal', 'Filtered Signal'],
+                          plot_title = self.exp_name + ' filtering')
+            
+            return robot_pose_opt_filt
+    """
 
 def smooth(x, window_len=1, window='hanning'):
     """
