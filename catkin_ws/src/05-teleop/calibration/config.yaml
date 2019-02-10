@@ -2,5 +2,14 @@
 debug: True
 save_experiment_results: False
 save_to_pickle: False
+show_plots: True
+
+# Optimization
 express_measurements_in: polar
 cost_function_type: nSE
+
+# Data preperation
+filter_type: flat
+filter_length: 5
+discard_first_n_data: 15
+discard_last_n_data: 5

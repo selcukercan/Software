@@ -5,11 +5,18 @@ import numpy as np
 import copy
 import pickle
 from calibration.data_adapter_utils import *
+from calibration.utils import get_param_from_config_file
+
 
 class DataPreparation():
     DEBUG_MODE = True # convenience flag
-    DISCARD_FIRST = 30 # discard first n data
-    DISCARD_LAST = 10  # discard last n data
+    #DISCARD_FIRST = 30 # discard first n data
+    #DISCARD_LAST = 10  # discard last n data
+    show_plots = get_param_from_config_file("show_plots")
+    filter_type = get_param_from_config_file("filter_type")
+    filter_length = get_param_from_config_file("filter_length")
+    discard_first = get_param_from_config_file("discard_first_n_data")
+    discard_last = get_param_from_config_file("discard_last_n_data")
 
     def __init__(self, input_bag = None, top_wheel_cmd_exec = None, top_robot_pose = None,
                  save_as = None, dump = False, exp_name='', mode='train', measurement_coordinate_frame='cartesian'):
@@ -36,8 +43,8 @@ class DataPreparation():
         wheel_cmd_clipped, robot_pose_clipped = self.get_actuated_interval(self.wheel_cmd, self.robot_pose, start_time, end_time)
         wheel_cmd_exec_rs = self.resampling(wheel_cmd_clipped, robot_pose_clipped)
 
-        wheel_cmd_exec_sel = self.select_interval(wheel_cmd_exec_rs, self.DISCARD_FIRST, self.DISCARD_LAST)
-        robot_pose_sel = self.select_interval(robot_pose_clipped, self.DISCARD_FIRST, self.DISCARD_LAST)
+        wheel_cmd_exec_sel = self.select_interval(wheel_cmd_exec_rs, self.discard_first, self.discard_last)
+        robot_pose_sel = self.select_interval(robot_pose_clipped, self.discard_first, self.discard_last)
 
         # at this point the times should be synced so select time from either of them
         # assert(wheel_cmd_exec_sel['timestamp'] == robot_pose_opt['timestamp'])
@@ -46,8 +53,12 @@ class DataPreparation():
         robot_pose_opt_np = x_adapter(robot_pose_sel)
 
         # apply filtering
-        wheel_cmd_exec_opt = self.u_filter(wheel_cmd_exec_np, [5, 5, 5], ["flat", "flat", "flat"])
-        robot_pose_opt = self.x_filter(robot_pose_opt_np, [5, 5, 5], ["flat", "flat", "flat"])
+        wheel_cmd_exec_opt = self.u_filter(wheel_cmd_exec_np,
+                                           [self.filter_length, self.filter_length, self.filter_length],
+                                           [self.filter_type, self.filter_type, self.filter_type])
+        robot_pose_opt = self.x_filter(robot_pose_opt_np,
+                                       [self.filter_length, self.filter_length, self.filter_length],
+                                       [self.filter_type, self.filter_type, self.filter_type])
         if self.measurement_coordinate_frame == 'polar':
             robot_pose_opt = x_cart_to_polar(robot_pose_opt)
 
@@ -268,7 +279,7 @@ class DataPreparation():
         input_opt_filt[1, :] = u_l_filt
 
         # plot original and filtered signals on the same pot
-        if self.DEBUG_MODE:
+        if self.show_plots:
             multiplot(states_list=[input_opt, input_opt_filt],
                       experiment_name_list=['Original Signal', 'Filtered Signal'],
                       plot_title='input commands' + self.exp_name + ' filtering')
@@ -294,7 +305,7 @@ class DataPreparation():
             robot_pose_opt_filt[2,:] = yaw_pos_filt
 
             # plot original and filtered signals on the same pot
-            if self.DEBUG_MODE:
+            if self.show_plots:
                 multiplot(states_list=[robot_pose_opt, robot_pose_opt_filt],
                           experiment_name_list=['Original Signal', 'Filtered Signal'],
                           plot_title = self.exp_name + ' filtering')
