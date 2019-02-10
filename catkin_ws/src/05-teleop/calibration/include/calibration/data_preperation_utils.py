@@ -46,11 +46,11 @@ class DataPreparation():
         robot_pose_opt_np = x_adapter(robot_pose_sel)
 
         # apply filtering
-        robot_pose_opt = self.filter(robot_pose_opt_np, [5, 5, 5], ["flat", "flat", "flat"])
+        wheel_cmd_exec_opt = self.u_filter(wheel_cmd_exec_np, [5, 5, 5], ["flat", "flat", "flat"])
+        robot_pose_opt = self.x_filter(robot_pose_opt_np, [5, 5, 5], ["flat", "flat", "flat"])
         if self.measurement_coordinate_frame == 'polar':
             robot_pose_opt = x_cart_to_polar(robot_pose_opt)
 
-        wheel_cmd_exec_opt = wheel_cmd_exec_np
         return wheel_cmd_exec_opt, robot_pose_opt, t
 
     def experiment_duration(self):
@@ -248,14 +248,33 @@ class DataPreparation():
             dict[key] = dict[key][discard_first:-discard_last]
         return dict
 
-    def filter(self, robot_pose_opt, flen_array, filter_type):
+    def x_filter(self, robot_pose_opt, flen_array, filter_type):
         return self.filter_cartesian(robot_pose_opt, flen_array, filter_type)
-        """
-        if self.measurement_coordinate_frame == 'cartesian':
-            self.filter_cartesian(robot_pose_opt, flen_array, filter_type)
-        elif self.measurement_coordinate_frame == 'polar':
-            self.filter_polar(robot_pose_opt, flen_array, filter_type)
-        """
+
+    def u_filter(self, input_opt, flen_array, filter_type):
+        from calibration.plotting_utils import multiplot
+
+        (u_r, u_l) = [input_opt[i, :] for i in range(2)]  # unpack position measurements
+        (flen_r, flen_l) = [flen_array[i] for i in range(2)]  # unpack filter lengths
+        (ftype_r, ftype_l) = [filter_type[i] for i in range(2)]  # unpack filter types
+
+        # apply filters
+        u_r_filt = smooth(u_r, window_len=flen_r, window=ftype_r)
+        u_l_filt = smooth(u_l, window_len=flen_l, window=ftype_l)
+
+        # construct filtered output
+        input_opt_filt = np.zeros((2, u_r_filt.shape[0]))
+        input_opt_filt[0, :] = u_r_filt
+        input_opt_filt[1, :] = u_l_filt
+
+        # plot original and filtered signals on the same pot
+        if self.DEBUG_MODE:
+            multiplot(states_list=[input_opt, input_opt_filt],
+                      experiment_name_list=['Original Signal', 'Filtered Signal'],
+                      plot_title='input commands' + self.exp_name + ' filtering')
+
+        return input_opt_filt
+
     def filter_cartesian(self, robot_pose_opt, flen_array, filter_type):
             from calibration.plotting_utils import multiplot
 
@@ -339,23 +358,19 @@ def smooth(x, window_len=1, window='hanning'):
     numpy.hanning, numpy.hamming, numpy.bartlett, numpy.blackman, numpy.convolve
     scipy.signal.lfilter
 
-    TODO: the window parameter could be the window itself if an array instead of a string
-    NOTE: length(output) != length(input), to correct this: return y[(window_len/2-1):-(window_len/2)] instead of just y.
     """
 
     if x.ndim != 1:
-        raise ValueError, "smooth only accepts 1 dimension arrays."
+        raise ValueError("smooth only accepts 1 dimension arrays.")
 
     if x.size < window_len:
-        raise ValueError, "Input vector needs to be bigger than window size."
-
+        raise ValueError("Input vector needs to be bigger than window size.")
 
     if window_len<3:
         return x
 
-
     if not window in ['flat', 'hanning', 'hamming', 'bartlett', 'blackman']:
-        raise ValueError, "Window is on of 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'"
+        raise ValueError("Window is on of 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'")
 
     #  mirror the beginning and end of the sequence with window length -1 elements
     # if array x = [1,2,3,4,5] and window_len = 2, then s = [2, 1, 2, 3, 4, 5, 4]
@@ -367,8 +382,7 @@ def smooth(x, window_len=1, window='hanning'):
         w=eval('np.'+window+'(window_len)')
 
     y=np.convolve(w/w.sum(),s,mode='valid')
-    return y[0:x.size]
-    #return y[(window_len/2-1):-(window_len/2-1)]
+    return y[(window_len-1)/2:-(window_len-1)/2]
 
 # UTILITY FUNCTIONS AND CLASSES
 
@@ -394,3 +408,36 @@ def load_pickle(experiment_name):
 class ExperimentData():
     pass
 
+
+"""
+def u_filter(input_opt, flen_array, filter_type):
+    from calibration.plotting_utils import multiplot
+
+    (u_r, u_l) = [input_opt[i, :] for i in range(2)]  # unpack position measurements
+    (flen_r, flen_l) = [flen_array[i] for i in range(2)]  # unpack filter lengths
+    (ftype_r, ftype_l) = [filter_type[i] for i in range(2)]  # unpack filter types
+
+    # apply filters
+    u_r_filt = smooth(u_r, window_len=flen_r, window=ftype_r)
+    u_l_filt = smooth(u_l, window_len=flen_l, window=ftype_l)
+
+    # construct filtered output
+    input_opt_filt = np.zeros((2, u_r_filt.shape[0]))
+    input_opt_filt[0, :] = u_r_filt
+    input_opt_filt[1, :] = u_l_filt
+
+    # plot original and filtered signals on the same pot
+    if 1:
+        multiplot(states_list=[input_opt, input_opt_filt],
+                  experiment_name_list=['Original Signal', 'Filtered Signal'],
+                  plot_title='input commands' + ' filtering')
+
+    return input_opt_filt
+"""
+if __name__ == '__main__':
+    from plotting_utils import multiplot
+    single_channel_raw = np.arange(0,5,1)
+    u_raw = np.zeros((2, single_channel_raw.size))
+    u_raw[0,:] = single_channel_raw
+    u_raw[1,:] = single_channel_raw
+    u = u_filter(u_raw, [5,5], ['flat','flat'])
