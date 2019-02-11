@@ -7,7 +7,7 @@ import os
 import os.path
 import numpy as np
 from scipy.optimize import minimize
-
+from copy import deepcopy
 from duckietown_utils.yaml_wrap import (yaml_load_file, yaml_write_to_file)
 from calibration.data_preperation_utils import DataPreparation
 from calibration.data_preperation_utils import load_pickle, save_pickle
@@ -18,6 +18,23 @@ from calibration.metrics import *
 from calibration.utils import *
 from calibration.cost_function_library import *
 
+"""
+TODO: 
+
+1) Generate a result yaml.
+
+* conf 
+* used model
+* initial kinetic parameter/whether was default
+* train / validation files 
+* optimization results
+    - minimize output + metric calculations + time
+* computer_name / platform info
+* camera calibrations
+* vehicle name 
+
+2) 
+"""
 class calib():
     def __init__(self):
         # initialize the node
@@ -32,13 +49,14 @@ class calib():
 
         # flow-control parameters
         DEBUG = self.conf['debug']
+        self.show_plots = self.conf['show_plots']
         self.save_experiment_results = self.conf['save_experiment_results']
 
         # namespace variables
         if not DEBUG:
             host_package = rospy.get_namespace()  # as defined by <group> in launch file
         else:
-            host_package = "/mete/calibration/"
+            host_package = "/duckiebot/calibration/"
 
         self.node_name = 'kinematic_calibration'  # node name , as defined in launch file
         self.host_package_node = host_package + self.node_name
@@ -67,8 +85,8 @@ class calib():
             rospy.logwarn('[{}] using default initial guesses defined in model {}'.format('kinematic_calibration', model_object.name))
 
         # inspect the 2D path vehicle followed
-        exp = "ramp_up_2019_01_19_15_04_Nstep_120.0_vFin_0.5_pp"
-        path_plot(experiments[exp], plot_name=exp)
+        exp = "ramp_up_2019_02_08_19_47_Nstep_100.0_vFin_0.5_pp"
+        #multiplot(states_list=[data1, data2], plot_title='Deneme', save=False, save_dir="")
 
         # use the parameter bounds defined in the class of our model choice
         self.bounds = model_object.get_param_bounds_list()
@@ -82,21 +100,20 @@ class calib():
         self.cost_fn = cost_fn_selector(self.conf['cost_function_type'])
 
         # brute-force cost calculation and plotting over parameter-space
-        cost, params_space_list = self.cost_function_over_param_space(model_object, experiments)
-        param_space_cost_plot(cost, params_space_list)
+        #cost, params_space_list = self.cost_function_over_param_space(model_object, experiments)
+        #param_space_cost_plot(cost, params_space_list)
 
         # run the optimization problem
         popt = self.nonlinear_model_fit(model_object, experiments)
 
         # parameter converge plots and cost fn
-        param_convergence_plot(self.param_hist)
-        simple_plot(range(len(self.cost_fn_val_list)), self.cost_fn_val_list, 'Cost Function')
+        if self.show_plots: param_convergence_plot(self.param_hist)
+        if self.show_plots: simple_plot(range(len(self.cost_fn_val_list)), self.cost_fn_val_list, 'Cost Function')
 
         # load and process the experiment data to be used for testing the model
         validation_dataset, validation_data_raw = self.load_validation_data_routine()
 
         # make predictions with the optimization results
-        #self.model_predictions(model_object, experiments, popt)
         self.model_predictions(model_object, validation_dataset, popt, plot_title= "Model: {} DataSet: {}".format(model_object.name, validation_data_raw.exp_name))
 
         # write to the kinematic calibration file
@@ -169,19 +186,18 @@ class calib():
 
             print('\nModel Performance Evaluation:\nModel Name: {}\nnormRMSE: {}'.format(exp_name, exp_mse))
 
-            multiplot(states_list=[x, x_sim_init, x_sim_opt],
+            if self.show_plots:
+                multiplot(states_list=[x, x_sim_init, x_sim_opt],
                       input_list=[u,u,u],
                       time_list=[t,t,t],
                       experiment_name_list=[exp_name + '_measurement', exp_name + '_simulated_init', exp_name + '_simulated_optimal'],
-                      mode = 'single_view',
                       plot_title=plot_title,
                       save=self.save_experiment_results,
                       save_dir=self.results_dir)
-            #path_plot(x_sim_opt, plot_name="Simulated")
-            #exp = "ramp_up_2019_01_19_15_04_Nstep_120.0_vFin_0.5_compensated_pp"
-            #path_plot(experiments[exp], plot_name=exp)
-            #path_plot(experiments[exp], plot_name=exp)
+
+            """
             multi_path_plot([exp_data, x_sim_init, x_sim_opt], ["measurement", "initial_values", "optimal_values"] )
+            """
     def write_calibration(self, model_object, popt):
        # Form yaml content to write
        yaml_dict = {}

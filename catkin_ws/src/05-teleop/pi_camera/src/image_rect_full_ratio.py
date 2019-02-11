@@ -10,11 +10,9 @@ from sensor_msgs.msg import CompressedImage,Image,CameraInfo
 from duckietown_msgs.msg import BoolStamped
 
 import duckietown_utils as dtu
-from ground_projection.configuration import get_homography_default, \
-    disable_old_homography
+from ground_projection.configuration import get_homography_default, disable_old_homography, get_homography_for_robot
 from ground_projection.ground_projection_geometry import GroundProjectionGeometry
-from ground_projection.ground_projection_interface import estimate_homography, \
-     HomographyEstimationResult, save_homography
+from ground_projection.ground_projection_interface import estimate_homography, HomographyEstimationResult, save_homography
 from pi_camera.camera_info import get_camera_info_for_robot
 from duckietown_utils import write_bgr_as_jpg
 from os.path import expanduser
@@ -59,11 +57,10 @@ class ImgRectFullRatio(object):
             #print "Run initialize gpg"
             robot_name = rospy.get_namespace()
             robot_name = robot_name[1:-1]
-            disable_old_homography(robot_name)
-            homography_dummy = get_homography_default()
-
-            self.gpg = GroundProjectionGeometry(self.cam_info, homography_dummy)
-
+            #disable_old_homography(robot_name)
+            #homography_dummy = get_homography_default()
+            robot_homography = get_homography_for_robot(robot_name)
+            self.gpg = GroundProjectionGeometry(self.cam_info, robot_homography)
         #rospy.logwarn('[{}]  camera info {}\n\n'.format(self.node_name, self.cam_info))
 
     def cbImg(self,msg):

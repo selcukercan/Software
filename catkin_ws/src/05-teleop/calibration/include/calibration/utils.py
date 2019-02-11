@@ -87,6 +87,11 @@ def safe_create_dir(path):
 def get_param_from_config_file(param_name):
     return yaml_load_file(get_package_root("calibration") + '/config.yaml', plain_yaml=True)[param_name]
 
+def x_in_np(data):
+    if type(data) == dict:
+        data = data['robot_pose']
+    return data
+
 def deg(x):
     """ converts a numpy array expressed in radians to degrees"""
     if not type(np.ndarray):
