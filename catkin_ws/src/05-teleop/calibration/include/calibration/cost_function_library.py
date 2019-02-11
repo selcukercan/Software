@@ -17,18 +17,20 @@ def SE(x, x_sim):
 
 def RMSE(x, x_sim):
     """ Root mean square"""
-    y = rmse(x, x_sim)
-    return np.mean(y)
+    return rmse(x, x_sim)
 
 def AsRMSE(x, x_sim):
     """ Amplitude scaled root mean square"""
     y = rmse(x, x_sim) / (max(x) - min(x))
     return np.mean(y)
 
+'''
+leads faulty resuls as mean can be negative
 def MsRMSE(x, x_sim):
     """ Mean scaled root mean square"""
     y = rmse(x, x_sim) / np.mean(x)
     return np.mean(y)
+'''
 
 def hampel(x, x_sim, delta):
     """ hampel's loss
@@ -52,19 +54,30 @@ def se(x, x_sim):
 def calculate_cost(x, x_sim, metric_eval):
     cost_val = 0.0
     if measurement_coordinate_frame == 'cartesian':
-        obj_cost = np.sum(
-                    metric_eval(x[0,:], x_sim[0,:]) +
-                    metric_eval(x[1,:], x_sim[1,:]) +
-                    metric_eval(x[2,:], x_sim[2,:])
-                    )
+        x_pos = metric_eval(x[0,:], x_sim[0,:])
+        y_pos = metric_eval(x[1,:], x_sim[1,:])
+        z_rot = metric_eval(x[2,:], x_sim[2,:])
+        obj_cost = x_pos + y_pos + z_rot
     elif measurement_coordinate_frame == 'polar':
-        obj_cost = np.sum(
-                    metric_eval(x[0,:], x_sim[0,:]) +
-                    metric_eval(x[1,:], x_sim[1,:])
-                    )
+        rho = metric_eval(x[0,:], x_sim[0,:])
+        yaw =  metric_eval(x[1,:], x_sim[1,:])
+        obj_cost = rho + yaw
     return obj_cost
 
+"""
+def calculate_cost(x, x_sim, metric_eval):
+    cost_val = 0.0
+    if measurement_coordinate_frame == 'cartesian':
+        obj_cost = np.sum([metric_eval(x[0,:], x_sim[0,:]),
+                           metric_eval(x[1,:], x_sim[1,:]),
+                           metric_eval(x[2,:], x_sim[2,:])])
 
+    elif measurement_coordinate_frame == 'polar':
+        obj_cost = np.sum([metric_eval(x[0,:], x_sim[0,:]),
+                           metric_eval(x[1,:], x_sim[1,:])])
+
+    return obj_cost
+"""
 def metric_selector(cost_name):
     if cost_name == "SE":
         return SE

@@ -6,7 +6,7 @@ show_plots: True
 
 # Optimization
 express_measurements_in: polar
-cost_function_type: MsRMSE
+cost_function_type: SE
 
 # Data preperation
 filter_type: flat

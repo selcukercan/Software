@@ -61,8 +61,8 @@ class KinematicDrive(BaseModelClass):
         (dr, dl, L) = p
 
         # kinetic states through actuation
-        vx = (dr * cmd_right + dl * cmd_left)
-        omega = (dr * cmd_right - dl * cmd_left) / L
+        vx = (dr * cmd_right + dl * cmd_left) # m/s
+        omega = (dr * cmd_right - dl * cmd_left) / L # rad/s
 
         if self.measurement_coordinate_system == 'cartesian':
             [x, y, theta] = x
@@ -74,8 +74,8 @@ class KinematicDrive(BaseModelClass):
             return [x_dot, y_dot, theta_dot]
         elif self.measurement_coordinate_system == 'polar':
             # position states in relation to kinetic states
-            rho_dot = vx
-            theta_dot = omega
+            rho_dot = vx # m/s
+            theta_dot = omega * 180 / np.pi # deg/s
 
             return [rho_dot, theta_dot]
 
