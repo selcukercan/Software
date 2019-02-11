@@ -79,7 +79,7 @@ class KinematicDrive(BaseModelClass):
 
             return [rho_dot, theta_dot]
 
-
+"""
 class KinematicDrive2(BaseModelClass):
 
     def __init__(self, measurement_coordinate_system):
@@ -137,7 +137,6 @@ class KinematicDrive3(BaseModelClass):
 
         return [x_pred, y_pred, yaw_pred]
 
-"""
 class Model4(BaseModelClass):
 
     def __init__(self, measurement_coordinate_system):
@@ -217,28 +216,30 @@ def simulate_horizan(model_object, t, x0, u, p):
     return x_sim
 
 
-def simulate(model_object, t, x0, u, p):
+def simulate(model_object, t, x, u, p):
     """
     Note that this function performs N step ahead propagation of the initial state
     for in one step ahead manner
     Args:
         model_object: a model object as defined by model library.
         t (list) : time array for which the predictions will be made.
-        x0 (list) : initial values of the states; x, y, yaw
+        x (list) : measured states; x, y, yaw
         u (numpy.ndarray): 2*n array, whose first row is wheel_right_exec, and second row is wheel_left_exec. n is the number of time-steps.
         p (list): model parameters.
 
     Returns:
         x_sim (numpy.ndarray): 3*n array, containing history of state evolution.
     """
+    x0 = x[:, 0]
     if model_object.measurement_coordinate_system == 'cartesian':
         x_sim = np.array(x0).reshape(3, 1) #record the evolution of states in an array
     elif model_object.measurement_coordinate_system == 'polar':
         x_sim = np.array(x0).reshape(2, 1)  # record the evolution of states in an array
 
+
     for i in range(len(t) - 1):
         t_cur, t_next = t[i:i + 2] # prediction will be made in between two consecutive time steps, note that this does not require fixed time step.
-
+        x0 = x[:,i]
         # one-step-ahead prediction
         """
         sol = solve_ivp(fun=lambda t, x: model_object.model(t, x0, u[:,i], p), t_span=(t_cur, t_next), y0=x0, t_eval=[t_next])

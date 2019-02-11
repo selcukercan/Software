@@ -6,10 +6,10 @@ show_plots: True
 
 # Optimization
 express_measurements_in: polar
-cost_function_type: nSE
+cost_function_type: MsRMSE
 
 # Data preperation
 filter_type: flat
-filter_length: 5
-discard_first_n_data: 15
+filter_length: 11
+discard_first_n_data: 10
 discard_last_n_data: 5

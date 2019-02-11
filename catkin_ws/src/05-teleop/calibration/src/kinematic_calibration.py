@@ -11,7 +11,7 @@ from copy import deepcopy
 from duckietown_utils.yaml_wrap import (yaml_load_file, yaml_write_to_file)
 from calibration.data_preperation_utils import DataPreparation
 from calibration.data_preperation_utils import load_pickle, save_pickle
-from calibration.model_library import model_generator, simulate
+from calibration.model_library import model_generator, simulate, simulate_horizan
 from calibration.data_adapter_utils import *
 from calibration.plotting_utils import *
 from calibration.metrics import *
@@ -96,8 +96,9 @@ class calib():
         self.cost_fn_val_list = []
         # self.delta =  0.00
 
-        # define the type of cost function to use
-        self.cost_fn = cost_fn_selector(self.conf['cost_function_type'])
+        # define the type of metric to use while constructing the cost
+        self.req_metric = self.conf['cost_function_type']
+        self.metric = metric_selector(self.req_metric)
 
         # brute-force cost calculation and plotting over parameter-space
         #cost, params_space_list = self.cost_function_over_param_space(model_object, experiments)
@@ -145,11 +146,11 @@ class calib():
             t = exp_data['timestamp']
             x = exp_data['robot_pose']
             u = exp_data['wheel_cmd_exec']
-            x0 = x[:,0]
+            #x0 = x[:,0]
 
             #simulate the model
-            x_sim = simulate(model_object, t, x0, u, p) # states for a particular p set
-            obj_cost = self.cost_fn(x_sim, x)
+            x_sim = simulate(model_object, t, x, u, p) # states for a particular p set
+            obj_cost = calculate_cost(x, x_sim, self.metric)
 
         self.update_param_hist(model_object.param_ordered_list, p)
         self.cost_fn_val_list.append(obj_cost)
@@ -178,20 +179,33 @@ class calib():
 
             # simulate the model
             # states for a particular p set
-            x_sim_opt = simulate(model_object, t, x0, u, popt)
-            x_sim_init = simulate(model_object, t, x0, u, self.p0)
+            x_sim_opt = simulate(model_object, t, x, u, popt)
+            x_sim_init = simulate(model_object, t, x, u, self.p0)
 
+            x_sim_opt_osap = simulate_horizan(model_object, t, x0, u, popt)
+            x_sim_init_osap = simulate_horizan(model_object, t, x0, u, self.p0)
+
+            simple_plot(None, x[1,:] / x_sim_opt_osap[1,:])
             # calculate the error metric
-            exp_mse = norm_rmse(x, x_sim_opt)
+            error = calculate_cost(x, x_sim_opt, self.metric)
 
-            print('\nModel Performance Evaluation:\nModel Name: {}\nnormRMSE: {}'.format(exp_name, exp_mse))
+            print('\nModel Performance Evaluation:\nModel Name: {}\n Metric Type: {} Value: {}'.format(exp_name, self.metric , error))
 
             if self.show_plots:
                 multiplot(states_list=[x, x_sim_init, x_sim_opt],
                       input_list=[u,u,u],
                       time_list=[t,t,t],
                       experiment_name_list=[exp_name + '_measurement', exp_name + '_simulated_init', exp_name + '_simulated_optimal'],
-                      plot_title=plot_title,
+                      plot_title= "OSAP " + plot_title,
+                      save=self.save_experiment_results,
+                      save_dir=self.results_dir)
+
+            if self.show_plots:
+                multiplot(states_list=[x, x_sim_init_osap, x_sim_opt_osap],
+                      input_list=[u,u,u],
+                      time_list=[t,t,t],
+                      experiment_name_list=[exp_name + '_measurement', exp_name + '_simulated_init', exp_name + '_simulated_optimal'],
+                      plot_title= "N-Horizan " + plot_title,
                       save=self.save_experiment_results,
                       save_dir=self.results_dir)
 

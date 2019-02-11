@@ -135,9 +135,6 @@ def path_plot_cartesian_plotly(data_sets, data_set_names):
     for i, data in enumerate(data_sets):
         path_data = x_in_np(data)
 
-        if measurement_coordinate_frame == "polar":
-            path_data = x_polar_to_cart(path_data)
-
         x_datas = path_data[0, :]
         y_datas = path_data[1, :]
         u_datas = cos(path_data[2, :] * pi / 180)
