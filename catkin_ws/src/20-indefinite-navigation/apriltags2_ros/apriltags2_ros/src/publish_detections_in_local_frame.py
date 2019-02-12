@@ -6,7 +6,7 @@ from threading import Lock
 from shutil import copy
 from std_msgs.msg import Bool
 from apriltags2_ros.msg import AprilTagDetectionArray
-from apriltags2_ros.msg import VehiclePoseEuler
+from apriltags2_ros.msg import VehiclePoseEuler, VehiclePoseEulerArray
 from apriltags2_ros_post_process.rotation_utils import *
 from apriltags2_ros_post_process.time_sync_utils import *
 
@@ -33,8 +33,10 @@ class ToLocalPose:
         self.synchronous_mode = self.setupParam("/operation_mode", 0)
 
         # Publisher
-        self.pub_topic_name = host_package_node + '/tag_detections_local_frame'
-        self.pub_detection_in_robot_frame = rospy.Publisher(self.pub_topic_name ,VehiclePoseEuler,queue_size=1)
+        self.pub_single_tag = host_package_node + '/tag_detections_local_frame'
+        self.pub_multiple_tag = host_package_node + '/tag_detections_array_local_frame'
+        self.pub_detection_in_robot_frame = rospy.Publisher(self.pub_single_tag ,VehiclePoseEuler,queue_size=1)
+        self.pub_detection_in_robot_frame_array = rospy.Publisher(self.pub_multiple_tag ,VehiclePoseEulerArray,queue_size=1)
 
         # Subscriber
         sub_topic_name =  '/' + self.veh + '/tag_detections'
@@ -72,44 +74,69 @@ class ToLocalPose:
 
     def cbDetection(self,msg):
         if (len(msg.detections) > 0):  # non-emtpy detection message
-            #print msg
-            # unpack the position and orientation returned by apriltags2 ros
-            t_msg = msg.detections[0].pose.pose.pose.position
-            q_msg = msg.detections[0].pose.pose.pose.orientation
+            #rospy.loginfo('\n\nXXXXXXXXX\n {} \nXXXXXXXXX\n\n'.format(msg))
+            #rospy.loginfo('\n\nXXXXXXXXX\n {} \nXXXXXXXXX\n\n'.format(len(msg.detections)))
 
-            # convert the message content into a numpy array as robot_pose_in_world_frame requires so.
-            t = np.array([t_msg.x, t_msg.y, t_msg.z])
-            q = np.array([q_msg.x, q_msg.y, q_msg.z, q_msg.w])
+            veh_pose_euler_array_msg = VehiclePoseEulerArray()
+            veh_pose_euler_array_msg.local_pose_list = []
 
-            # express relative rotation of the robot wrt the global frame.
-            world_R_veh, world_t_veh = vehTworld(q,t)
-            veh_feaXYZ_world = rotation_matrix_to_euler(world_R_veh)
+            for i in range(len(msg.detections)):
+                # unpack the position and orientation returned by apriltags2 ros
+                t_msg = msg.detections[i].pose.pose.pose.position
+                q_msg = msg.detections[i].pose.pose.pose.orientation
+                #print msg.detections[i].size
+                tag_id_msg = msg.detections[i].id[0]
+                tag_size_msg = msg.detections[i].size[0]
 
-            # convert from numpy float to standart python float to be written into the message
-            world_t_veh =  world_t_veh.tolist()
-            veh_feaXYZ_world = veh_feaXYZ_world.tolist()
+                # convert the message content into a numpy array as robot_pose_in_world_frame requires so.
+                t = np.array([t_msg.x, t_msg.y, t_msg.z])
+                q = np.array([q_msg.x, q_msg.y, q_msg.z, q_msg.w])
 
-            # form message to publish
-            veh_pose_euler_msg = VehiclePoseEuler()
-            veh_pose_euler_msg.header.stamp = rospy.Time.now()
-            # position
-            veh_pose_euler_msg.posx = world_t_veh[0]
-            veh_pose_euler_msg.posy = world_t_veh[1]
-            veh_pose_euler_msg.posz = world_t_veh[2]
-            # orientation
-            veh_pose_euler_msg.rotx = veh_feaXYZ_world[0]
-            veh_pose_euler_msg.roty = veh_feaXYZ_world[1]
-            veh_pose_euler_msg.rotz = veh_feaXYZ_world[2]
+                # express relative rotation of the robot wrt the global frame.
+                world_R_veh, world_t_veh = vehTworld(q,t)
+                veh_feaXYZ_world = rotation_matrix_to_euler(world_R_veh)
 
-            # finally publish the message
-            self.pub_detection_in_robot_frame.publish(veh_pose_euler_msg)
-            rospy.loginfo('publish posx: {} posy:  {} rotz: {}'.format(veh_pose_euler_msg.posx,veh_pose_euler_msg.posy,veh_pose_euler_msg.rotz))
-            
+                # convert from numpy float to standart python float to be written into the message
+                world_t_veh =  world_t_veh.tolist()
+                veh_feaXYZ_world = veh_feaXYZ_world.tolist()
+
+                # form message to publish
+                veh_pose_euler_msg = VehiclePoseEuler()
+                veh_pose_euler_msg.header.stamp = rospy.Time.now()
+                # position
+                veh_pose_euler_msg.posx = world_t_veh[0]
+                veh_pose_euler_msg.posy = world_t_veh[1]
+                veh_pose_euler_msg.posz = world_t_veh[2]
+                # orientation
+                veh_pose_euler_msg.rotx = veh_feaXYZ_world[0]
+                veh_pose_euler_msg.roty = veh_feaXYZ_world[1]
+                veh_pose_euler_msg.rotz = veh_feaXYZ_world[2]
+                # size of the Apriltag
+                veh_pose_euler_msg.size = tag_size_msg
+                # id of the Apriltag
+                veh_pose_euler_msg.id = tag_id_msg
+
+                # finally publish the message
+                self.pub_detection_in_robot_frame.publish(veh_pose_euler_msg)
+                """
+                rospy.loginfo('\ntag id: {} publish posx: {} posy:  {} rotz: {}\n'.format(veh_pose_euler_msg.id,
+                                                                                          veh_pose_euler_msg.posx,
+                                                                                          veh_pose_euler_msg.posy,
+                                                                                          veh_pose_euler_msg.rotz))
+                """
+                veh_pose_euler_array_msg.local_pose_list.append(veh_pose_euler_msg)
+            self.pub_detection_in_robot_frame_array.publish(veh_pose_euler_array_msg)
+
+            rospy.loginfo('detection array: {}'.format(veh_pose_euler_array_msg))
+
+
             if self.synchronous_mode:
                 # save the message to the bag file that contains compressed_images
                 self.lock.acquire()
                 output_rosbag = rosbag.Bag(self.output_bag, 'a') # open bag to write
-                output_rosbag.write(self.pub_topic_name, veh_pose_euler_msg)
+                # save only a single detection
+                #output_rosbag.write(self.pub_topic_name, veh_pose_euler_msg)
+                output_rosbag.write(self.pub_multiple_tag, veh_pose_euler_array_msg)
                 output_rosbag.close()
                 self.lock.release()
 

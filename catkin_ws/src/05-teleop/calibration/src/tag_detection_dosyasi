@@ -1,0 +1,37 @@
+[INFO] [1550004694.300132]: detection array: header:
+  seq: 0
+  stamp:
+    secs: 0
+    nsecs:         0
+  frame_id: ''
+local_pose_list:
+  -
+    header:
+      seq: 0
+      stamp:
+        secs: 1550004694
+        nsecs: 299251079
+      frame_id: ''
+    rotx: -0.0434188529164
+    roty: -4.98648658866
+    rotz: -4.60859851696
+    posx: -1.40076952087
+    posy: 0.181133418573
+    posz: -0.217958904804
+    id: 3
+    size: 0.1735
+  -
+    header:
+      seq: 0
+      stamp:
+        secs: 1550004694
+        nsecs: 300020933
+      frame_id: ''
+    rotx: -0.282082015191
+    roty: 4.742512548
+    rotz: 0.845391108467
+    posx: -1.44338967833
+    posy: -0.211309334825
+    posz: 0.0153141048025
+    id: 2
+    size: 0.1735

@@ -234,22 +234,18 @@ class DataPreparation():
         return cmd
 
     def get_robot_pose(self, input_bag, topic_name):
-
-        pose = {
-            'px': [],'py': [],'pz': [],
-            'rx':[],'ry':[],'rz':[],
-            'timestamp': []
-        }
+        seen_tag = {} # dict with keys tag_id and values are tag objects
 
         # Loop over the image files contained in rosbag
         for topic, msg, t in rosbag.Bag(input_bag).read_messages(topics=topic_name):
-            pose['px'].append(msg.posx)
-            pose['py'].append(msg.posy)
-            pose['pz'].append(msg.posz)
-            pose['rx'].append(msg.rotx)
-            pose['ry'].append(msg.roty)
-            pose['rz'].append(msg.rotz)
-            pose['timestamp'].append(t.to_sec())
+            for tag_i in range(msg.local_pose_list):
+                tag_data = msg.local_pose_list[tag_i]
+
+                if tag_data.id in seen_tags.keys:
+                    seen_tag[tag_i] = 1
+                else:
+                    seen_tag[tag_i] = Tag(tag_data)
+                    seen_tag[tag_i].add_measurement(tag_data ,t)
         return pose
 
 
@@ -415,6 +411,25 @@ def load_pickle(experiment_name):
         return experiments
     else:
         rospy.logfatal('to load data with pickle, specify the experiment name')
+
+class Tag():
+    def __init__(self, tag_data):
+        self.tag_id = tag_data.id
+        self.tag_size = tag_data.size
+        self.pose = {
+        'px': [], 'py': [], 'pz': [],
+        'rx': [], 'ry': [], 'rz': [],
+        'timestamp': []
+    }
+
+    def add_measurement(self, msg, t):
+        self.pose['px'].append(msg.posx)
+        self.pose['py'].append(msg.posy)
+        self.pose['pz'].append(msg.posz)
+        self.pose['rx'].append(msg.rotx)
+        self.pose['ry'].append(msg.roty)
+        self.pose['rz'].append(msg.rotz)
+        self.pose['timestamp'].append(t.to_sec())
 
 # To save data easily with pickle create a trivial class
 class ExperimentData():
