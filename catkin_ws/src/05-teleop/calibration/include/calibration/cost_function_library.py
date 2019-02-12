@@ -2,52 +2,97 @@ import rospy
 import numpy as np
 from utils import get_param_from_config_file
 
+
 measurement_coordinate_frame = get_param_from_config_file("express_measurements_in")
 
+""" Metrics 
 
-def nSE(x_predict, x_meas):
-    obj_cost = None
+input: 1D arrays of measurements and predictions 
+output: scalar measure value """
+
+def SE(x, x_sim):
+    """ Root mean square"""
+    y = se(x, x_sim)
+    return np.mean(y)
+
+def RMSE(x, x_sim):
+    """ Root mean square"""
+    return rmse(x, x_sim)
+
+def AsRMSE(x, x_sim):
+    """ Amplitude scaled root mean square"""
+    y = rmse(x, x_sim) / (max(x) - min(x))
+    return np.mean(y)
+
+'''
+leads faulty resuls as mean can be negative
+def MsRMSE(x, x_sim):
+    """ Mean scaled root mean square"""
+    y = rmse(x, x_sim) / np.mean(x)
+    return np.mean(y)
+'''
+
+def hampel(x, x_sim, delta):
+    """ hampel's loss
+    delta may be interpreted as the precision requested.
+    """
+    y = np.where(np.abs(x-x_sim) < delta , 0.5*((x-x_sim)**2), delta*np.abs(x - x_sim) - 0.5*(delta**2))
+    #simple_plot(None,loss)
+    return np.sum(y)
+
+
+# Helper functions
+def rmse(x, x_sim):
+    """ root mean square error"""
+    return np.sqrt(np.mean(se(x, x_sim)))
+
+def se(x, x_sim):
+    """ square error"""
+    return np.power((x - x_sim), 2)
+
+
+def calculate_cost(x, x_sim, metric_eval):
+    cost_val = 0.0
     if measurement_coordinate_frame == 'cartesian':
-        range_x = float(max(x_meas[0, :]) - min(x_meas[0, :]))
-        range_y = float(max(x_meas[1, :]) - min(x_meas[1, :]))
-        range_yaw = float(max(x_meas[2, :]) - min(x_meas[2, :]))
-        # print('range x: {} range y: {} range yaw: {}'.format(range_x,range_y,range_yaw))
-        obj_cost = np.sum(
-                    ((x_predict[0,:] - x_meas[0,:]) / range_x) ** 2 +
-                    ((x_predict[1,:] - x_meas[1,:]) / range_y) ** 2 +
-                    ((x_predict[2,:] - x_meas[2,:]) / range_yaw) ** 2
-                    )
+        x_pos = metric_eval(x[0,:], x_sim[0,:])
+        y_pos = metric_eval(x[1,:], x_sim[1,:])
+        z_rot = metric_eval(x[2,:], x_sim[2,:])
+        obj_cost = x_pos + y_pos + z_rot
     elif measurement_coordinate_frame == 'polar':
-        range_rho = float(max(x_meas[0, :]) - min(x_meas[0, :]))
-        range_yaw = float(max(x_meas[1, :]) - min(x_meas[1, :]))
-        obj_cost = np.sum(
-                    ((x_predict[0,:] - x_meas[0,:]) / range_rho) ** 2 +
-                    ((x_predict[1,:] - x_meas[1,:]) / range_yaw) ** 2
-                    )
+        rho = metric_eval(x[0,:], x_sim[0,:])
+        yaw =  metric_eval(x[1,:], x_sim[1,:])
+        obj_cost = rho + yaw
     return obj_cost
-def cost_fn_selector(cost_name):
-    if cost_name == 'nSE':
-        return nSE
+
+"""
+def calculate_cost(x, x_sim, metric_eval):
+    cost_val = 0.0
+    if measurement_coordinate_frame == 'cartesian':
+        obj_cost = np.sum([metric_eval(x[0,:], x_sim[0,:]),
+                           metric_eval(x[1,:], x_sim[1,:]),
+                           metric_eval(x[2,:], x_sim[2,:])])
+
+    elif measurement_coordinate_frame == 'polar':
+        obj_cost = np.sum([metric_eval(x[0,:], x_sim[0,:]),
+                           metric_eval(x[1,:], x_sim[1,:])])
+
+    return obj_cost
+"""
+def metric_selector(cost_name):
+    if cost_name == "SE":
+        return SE
+    elif cost_name == "RMSE":
+        return RMSE
+    elif cost_name == 'AsRMSE':
+        return AsRMSE
+    elif cost_name == "MsRMSE":
+        return MsRMSE
     else:
         rospy.logwarn('undefined cost function is requested, see cost_fn_library for const function definitions')
 
 
-# Draft
-"""
-obj_cost += ( abs(((x_sim[0, i] - x[0, i])) / range_x) +
-              abs(((x_sim[1, i] - x[1, i])) / range_y) +
-              abs(((x_sim[2, i] - x[2, i])) / range_yaw)
-    )
-
-obj_cost += (
-             ((x_sim[0, i] - x[0, i])) ** 2 +
-             ((x_sim[1, i] - x[1, i])) ** 2 +
-             ((x_sim[2, i] - x[2, i])) ** 2
-            )
-
-obj_cost += (
-        ((x_sim[0, i] - x[0, i]) / range_x) ** 2 +
-        ((x_sim[1, i] - x[1, i]) / range_y) ** 2 +
-        ((x_sim[2, i] - x[2, i]) / range_yaw) ** 2
-)
-"""
+if __name__ == '__main__':
+    x_sim = np.arange(-10,10,1)
+    x = np.zeros(x_sim.shape)
+    delta = 1
+    y = hampel(x, x_sim, delta)

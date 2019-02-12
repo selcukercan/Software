@@ -279,11 +279,12 @@ class DataPreparation():
         input_opt_filt[1, :] = u_l_filt
 
         # plot original and filtered signals on the same pot
+        """
         if self.show_plots:
             multiplot(states_list=[input_opt, input_opt_filt],
                       experiment_name_list=['Original Signal', 'Filtered Signal'],
                       plot_title='input commands' + self.exp_name + ' filtering')
-
+        """
         return input_opt_filt
 
     def filter_cartesian(self, robot_pose_opt, flen_array, filter_type):
