@@ -14,7 +14,6 @@ from calibration.data_preperation_utils import load_pickle, save_pickle
 from calibration.model_library import model_generator, simulate, simulate_horizan
 from calibration.data_adapter_utils import *
 from calibration.plotting_utils import *
-from calibration.metrics import *
 from calibration.utils import *
 from calibration.cost_function_library import *
 
@@ -33,7 +32,9 @@ TODO:
 * camera calibrations
 * vehicle name 
 
-2) 
+2) Collect all the plots under results folder
+
+
 """
 class calib():
     def __init__(self):
@@ -56,7 +57,7 @@ class calib():
         if not DEBUG:
             host_package = rospy.get_namespace()  # as defined by <group> in launch file
         else:
-            host_package = "/duckiebot/calibration/"
+            host_package = "/mete/calibration/"
 
         self.node_name = 'kinematic_calibration'  # node name , as defined in launch file
         self.host_package_node = host_package + self.node_name

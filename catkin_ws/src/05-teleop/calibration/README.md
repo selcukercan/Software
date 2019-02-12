@@ -99,10 +99,10 @@ Also note that image processing pipeline requires the calibration files to work 
 On your local PC, start the optimization
 
 ```shell
-roslaunch calibration calibration.launch veh:=![ROBOT_NAME] folder_path:=![INPUT_FOLDER_PATH]
+roslaunch calibration calibration.launch veh:=![ROBOT_NAME] folder_path:=![INPUT_FOLDER_PATH] model:=![MODEL_NAME]
 ```
 
- Note that the optimization script automatically loads and feeds all the bag files that are located inside ![INPUT_FOLDER_PATH].
+Note that the optimization script automatically loads and feeds all the bag files that are located inside ![INPUT_FOLDER_PATH]. To see all available models and their definition, refer to `PACKAGE_ROOT/include/calibration/model_library.py`.
 
 ## Transfer the calibration YAML files
 
@@ -112,10 +112,11 @@ sudo mv ~/mete_kinematic_drive.yaml /data/config/calibrations/kinematics/
 ```
 ## Test
 
+Test script only contains a straight path test, and it automatically starts after roslaunch.
+
 Run the test script with
 ```shell
-scp /home/selcuk/duckiefleet/calibrations/kinematics/mete_kinematic_drive.yaml selcuk@mete:~/
-sudo mv ~/mete_kinematic_drive.yaml /data/config/calibrations/kinematics/
+roslaunch calibration test.launch veh:=![ROBOT_NAME] model:=![MODEL_NAME]
 ```
 
 ## Development Notes
