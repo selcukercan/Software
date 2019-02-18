@@ -1,5 +1,5 @@
 import numpy as np
-from utils import rad
+from utils import rad, save_gzip
 
 def col(a):
     """
@@ -58,3 +58,32 @@ def x_polar_to_cart(x_polar):
     x_cart[2, :] = x_polar[1,:]
 
     return x_cart
+
+def to_eql(dataset, dataset_type):
+    first_experiment = True
+    for exp_name in dataset.keys():
+        # unpack data for each experiment
+        opt_data = dataset[exp_name].data
+        opt_data_x = np.array(opt_data["robot_pose"])
+        opt_data_u = np.array(opt_data["wheel_cmd_exec"])
+        opt_data_t = np.array(opt_data["timestamp"])
+
+        if first_experiment:
+            all_x = opt_data_x.copy()
+            all_u = opt_data_u.copy()
+            all_t = opt_data_t.copy()
+            first_experiment = False
+        else:
+            all_x = np.hstack((all_x, opt_data_x))
+            all_u = np.hstack((all_u, opt_data_u))
+            all_t = np.hstack((all_t, opt_data_t))
+
+    # generate a random index array
+    random_index_array = np.random.permutation(all_t.size)
+    # shuffle the data
+    shuffled_x = all_x[:, random_index_array]
+    shuffled_u = all_u[:, random_index_array]
+
+    # transpose is required as eql software concatenates training points vertically
+    shuffled_data = (np.transpose(shuffled_u), np.transpose(shuffled_x))
+    save_gzip("experiment2", shuffled_data, dataset_type)

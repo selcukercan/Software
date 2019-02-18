@@ -3,6 +3,9 @@ import os
 import yaml
 import numpy as np
 import datetime
+import gzip
+import pickle
+
 from os.path import join
 from os import mkdir
 from duckietown_utils import (logger, get_duckiefleet_root)
@@ -83,6 +86,14 @@ def safe_create_dir(path):
     if not os.path.isdir(path):
         mkdir(path)
     return path
+
+
+def save_gzip(file_name, processed_dataset, dataset_type):
+    if dataset_type == "train":
+        data_file = os.path.join(file_name + '_train_val')
+    elif dataset_type == "test":
+        data_file = os.path.join(file_name + '_test')
+    pickle.dump(processed_dataset, gzip.open(data_file, "wb"))
 
 def get_param_from_config_file(param_name):
     return yaml_load_file(get_package_root("calibration") + '/config.yaml', plain_yaml=True)[param_name]

@@ -72,10 +72,11 @@ class calib():
         # load data for use in optimization
         self.measurement_coordinate_frame = self.conf['express_measurements_in']
         experiments = self.load_dataset("Training", self.path_training_data)
+        to_eql(experiments, "train")
+
+        """
         # load and process the experiment data to be used for testing the model
         validation_dataset = self.load_dataset("Validation", self.path_validation_data)
-
-        #save_gzip()
 
         # construct a model by specifying which model to use
         model_object = model_generator(self.model_type, self.measurement_coordinate_frame)
@@ -119,8 +120,7 @@ class calib():
 
         # make predictions with the optimization results
         self.model_predictions(model_object, validation_dataset, popt, plot_title="Model: {} DataSet: {}".format(model_object.name, exp))
-
-        """
+        
         # write to the kinematic calibration file
         self.write_calibration(model_object, popt)
         """
@@ -239,11 +239,6 @@ class calib():
             param_hist[param_name] = []
         return param_hist
 
-    @staticmethod
-    def save_gzip(file_name, processed_dataset):
-        data_file = os.path.join(file_name + '_train_val')
-        pickle.dump(processed_dataset, gzip.open(data_file, "wb"))
-
     def update_param_hist(self, model_ordered_param_list, p):
         for i, param_name in enumerate(model_ordered_param_list):
             self.param_hist[param_name].append(p[i])
@@ -274,21 +269,7 @@ class calib():
         else:
             rospy.logfatal('[{}] is not a valid source type'.format(source))
         return experiments
-    """
-    def load_validation_data_routine(self):
-        # validation data set container
-        validation_dataset = input_folder_to_experiment_dict(self.path_validation_data)
 
-        for i, exp in enumerate(validation_dataset.keys()):
-            validation_data_raw = DataPreparation(input_bag=validation_dataset[exp]['path'],
-                                            top_wheel_cmd_exec=self.top_wheel_cmd_exec,
-                                            top_robot_pose=self.top_robot_pose,
-                                            exp_name='Validation Data {}: {}'.format(i+1, exp),
-                                            measurement_coordinate_frame=self.measurement_coordinate_frame)
-            validation_dataset[exp]['wheel_cmd_exec'], validation_dataset[exp]['robot_pose'], validation_dataset[exp]['timestamp'] = validation_data_raw.process_raw_data()  # bring data set to format usable by the optimizer
-
-        return validation_dataset, validation_data_raw
-    """
     def rosparam_to_program(self):
         # rosparam server addresses
         param_veh = self.host_package_node + '/' + "veh"
