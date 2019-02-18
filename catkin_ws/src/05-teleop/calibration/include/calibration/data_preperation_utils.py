@@ -21,10 +21,11 @@ class DataPreparation():
     def __init__(self, input_bag = None, top_wheel_cmd_exec = None, top_robot_pose = None,
                  save_as = None, dump = False, exp_name='', mode='train', measurement_coordinate_frame='cartesian'):
         self.input_bag = input_bag
-        self.wheel_cmd, self.robot_pose = self.load_bag(input_bag, top_wheel_cmd_exec, top_robot_pose)
         self.exp_name = exp_name
         self.operation_mode = mode
         self.measurement_coordinate_frame = measurement_coordinate_frame
+        self.wheel_cmd, self.robot_pose = self.load_bag(input_bag, top_wheel_cmd_exec, top_robot_pose)
+        self.data = self.process_raw_data() # bring data set to format usable by the optimizer
 
     def process_raw_data(self):
         """
@@ -38,6 +39,7 @@ class DataPreparation():
         - **t** (*list*) - timestamps.
 
         """
+        data = {'wheel_cmd_exec': None, 'robot_pose': None, 'timestamp': None}
 
         start_time, end_time, duration = self.experiment_duration()
         wheel_cmd_clipped, robot_pose_clipped = self.get_actuated_interval(self.wheel_cmd, self.robot_pose, start_time, end_time)
@@ -62,7 +64,11 @@ class DataPreparation():
         if self.measurement_coordinate_frame == 'polar':
             robot_pose_opt = x_cart_to_polar(robot_pose_opt)
 
-        return wheel_cmd_exec_opt, robot_pose_opt, t
+        data['wheel_cmd_exec'] = wheel_cmd_exec_opt
+        data['robot_pose'] = robot_pose_opt
+        data['timestamp'] = t
+
+        return data
 
     def experiment_duration(self):
         """
@@ -330,13 +336,13 @@ class DataPreparation():
             robot_pose_opt_filt[0,:] = rho_filt
             robot_pose_opt_filt[1,:] = yaw_filt
 
-            
+
             # plot original and filtered signals on the same pot
             if TEST_MODE:
                 multiplot(states_list=[robot_pose_opt, robot_pose_opt_filt],
                           experiment_name_list=['Original Signal', 'Filtered Signal'],
                           plot_title = self.exp_name + ' filtering')
-            
+
             return robot_pose_opt_filt
     """
 

@@ -18,19 +18,19 @@ from calibration.utils import *
 from calibration.cost_function_library import *
 
 """
-TODO: 
+TODO:
 
 1) Generate a result yaml.
 
-* conf 
+* conf
 * used model
 * initial kinetic parameter/whether was default
-* train / validation files 
+* train / validation files
 * optimization results
     - minimize output + metric calculations + time
 * computer_name / platform info
 * camera calibrations
-* vehicle name 
+* vehicle name
 
 2) Collect all the plots under results folder
 
@@ -71,7 +71,11 @@ class calib():
 
         # load data for use in optimization
         self.measurement_coordinate_frame = self.conf['express_measurements_in']
-        experiments, data_raw = self.load_fitting_data_routine()
+        experiments = self.load_dataset("Training", self.path_training_data)
+        # load and process the experiment data to be used for testing the model
+        validation_dataset = self.load_dataset("Validation", self.path_validation_data)
+
+        #save_gzip()
 
         # construct a model by specifying which model to use
         model_object = model_generator(self.model_type, self.measurement_coordinate_frame)
@@ -108,19 +112,18 @@ class calib():
         # run the optimization problem
         popt = self.nonlinear_model_fit(model_object, experiments)
 
+
         # parameter converge plots and cost fn
         if self.show_plots: param_convergence_plot(self.param_hist)
         if self.show_plots: simple_plot(range(len(self.cost_fn_val_list)), self.cost_fn_val_list, 'Cost Function')
 
-        # load and process the experiment data to be used for testing the model
-        validation_dataset, validation_data_raw = self.load_validation_data_routine()
-
         # make predictions with the optimization results
-        self.model_predictions(model_object, validation_dataset, popt, plot_title= "Model: {} DataSet: {}".format(model_object.name, validation_data_raw.exp_name))
+        self.model_predictions(model_object, validation_dataset, popt, plot_title="Model: {} DataSet: {}".format(model_object.name, exp))
 
+        """
         # write to the kinematic calibration file
         self.write_calibration(model_object, popt)
-
+        """
     def cost_function_over_param_space(self, model_object, experiments):
         cost=[]
         params_space_list = []
@@ -143,7 +146,7 @@ class calib():
 
     def cost_function(self, p, model_object, experiments):
         for exp_name in experiments.keys():
-            exp_data = experiments[exp_name]
+            exp_data = experiments[exp_name].data
             t = exp_data['timestamp']
             x = exp_data['robot_pose']
             u = exp_data['wheel_cmd_exec']
@@ -161,7 +164,7 @@ class calib():
         """ for more information on scipy.optimize.min fn:
         https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html
         """
-        
+
         rospy.loginfo('started the nonlinear optimization ... ')
         # Actual Parameter Optimization/Fitting
         # Minimize the error between the model predictions and position estimations
@@ -172,7 +175,7 @@ class calib():
 
     def model_predictions(self, model_object, experiments, popt, plot_title=''):
         for exp_name in experiments.keys():
-            exp_data = experiments[exp_name]
+            exp_data = experiments[exp_name].data
             t = exp_data['timestamp']
             x = exp_data['robot_pose']
             u = exp_data['wheel_cmd_exec']
@@ -213,6 +216,7 @@ class calib():
             """
             multi_path_plot([exp_data, x_sim_init, x_sim_opt], ["measurement", "initial_values", "optimal_values"] )
             """
+
     def write_calibration(self, model_object, popt):
        # Form yaml content to write
        yaml_dict = {}
@@ -235,13 +239,18 @@ class calib():
             param_hist[param_name] = []
         return param_hist
 
+    @staticmethod
+    def save_gzip(file_name, processed_dataset):
+        data_file = os.path.join(file_name + '_train_val')
+        pickle.dump(processed_dataset, gzip.open(data_file, "wb"))
+
     def update_param_hist(self, model_ordered_param_list, p):
         for i, param_name in enumerate(model_ordered_param_list):
             self.param_hist[param_name].append(p[i])
 
-    def load_fitting_data_routine(self):
+    def load_dataset(self, dataset_prefix, path_to_dataset):
         # training data set container
-        experiments = input_folder_to_experiment_dict(self.path_training_data)
+        experiments = input_folder_to_experiment_dict(path_to_dataset)
 
         source = 'folder'
         load_from_pickle = 'test_run'
@@ -251,21 +260,21 @@ class calib():
         # load and process experiment data to be used in the optimization
         if source == 'folder':
             for i, exp in enumerate(experiments.keys()):
-                data_raw = DataPreparation(input_bag=experiments[exp]['path'],
+                experiments[exp] = DataPreparation(input_bag=experiments[exp]['path'],
                                            top_wheel_cmd_exec=self.top_wheel_cmd_exec,
                                            top_robot_pose=self.top_robot_pose,
-                                           exp_name='Training Data {}: {}'.format(i + 1,exp),
+                                           exp_name= dataset_prefix + ' Data {}: {}'.format(i + 1,exp),
                                            measurement_coordinate_frame=self.measurement_coordinate_frame)
-                experiments[exp]['wheel_cmd_exec'], experiments[exp]['robot_pose'], experiments[exp]['timestamp']= data_raw.process_raw_data() # bring data set to format usable by the optimizer
+                #experiments[exp]['wheel_cmd_exec'], experiments[exp]['robot_pose'], experiments[exp]['timestamp']= data_raw.process_raw_data() # bring data set to format usable by the optimizer
             #rospy.logwarn(self.tmp_dir)
-            save_pickle(object=experiments, save_as= os.path.join(self.tmp_dir, set_name))
+            if save_to_pickle:
+                save_pickle(object=experiments, save_as= os.path.join(self.tmp_dir, set_name))
         elif source == 'pickle':
             experiments = load_pickle(load_from_pickle)
         else:
             rospy.logfatal('[{}] is not a valid source type'.format(source))
-
-        return experiments, data_raw
-
+        return experiments
+    """
     def load_validation_data_routine(self):
         # validation data set container
         validation_dataset = input_folder_to_experiment_dict(self.path_validation_data)
@@ -279,7 +288,7 @@ class calib():
             validation_dataset[exp]['wheel_cmd_exec'], validation_dataset[exp]['robot_pose'], validation_dataset[exp]['timestamp'] = validation_data_raw.process_raw_data()  # bring data set to format usable by the optimizer
 
         return validation_dataset, validation_data_raw
-
+    """
     def rosparam_to_program(self):
         # rosparam server addresses
         param_veh = self.host_package_node + '/' + "veh"
