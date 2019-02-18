@@ -1,0 +1,3 @@
+[submodule "/home/selcuk/fSoftware/catkin_ws/src/05-teleop/calibration/include/EQL_Tensorflow"]
+	path = /home/selcuk/fSoftware/catkin_ws/src/05-teleop/calibration/include/EQL_Tensorflow
+	url = git@github.com:selcukercan/fEQL_Tensorflow.git
