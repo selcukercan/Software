@@ -9,7 +9,6 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 from matplotlib.colors import Normalize
 from matplotlib.pyplot import figure
-from data_adapter_utils import x_polar_to_cart
 from utils import get_param_from_config_file, x_in_np
 
 opy.init_notebook_mode(connected=True)

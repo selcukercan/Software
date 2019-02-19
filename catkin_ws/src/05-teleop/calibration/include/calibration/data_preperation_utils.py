@@ -10,8 +10,6 @@ from calibration.utils import get_param_from_config_file
 
 class DataPreparation():
     DEBUG_MODE = True # convenience flag
-    #DISCARD_FIRST = 30 # discard first n data
-    #DISCARD_LAST = 10  # discard last n data
     show_plots = get_param_from_config_file("show_plots")
     filter_type = get_param_from_config_file("filter_type")
     filter_length = get_param_from_config_file("filter_length")

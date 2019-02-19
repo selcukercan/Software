@@ -57,7 +57,8 @@ class calib():
         if not DEBUG:
             host_package = rospy.get_namespace()  # as defined by <group> in launch file
         else:
-            host_package = "/mete/calibration/"
+            robot_name_from_conf = self.conf['vehicle_name']
+            host_package = "/" + robot_name_from_conf + "/calibration/"
 
         self.node_name = 'kinematic_calibration'  # node name , as defined in launch file
         self.host_package_node = host_package + self.node_name
@@ -72,16 +73,18 @@ class calib():
         # load data for use in optimization
         self.measurement_coordinate_frame = self.conf['express_measurements_in']
         experiments = self.load_dataset("Training", self.path_training_data)
-        to_eql(experiments, "train")
 
+        to_eql(experiments, "train")
         """
         # load and process the experiment data to be used for testing the model
         validation_dataset = self.load_dataset("Validation", self.path_validation_data)
 
+        
         # construct a model by specifying which model to use
         model_object = model_generator(self.model_type, self.measurement_coordinate_frame)
 
-        # optimization settings - for details refer to "https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html"
+        # OPTIMIZATION
+        # settings - for details refer to "https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html"
         # see if there already is a yaml file for the model we can use
         model_param_dict = read_param_from_file(self.robot_name, model_object)
         if model_param_dict is not None:
@@ -90,14 +93,10 @@ class calib():
             self.p0 = dict_to_ordered_array(model_object, model_object.get_param_initial_guess_dict()) # otherwise use the default initial guesses as defined in the class of our model choice
             rospy.logwarn('[{}] using default initial guesses defined in model {}'.format('kinematic_calibration', model_object.name))
 
-        # inspect the 2D path vehicle followed
-        exp = "ramp_up_2019_02_08_19_47_Nstep_100.0_vFin_0.5_pp"
-        #multiplot(states_list=[data1, data2], plot_title='Deneme', save=False, save_dir="")
-
         # use the parameter bounds defined in the class of our model choice
         self.bounds = model_object.get_param_bounds_list()
 
-        # optimization results-related
+        # optimization process monitoring
         self.param_hist = self.init_param_hist(model_object.model_params)
         self.cost_fn_val_list = []
         # self.delta =  0.00
@@ -113,14 +112,13 @@ class calib():
         # run the optimization problem
         popt = self.nonlinear_model_fit(model_object, experiments)
 
-
         # parameter converge plots and cost fn
         if self.show_plots: param_convergence_plot(self.param_hist)
         if self.show_plots: simple_plot(range(len(self.cost_fn_val_list)), self.cost_fn_val_list, 'Cost Function')
 
         # make predictions with the optimization results
         self.model_predictions(model_object, validation_dataset, popt, plot_title="Model: {} DataSet: {}".format(model_object.name, exp))
-        
+
         # write to the kinematic calibration file
         self.write_calibration(model_object, popt)
         """
@@ -189,7 +187,7 @@ class calib():
             x_sim_opt_osap = simulate_horizan(model_object, t, x0, u, popt)
             x_sim_init_osap = simulate_horizan(model_object, t, x0, u, self.p0)
 
-            simple_plot(None, x[1,:] / x_sim_opt_osap[1,:])
+            #simple_plot(None, x[1,:] / x_sim_opt_osap[1,:])
             # calculate the error metric
             error = calculate_cost(x, x_sim_opt, self.metric)
 
@@ -203,7 +201,7 @@ class calib():
                       plot_title= "OSAP " + plot_title,
                       save=self.save_experiment_results,
                       save_dir=self.results_dir)
-
+            """
             if self.show_plots:
                 multiplot(states_list=[x, x_sim_init_osap, x_sim_opt_osap],
                       input_list=[u,u,u],
@@ -212,8 +210,8 @@ class calib():
                       plot_title= "N-Horizan " + plot_title,
                       save=self.save_experiment_results,
                       save_dir=self.results_dir)
+    
 
-            """
             multi_path_plot([exp_data, x_sim_init, x_sim_opt], ["measurement", "initial_values", "optimal_values"] )
             """
 
