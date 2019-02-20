@@ -5,11 +5,7 @@ import rospy
 from os.path import join
 from numpy import arange, array, cos, sin, pi
 from itertools import izip
-import matplotlib.pyplot as plt
-import matplotlib.cm as cm
-from matplotlib.colors import Normalize
-from matplotlib.pyplot import figure
-from utils import get_param_from_config_file, x_in_np
+from utils import get_param_from_config_file, x_in_np, get_workspace_param
 
 opy.init_notebook_mode(connected=True)
 
@@ -46,6 +42,7 @@ def multiplot(states_list=None, time_list=None, input_list=None, experiment_name
         layout = dict(title=plot_title)
         fig = dict(data=plot_datas, layout=layout)
         if save:
+            save_dir = get_workspace_param("results_dir")
             opy.plot(fig, auto_open=False, filename=join(save_dir, plot_title + ".html"))
         else:
             opy.plot(fig)
@@ -115,6 +112,8 @@ def single_plot_data_cartesian(states= None, time= None, input = None, experimen
     return data
 
 def path_plot_cartesian(experiment, plot_name=''):
+    import matplotlib.pyplot as plt
+
     path_data = x_in_np(experiment)
 
     fig, ax = plt.subplots()
@@ -129,6 +128,11 @@ def path_plot_cartesian(experiment, plot_name=''):
     rospy.sleep(SLEEP_DURATION)
 
 def path_plot_cartesian_plotly(data_sets, data_set_names):
+    import matplotlib.pyplot as plt
+    import matplotlib.cm as cm
+    from matplotlib.colors import Normalize
+    from matplotlib.pyplot import figure
+
     fig, ax = plt.subplots()
     colormaps = [cm.Reds, cm.Blues, cm.Greens]
     for i, data in enumerate(data_sets):
@@ -239,7 +243,7 @@ def path_plot_polar(single_experiment, plot_name=''):
 
 
 # General
-def simple_plot(x_val, y_val, plot_name=""):
+def simple_plot(x_val, y_val, plot_name="", save_dir=""):
     data = []
 
     if x_val is None:
@@ -253,13 +257,17 @@ def simple_plot(x_val, y_val, plot_name=""):
     data.extend([p1])
     layout = dict(title=plot_name)
     fig = dict(data=data, layout=layout)
-    opy.plot(fig)
-    rospy.sleep(SLEEP_DURATION)
+    save_plot = get_param_from_config_file("save_experiment_results")
+    if save_plot:
+        opy.plot(fig, auto_open=False, filename=join(save_dir, plot_name + ".html"))
+    else:
+        opy.plot(fig)
+        rospy.sleep(SLEEP_DURATION)
 
-def param_convergence_plot(param_hist):
+def param_convergence_plot(param_hist, plot_name="", save_dir=""):
     for param in param_hist.keys():
         iter = range(len(param_hist[param]))
-        simple_plot(iter, param_hist[param], 'Parameter {}'.format(param))
+        simple_plot(iter, param_hist[param], 'Convergence Plot For Parameter {}'.format(param), save_dir=save_dir)
     rospy.sleep(SLEEP_DURATION)
 
 def param_space_cost_plot(cost, params_space_list):

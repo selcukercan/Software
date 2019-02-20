@@ -7,6 +7,7 @@ import pickle
 from calibration.data_adapter_utils import *
 from calibration.utils import get_param_from_config_file
 
+save_plot = get_param_from_config_file("save_experiment_results")
 
 class DataPreparation():
     DEBUG_MODE = True # convenience flag
@@ -313,7 +314,9 @@ class DataPreparation():
             if self.show_plots:
                 multiplot(states_list=[robot_pose_opt, robot_pose_opt_filt],
                           experiment_name_list=['Original Signal', 'Filtered Signal'],
-                          plot_title = self.exp_name + ' filtering')
+                          plot_title = "Original and Filtered Signal for " + self.exp_name,
+                          save=save_plot
+                          )
 
             return robot_pose_opt_filt
 
