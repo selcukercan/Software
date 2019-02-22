@@ -176,7 +176,7 @@ def vehTworld(q_at,t_at):
     A4 = A3_inv
     A4[0,3] = A3_inv[0,3] - tOvehOcamx[0] * np.cos(A3_inv_feaXYZ[2] * np.pi/180)
     A4[1,3] = A3_inv[1,3] - tOvehOcamx[0] * np.sin(A3_inv_feaXYZ[2] * np.pi/180)
-    print("\nAfter A4\n{}\n".format(A4))
+    #print("\nAfter A4\n{}\n".format(A4))
     A4_R = A4[0:3, 0:3]
     A4_t = A4[0:3, 3]
 

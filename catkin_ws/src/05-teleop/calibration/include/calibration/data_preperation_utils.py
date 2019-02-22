@@ -349,7 +349,8 @@ class DataPreparation():
 
 def smooth(x, window_len=1, window='hanning'):
     """
-    adapted from:
+    adapted from: https://scipy-cookbook.readthedocs.io/items/SignalSmooth.html
+
     smooth the data using a window with requested size.
 
     This method is based on the convolution of a scaled window with the signal.

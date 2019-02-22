@@ -39,14 +39,29 @@ class RampUp(BaseExperimentClass):
 
     def __init__(self):
         self.name = "ramp_up"
-        self.parameter_dict = {'Nstep': 180, 'vFin': 0.5}
+        self.parameter_dict = {'n_step': 180, 'd_max': 0.5}
+        self.advertise_experiment()
+
+    def advertise_experiment(self):
+        """rosinfo brief description of the experiment, specifically the interpretation of parameters"""
+        info_msg = """
+        Experiment Description:
+
+        Increase the duty cycle value linearly from zero until **d_max** in **n_step**.  
+
+        Paramaters:
+        
+        d_max:\t\tpeak duty-cycle value to be reached
+        n_step:\t\tnumber of steps (increments) to take till reaching d_max
+        """
+        print(info_msg)
 
     def generate_input(self, req_parameter_dict):
         input_sequence = {'left_wheel': [], 'right_wheel': []}
         rospy.loginfo("[generate_input] generating input sequence of type {} with parameters {}".format(self.name, str(req_parameter_dict)))
 
-        for n in range(1, int(req_parameter_dict['Nstep']) + 1):
-            v = req_parameter_dict['vFin']/req_parameter_dict['Nstep'] * n
+        for n in range(1, int(req_parameter_dict['n_step']) + 1):
+            v = req_parameter_dict['d_max']/req_parameter_dict['n_step'] * n
             input_sequence['left_wheel'].append(v)
             input_sequence['right_wheel'].append(v)
         input_sequence['left_wheel'].append(0)
@@ -59,6 +74,21 @@ class Step(BaseExperimentClass):
     def __init__(self):
         self.name = "step"
         self.parameter_dict = {'d': 0.5, 'duration': 1.0}
+        self.advertise_experiment()
+
+    def advertise_experiment(self):
+        """rosinfo brief description of the experiment, specifically the interpretation of parameters"""
+        info_msg = """
+        Experiment Description:
+
+        Perform a step input with magnitude **d** for **duration** seconds.  
+
+        Paramaters:
+
+        d:\t\tconstant duty-cycle value [0 <= d <= 1]
+        duration:\t\tlength of the experiment in seconds
+        """
+        print(info_msg)
 
     def generate_input(self, req_parameter_dict):
         input_sequence = {'left_wheel': [], 'right_wheel': []}
@@ -77,6 +107,27 @@ class Sine(BaseExperimentClass):
     def __init__(self):
         self.name = "sine"
         self.parameter_dict = {'k1': 0.2, 'k2': 0.06, 'omega': 0.007, 'duration': 1500}
+        self.advertise_experiment()
+
+    def advertise_experiment(self):
+        """rosinfo brief description of the experiment, specifically the interpretation of parameters"""
+        info_msg = """
+        Experiment Description:
+
+        Perform a sine experiment for **duration** seconds, where motor duty-cycles are calculated as:
+        
+        d_left = k1 - k2 * cos(w * t)
+        d_right = k1 + k2 * cos(w * t)  
+
+        Paramaters:
+
+        k1:\t\tmedian value of the sine 
+        k2:\t\tamplitude of the sine
+        omega:\t\tangular velocity of the sine [rad/msec]
+        duration:\t\tlength of the experiment in miliseconds
+        
+        """
+        print(info_msg)
 
     def generate_input(self, req_parameter_dict):
         input_sequence = {'left_wheel': [], 'right_wheel': []}
@@ -96,6 +147,25 @@ class SweepSine(BaseExperimentClass):
     def __init__(self):
         self.name = "sweep_sine"
         self.parameter_dict = {'k1': 0.2, 'k2': 0.06, 'omega_low': 0.005, 'omega_high': 0.008, 'duration': 1500}
+        self.advertise_experiment()
+
+    def advertise_experiment(self):
+        """rosinfo brief description of the experiment, specifically the interpretation of parameters"""
+        info_msg = """
+        Experiment Description:
+
+        Perform a sweep sine (aka: chirp signal) experiment for **duration** seconds, where omega content is linearly
+        increased from **omega_low** to **omega_high**
+        
+        Paramaters:
+
+        k1:\t\tmedian value of the sine 
+        k2:\t\tamplitude of the sine
+        omega_low:\t\tminumum angular velocity of the sine [rad/msec]
+        omega_low:\t\tangular velocity of the sine [rad/msec]
+        duration:\t\tlength of the experiment in miliseconds
+        """
+        print(info_msg)
 
     def generate_input(self, req_parameter_dict):
 
@@ -129,11 +199,15 @@ class StepSalsa(BaseExperimentClass):
         info_msg = """
         Experiment Description:
 
-        Move that duckie!!
+        Perform the cyclic motion pattern "right wheel forward, right wheel backward, left wheel forward, left wheel backward"
+        for **repeat** times. Length and speed of the motion is specified by **duration** and **d** respectively. 
 
+        WARNING: It is known that the quality of the AprilTag detection decreases significantly due motion blur induced
+        by this input pattern.
+        
         Paramaters:
 
-        d:\t\tduty cycle command send to motors, takes values between 0 and 1, higher the faster.
+        d:\t\tduty-cycle command send to motors, takes values between 0 and 1, higher the faster.
         duration:\tspecifies how long the step input will be applied during forward/backward moves.
         repeat:\t\tnumber of times to repeat full-motion-cycle (right forward, right backward, left forward, left backward).
         """
