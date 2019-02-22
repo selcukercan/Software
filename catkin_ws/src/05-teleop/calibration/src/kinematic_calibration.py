@@ -58,8 +58,8 @@ class calib():
         self.measurement_coordinate_frame = self.conf['express_measurements_in']
         experiments = self.load_dataset("Training", self.path_training_data)
 
-        # to_eql(experiments, "train")
-
+        to_eql(experiments, "train")
+        """
         # load and process the experiment data to be used for testing the model
         validation_dataset = self.load_dataset("Validation", self.path_validation_data)
 
@@ -102,7 +102,7 @@ class calib():
 
         # write to the kinematic calibration file
         self.write_calibration(model_object, popt)
-
+        """
     # Data Operations
     def load_dataset(self, dataset_name, path_to_dataset):
         """

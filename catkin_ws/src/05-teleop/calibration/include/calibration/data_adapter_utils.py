@@ -1,6 +1,5 @@
 import numpy as np
-from plotting_utils import simple_plot
-from scipy.interpolate import splrep, splev
+from plotting_utils import simple_plot, multiplot
 from utils import rad, save_gzip
 
 
@@ -73,17 +72,6 @@ def to_eql(dataset, dataset_type):
         opt_data_u = np.array(opt_data["wheel_cmd_exec"])
         opt_data_t = np.array(opt_data["timestamp"])
 
-        # simple_plot(opt_data_t, opt_data_x[0, :])
-        # simple_plot(opt_data_t, opt_data_x[1, :])
-
-        # create a denser t array by linear interpolation
-        # opt_data_t_int = densify(opt_data_t, n=n_int)
-        # cubic spline interpolation on t_dense
-        # opt_data_x_int = interpolate(opt_data_x, opt_data_t_int, n=n_int)
-
-        # simple_plot(opt_data_t_int, opt_data_x_int[0,:])
-        # simple_plot(opt_data_t_int, opt_data_x_int[1,:])
-
         if first_experiment:
             all_x = opt_data_x.copy()
             all_u = opt_data_u.copy()
@@ -94,26 +82,10 @@ def to_eql(dataset, dataset_type):
             all_u = np.hstack((all_u, opt_data_u))
             all_t = np.hstack((all_t, opt_data_t))
 
-    x_spline = create_spline_representation(opt_data_t, opt_data_x)
-    x_val = evaluate_spline(opt_data_t, x_spline, mode="eval")
-    x_dot = evaluate_spline(opt_data_t, x_spline, mode="diff")
+    get_x_dot(all_x, all_t, mode="simple")
+    get_x_dot(all_x, all_t, mode="spline")
+    #get_x_dot(all_x, all_t, mode="dense", n_int=1)
 
-    simple_plot(opt_data_t, all_x[0, :])
-    simple_plot(opt_data_t, all_x[1, :])
-    all_x_int = all_x.copy()
-
-    simple_plot(opt_data_t, all_x_int[1, :])
-
-    # gradient along row direction: dx/dt
-    # for details: https://docs.scipy.org/doc/numpy/reference/generated/numpy.gradient.html
-    all_x_dot = np.gradient(all_x, opt_data_t, axis=1, edge_order=1)
-
-    # simple_plot(opt_data_t, all_x)
-    simple_plot(opt_data_t, all_x_dot[0, :])
-    simple_plot(opt_data_t, all_x_dot[1, :])
-
-    simple_plot(opt_data_t, x_dot[0, :])
-    simple_plot(opt_data_t, x_dot[1, :])
 
     # generate a random index array
     random_index_array = np.random.permutation(all_t.size)
@@ -125,8 +97,44 @@ def to_eql(dataset, dataset_type):
     shuffled_data = (np.transpose(shuffled_u), np.transpose(shuffled_x))
     save_gzip("experiment_xdot_ramp", shuffled_data, dataset_type)
 
+def get_x_dot(x, t, mode=None, **kwargs):
+    """
+    calculates the differentiation of position measurement
+
+    Args:
+        x: 2*N polar input measurement
+        t: 1*N time measurement
+
+    Returns: d
+
+    """
+    if mode == "simple":
+        # gradient along row direction: dx/dt
+        # for details: https://docs.scipy.org/doc/numpy/reference/generated/numpy.gradient.html
+        x_dot = np.gradient(x, t, axis=1, edge_order=1)
+        t_xdot = t
+    elif mode == "spline":
+        x_spline = create_spline_representation(t, x)
+        x_val = evaluate_spline(t, x_spline, mode="eval")
+        x_dot = evaluate_spline(t, x_spline, mode="diff")
+        t_xdot = t
+    elif mode == "dense":
+        from scipy import interpolate
+        f = interpolate.interp1d(t, x) # create interpolation function
+        n_int = kwargs["n_int"]
+        t_xdot = t_dense = densify(t, n=n_int) # create a denser t array by linear interpolation
+        #simple_plot(None, t_dense)
+        x_dense = f(t_dense) # evaluate the function at the denser interval
+        x_dot = np.gradient(x_dense, t_dense, axis=1, edge_order=1)
+
+    multiplot(states_list=[x, x_dot], time_list=[t, t_xdot], experiment_name_list=["x", "x_dot"], plot_title='Using differentiation scheme {}'.format(mode), save=False,
+              save_dir="")
+
+    return x_dot
+
 
 def create_spline_representation(t, x):
+    from scipy.interpolate import splrep
     x_spline = []
     for i in range(x.shape[0]):
         tck = splrep(t, x[i, :], s=0)
@@ -135,6 +143,7 @@ def create_spline_representation(t, x):
 
 
 def evaluate_spline(t_eval, x_spline, mode="eval"):
+    from scipy.interpolate import splev
     first = True
     for i in range(len(x_spline)):
         x_spline_i = x_spline[i]
@@ -154,10 +163,13 @@ def evaluate_spline(t_eval, x_spline, mode="eval"):
 def densify(x, n):
     """ add n point in between each data points
     x 1d array """
-    x_densified = x.copy()
+    first = True
     for i in range(x.size - 1):
         x_s, x_e = x[i], x[i + 1]
-        x_densified_interval = np.linspace(x_s, x_e, num=n + 2, endpoint=open)
-        x_densified = np.concatenate((x_densified, x_densified_interval[1:-1]), axis=None)
-    print("selcuk")
+        x_densified_interval = np.linspace(x_s, x_e, num=n + 2)
+        if first:
+            x_densified = x_densified_interval[0:-1]
+            first = False
+        else:
+            x_densified = np.concatenate((x_densified, x_densified_interval[0:-1]), axis=None)
     return x_densified
