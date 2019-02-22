@@ -52,7 +52,7 @@ class Buffer:
 
         rospy.set_param(self.pm_message_count, self.total_msg_count)
 
-        init_wait = 3
+        init_wait = 5
         rospy.loginfo("[{}] Waiting for {} seconds to ensure all other processes have launched".format(self.node_name, init_wait))
         rospy.sleep(init_wait)
 

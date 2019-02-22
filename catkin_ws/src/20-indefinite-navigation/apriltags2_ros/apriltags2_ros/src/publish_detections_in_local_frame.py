@@ -41,9 +41,14 @@ class ToLocalPose:
         self.sub_img = rospy.Subscriber(sub_topic_name, AprilTagDetectionArray, self.cbDetection)
 
         if self.synchronous_mode:
-	    rospy.logwarn('[publish_detections_in_local_frame] operating in asynchronous mode')
+            rospy.logwarn('[publish_detections_in_local_frame] operating in synchronous mode')
+            # wait until the message_count has been set by the buffer node
+            while not rospy.has_param("/" + self.veh + "/buffer_node/message_count"):
+                rospy.sleep(1)
+                rospy.loginfo("[{}] waiting for buffer node to set message_count".format(self.node_name))
+
             # read the messages from the buffer node
-            self.total_msg_count =  rospy.get_param(param_name="/" + self.veh + "/buffer_node/message_count")
+            self.total_msg_count = rospy.get_param(param_name="/" + self.veh + "/buffer_node/message_count")
             rospy.logwarn("TOTAL_MSG_COUNT: {}".format(self.total_msg_count))
             # request image after processing of a single image is completed
             self.pub_topic_image_request = "/" + self.veh + "/" + self.node_name + "/" + "image_requested"

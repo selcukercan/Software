@@ -18,7 +18,7 @@ RUN pip install -r /requirements.txt
 
 RUN mkdir /home/software
 COPY . /home/software/
-COPY .git /home/software/.git/
+# COPY .git /home/software/.git/
 COPY docker/machines.xml /home/software/catkin_ws/src/00-infrastructure/duckietown/machines
 
 ENV ROS_LANG_DISABLE=gennodejs:geneus:genlisp
