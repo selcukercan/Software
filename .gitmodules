@@ -1,3 +1,6 @@
-[submodule "/home/selcuk/fSoftware/catkin_ws/src/05-teleop/calibration/include/EQL_Tensorflow"]
-	path = /home/selcuk/fSoftware/catkin_ws/src/05-teleop/calibration/include/EQL_Tensorflow
+[submodule "catkin_ws/src/05-teleop/calibration/include/EQL_Tensorflow"]
+	path = catkin_ws/src/05-teleop/calibration/include/EQL_Tensorflow
 	url = git@github.com:selcukercan/fEQL_Tensorflow.git
+[submodule "catkin_ws/src/05-teleop/calibration/include/RLOFLib"]
+	path = catkin_ws/src/05-teleop/calibration/include/RLOFLib
+	url = git@github.com:selcukercan/RLOFLib.git
