@@ -88,10 +88,16 @@
       <arg name="operation_mode" value="$(arg operation_mode)"/>
   </include>
 
+  <!-- start optical flow launch-->
+  <include file="$(find calibration)/launch/optical_flow_node.launch">
+      <arg name="veh" value="$(arg veh)"/>
+  </include>
+
   <!-- start buffer launch -->
   <include file="$(find calibration)/launch/buffer_node.launch">
     <arg name="veh" value="$(arg veh)"/>
     <arg name="input_rosbag" value="$(arg input_rosbag)"/>
   </include>
+
 
 </launch>

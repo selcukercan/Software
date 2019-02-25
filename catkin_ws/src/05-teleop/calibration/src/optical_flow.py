@@ -1,13 +1,16 @@
 #!/usr/bin/env python
 # system imports
 import rospy
-import rosbag
+from rospy.numpy_msg import numpy_msg
+from std_msgs.msg import Float64MultiArray, MultiArrayDimension, MultiArrayLayout
+import os
+from sensor_msgs.msg import Image
+from cv_bridge import CvBridge
 import cv2
+from scipy.optimize import minimize
 from RLOFLib import rlof
 import numpy as np
 import time
-from os.path import expanduser
-from os import remove
 
 # package utilities import
 from std_msgs.msg import String, Bool
@@ -33,22 +36,28 @@ class OpticalFlow:
     def __init__(self):
         # namespace variables
         host_package = rospy.get_namespace()  # as defined by <group> in launch file
-        self.node_name = 'buffer'  # node name , as defined in launch file
+        self.node_name = 'optical_flow'  # node name , as defined in launch file
         host_package_node = host_package + self.node_name
         self.veh = host_package.split('/')[1]
 
-        # Initialize the node with rospy
+        # initialize the node with rospy
         rospy.init_node('OpticalFlow', anonymous=True)
-        """
-        # Subscriber
-        sub_topic_image = '/' + self.veh + '/camera_node/image/rect'
-        self.sub_processed_image = rospy.Subscriber(sub_topic_image_request, Bool, self.cb_recieved_ack, queue_size=1)
+
+        # msg to cv bridge
+        self.bridge = CvBridge()
+        self.prev_cv_image = None
+        self.image_id = 0
+
+        # subscriber
+        sub_topic_rect_image = '/' + self.veh + '/camera_node/image/rect'
+        self.sub_rect_image = rospy.Subscriber(sub_topic_rect_image, Image, self.cbImage, queue_size=1)
         #self.recieved_pub_image_request = False
 
         # Publisher
         pub_topic_optical_flow_field = '/' + self.veh + "/optical_flow_node/optical_flow_field"
-        self.pub_compressed_image = rospy.Publisher(pub_topic_optical_flow_field, CompressedImage, queue_size=1)
+        self.pub_of_val= rospy.Publisher(pub_topic_optical_flow_field, Float64MultiArray, queue_size=1)
 
+        """
         # ROS Parameters
         self.pm_send_status = "/" + self.veh + "/buffer_node/process_status"
         self.send_status = self.setupParam(self.pm_send_status,0)
@@ -73,8 +82,6 @@ class OpticalFlow:
         rospy.loginfo("[{}] Waiting for {} seconds to ensure all other processes have launched".format(self.node_name, init_wait))
         rospy.sleep(init_wait)
         """
-        self.calculate_optical_flow() # send the first image
-
 
     def setupParam(self,param_name,default_value):
         value = rospy.get_param(param_name,default_value)
@@ -82,9 +89,22 @@ class OpticalFlow:
         rospy.loginfo("[%s] %s = %s " %(self.node_name,param_name,value))
         return value
 
-    def calculate_optical_flow(self):
-        prevImg = cv2.imread('../Doc/ErnstReuter1.png')
-        currImg = cv2.imread('../Doc/ErnstReuter2.png')
+    def cbImage(self, msg):
+        current_cv_image = self.bridge.imgmsg_to_cv2(msg, "rgb8")
+        #rospy.loginfo("XXXXXXXXXXXX")
+        #rospy.logwarn(type(self.prev_cv_image))
+        #rospy.loginfo("XXXXXXXXXXXX")
+        if not isinstance(self.prev_cv_image, np.ndarray):
+            self.prev_cv_image= current_cv_image
+        of = self.calculate_optical_flow(self.prev_cv_image, current_cv_image)
+        self.pub_of_val.publish(self.ros_from_np_array(of))
+        self.prev_cv_image = current_cv_image
+        return of
+
+    def calculate_optical_flow(self, prevImg, currImg):
+        #rospy.logwarn(os.getcwd())
+        #prevImg = cv2.imread('/home/selcuk/fSoftware/catkin_ws/src/05-teleop/calibration/include/RLOFLib/Doc/ErnstReuter1.png')
+        #currImg = cv2.imread('/home/selcuk/fSoftware/catkin_ws/src/05-teleop/calibration/include/RLOFLib/Doc/ErnstReuter2.png')
 
         rlofProc = rlof.RLOFEstimator()
         rlofProc.set_param(parameters["SolverType"],
@@ -106,13 +126,14 @@ class OpticalFlow:
         prevPoints = np.vstack((a[0].ravel(), a[1].ravel())).transpose().astype(np.float32).copy()
 
         # sparse optical flow estimation e.g. to compute a grid of motion vectors
-        start = time.time();
+        start = time.time()
         currPoints = rlofProc.sparse_flow(prevImg, currImg, prevPoints)
-        end = time.time();
-        print("\nSparse Optical Flow Estimation\n")
-        print("#Features = " + str(prevPoints.shape[0]))
-        print("Runtime[sec] = " + str(end - start));
+        end = time.time()
+        self.image_id += 1
+        rospy.loginfo("[{}] sparse optical flow for image: {} features: {} runtime[sec]: {}"
+                      .format(self.node_name, self.image_id, str(prevPoints.shape[0]), str(end - start)))
 
+        """
         # draw sparse motion vectors
         sparseFlowImg = prevImg.copy()
         for i, (new, old) in enumerate(zip(currPoints, prevPoints)):
@@ -123,7 +144,35 @@ class OpticalFlow:
 
         # write results
         cv2.imwrite("SparseFlow.png", sparseFlowImg)
+        """
+        return currPoints
 
+    def flow_model(self, x, p):
+        Ty, Tz, wx = p
+
+
+    def cost_function(self, p, flow_model, F_meas):
+        cost = None
+        return cost
+
+
+    def nonlinear_optimization(self, current_image):
+        result = minimize(self.cost_function, self.p0, args=(self.flow_model(), current_image), bounds=self.bounds)
+    @staticmethod
+    def ros_from_np_array(data):
+        if data.shape == ():
+            msg = 'I do not know how to convert this: \n%s\n%s' % (data.dtype, data)
+            raise NotImplementedError(msg)
+        dims = []
+        for i, size in enumerate(data.shape):
+            label = 'dim%d' % i
+            stride = 0
+            dims.append(MultiArrayDimension(label=label, size=size, stride=stride))
+        layout = MultiArrayLayout(dim=dims)
+
+        d = list(data.flatten())
+        msg = Float64MultiArray(data=d, layout=layout)
+        return msg
 
 if __name__ == '__main__':
     buffer = OpticalFlow()

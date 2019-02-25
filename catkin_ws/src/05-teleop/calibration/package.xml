@@ -26,7 +26,9 @@ For the tutorial, see [](#ros-python-howto).
   <build_depend>std_msgs</build_depend>
   <build_depend>dagu_car</build_depend>
   <build_depend>rostest</build_depend>
+  <build_depend>python-numpy</build_depend>
 
+  <run_depend>python-numpy</run_depend>
   <run_depend>duckietown_msgs</run_depend>
   <run_depend>roscpp</run_depend>
   <run_depend>rospy</run_depend>
