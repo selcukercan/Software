@@ -15,7 +15,6 @@ RUN pip install -r /requirements_system_identification_build.txt
 RUN pip install -r /requirements_system_identification.txt
 RUN pip install -r /requirements.txt
 
-
 RUN mkdir /home/software
 COPY . /home/software/
 # COPY .git /home/software/.git/
