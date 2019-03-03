@@ -1,5 +1,6 @@
 import numpy as np
 from plotting_utils import simple_plot, multiplot
+from scipy.interpolate import splrep, splev
 from utils import rad, save_gzip
 
 
@@ -173,3 +174,49 @@ def densify(x, n):
         else:
             x_densified = np.concatenate((x_densified, x_densified_interval[0:-1]), axis=None)
     return x_densified
+
+
+if __name__ == "__main__":
+    import time
+    from scipy.interpolate import make_lsq_spline
+
+    mu, sigma = 0, 0.2 # mean and standard deviation
+    t_beg = 0
+    t_end = 4 * np.pi
+    t = np.arange(t_beg, t_end, 0.05) # sampling frequency of 20 Hz
+    noise = np.random.normal(mu, sigma, t.size)
+    # Position Information
+    x_original = np.sin(t)
+    x_corr = x_original + noise
+
+    t_eval = np.arange(t_beg, t_end, 0.01)
+
+    time_regular_spline_beg = time.time()
+    x_spline_rep =  splrep(t, x_corr, s=10)
+    x_spline = splev(t_eval, x_spline_rep)
+    duration_standart = time.time() - time_regular_spline_beg
+
+    #t_n = [-1, 0, 1]
+    k = 3
+    # Open question: what is the optimal value for knots in terms of time-seperation?
+    t_n = np.r_[(t[0],)*(k+1),
+          t[3:-3:20],
+          (t[-1],)*(k+1)]
+
+    time_lsq_spline_beg = time.time()
+    spl_lsq = make_lsq_spline(t, x_corr, t_n, k)
+    x_lsq_spline = spl_lsq(t_eval)
+    duration_lsq_spline = time.time() - time_lsq_spline_beg
+
+    print('regular spline: {} lsq_spline: {} ration: {}'.format(duration_standart, duration_lsq_spline, duration_lsq_spline/duration_standart))
+
+    spl_lsq_der = spl_lsq.derivative()
+    x_dot_lsq_spline = spl_lsq_der(t_eval)
+    multiplot(states_list=[x_original, x_corr, x_spline, x_lsq_spline], time_list=[t, t, t_eval, t_eval], experiment_name_list=['original', 'corrupted',  'spline_fitted', 'lsq_spline_fitted'])
+
+    time.sleep(1)
+    # Velocity Information
+    x_dot_simple = np.gradient(x_original, t, edge_order=1)
+    x_dot_spline = splev(t_eval, x_spline_rep, der=1)
+
+    multiplot(states_list=[x_dot_simple, x_dot_spline, x_dot_lsq_spline], time_list=[t, t_eval, t_eval], experiment_name_list=['original_dot', 'spline_fitted', 'lsq_spline'])
