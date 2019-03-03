@@ -54,6 +54,8 @@ def single_plot_data(states=None, time=None, input=None, experiment_name=""):
         return single_plot_data_cartesian(states= states, time= time, input = input , experiment_name=experiment_name)
     elif measurement_coordinate_frame == "polar":
         return single_plot_data_polar(states= states, time= time, input = input , experiment_name=experiment_name)
+    else:
+        return single_plot_generic(x=time, y=states, plot_title=experiment_name)
 
 
 # Cartesian
@@ -243,6 +245,22 @@ def path_plot_polar(single_experiment, plot_name=''):
 
 
 # General
+def single_plot_generic(x=None,y=None, plot_title=None):
+    data = []
+
+    if x is None:
+        x = arange(states[1,:].shape[0])
+    else:
+        t = x
+
+    data_obj = go.Scatter(
+        x=t,
+        y=y,
+        name=plot_title
+    )
+    data.append(data_obj)
+    return data
+
 def simple_plot(x_val, y_val, plot_name="", save_dir=""):
     data = []
 
@@ -346,3 +364,6 @@ def path_plot_plotly(experiment, plot_name=''):
     #fig = dict(data=data, layout=layout)
     opy.plot(fig)
     rospy.sleep(SLEEP_DURATION)
+
+def multiplot_mathplotlib(x,y):
+    pass
