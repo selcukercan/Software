@@ -5,7 +5,7 @@ save_experiment_results: False # save the plots under the results
 save_to_pickle: False
 show_plots: True # display the plots
 # Optimization
-express_measurements_in: None # or cartesian. polar coordinates is the recommended option
+express_measurements_in: polar # or cartesian. polar coordinates is the recommended option
 cost_function_type: AsRMSE # see include/calibration/cost_function_library.py for available options
 
 # Data preperation - see include/calibration/data_preperation_utils.py (smooth function) for more details.
@@ -13,3 +13,11 @@ filter_type: flat
 filter_length: 17
 discard_first_n_data: 10
 discard_last_n_data: 5
+
+# Velocity estimation from position data
+spline_type: lsq_spline # lsq_spline or b_spline
+spline_smoothing_factor: 10
+lsq_spline_order: 3
+lsq_spline_knot_every: 20
+lsq_discard_n_at_boundary: 1
+densification_factor: 3

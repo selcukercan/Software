@@ -58,7 +58,7 @@ class calib():
         self.measurement_coordinate_frame = self.conf['express_measurements_in']
         experiments = self.load_dataset("Training", self.path_training_data)
 
-        to_eql(experiments, "train")
+        add_x_dot_estimate_to_dataset(experiments, "train")
         """
         # load and process the experiment data to be used for testing the model
         validation_dataset = self.load_dataset("Validation", self.path_validation_data)

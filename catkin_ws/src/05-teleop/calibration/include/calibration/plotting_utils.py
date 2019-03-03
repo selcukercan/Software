@@ -22,6 +22,7 @@ def path_plot(experiment, plot_name=''):
     else:
         rospy.loginfo('invalid plot name defined at path_plot function')
 
+
 def multiplot(states_list=None, time_list=None, input_list=None, experiment_name_list=None, plot_title='', save=False, save_dir=""):
     plot_datas = []
     # generate arange time data if time is not provided to faciliate debugging
@@ -48,6 +49,8 @@ def multiplot(states_list=None, time_list=None, input_list=None, experiment_name
             opy.plot(fig)
     else:
             rospy.loginfo('[plotting_utils] unable to plot as data no data provided')
+    rospy.sleep(SLEEP_DURATION)
+
 
 def single_plot_data(states=None, time=None, input=None, experiment_name=""):
     if measurement_coordinate_frame == "cartesian":
@@ -113,6 +116,7 @@ def single_plot_data_cartesian(states= None, time= None, input = None, experimen
 
     return data
 
+
 def path_plot_cartesian(experiment, plot_name=''):
     import matplotlib.pyplot as plt
 
@@ -128,6 +132,7 @@ def path_plot_cartesian(experiment, plot_name=''):
     plt.savefig("path_plot.png")
     plt.show()
     rospy.sleep(SLEEP_DURATION)
+
 
 def path_plot_cartesian_plotly(data_sets, data_set_names):
     import matplotlib.pyplot as plt
@@ -162,7 +167,6 @@ def path_plot_cartesian_plotly(data_sets, data_set_names):
     plt.savefig("new.png")
     rospy.sleep(SLEEP_DURATION)
 
-
 # Polar
 def single_plot_data_polar(states= None, time= None, input = None, experiment_name=""):
     data = []
@@ -180,12 +184,14 @@ def single_plot_data_polar(states= None, time= None, input = None, experiment_na
         p3 = go.Scatter(
             x=t,
             y=rho,
+            mode='markers',
             name='rho ' + experiment_name.split('_')[-1]
         )
 
         p4 = go.Scatter(
             x=t,
             y=yaw,
+            mode='markers',
             name='yaw pos ' + experiment_name.split('_')[-1]
         )
 
@@ -256,6 +262,7 @@ def single_plot_generic(x=None,y=None, plot_title=None):
     data_obj = go.Scatter(
         x=t,
         y=y,
+        mode='markers',
         name=plot_title
     )
     data.append(data_obj)
