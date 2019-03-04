@@ -79,6 +79,40 @@ class KinematicDrive(BaseModelClass):
 
             return [rho_dot, theta_dot]
 
+
+class DynamicsDrive(BaseModelClass):
+
+    def __init__(self, measurement_coordinate_system):
+        self.name = "dynamic_drive"
+        self.param_ordered_list = ['q1', 'q2', 'q3', 'q4', 'q5', 'q6'] # it is used to enforce an order (to avoid possible confusions) while importing params from YAML as bounds are imported from model always.
+        self.model_params = {'q1': {'param_init_guess': 1, 'param_bounds': (None, None), 'search': (2.0, 0.4)},
+                             'q2': {'param_init_guess': 1, 'param_bounds': (None, None), 'search': (2.0, 0.4)},
+                             'q3' : {'param_init_guess': 1, 'param_bounds': (None, None), 'search': (0.050, 0.010)},
+                             'q4': {'param_init_guess': 1, 'param_bounds': (None, None), 'search': (2.0, 0.4)},
+                             'q5': {'param_init_guess': 1, 'param_bounds': (None, None), 'search': (2.0, 0.4)},
+                             'q6': {'param_init_guess': 1, 'param_bounds': (None, None), 'search': (0.050, 0.010)}
+                             }
+        # "search" is used for for brute-force cost function value evaluatiom: (magnitude of variation in both directions, decimation)
+        self.measurement_coordinate_system = measurement_coordinate_system
+        rospy.loginfo("\nusing model type: [{}]".format(self.name))
+
+    def model(self, t, x, u, p):
+        # input commands + model params
+        (cmd_right, cmd_left) = u
+        (dr, dl, L) = p
+
+        # kinetic states through actuation
+        vx = (dr * cmd_right + dl * cmd_left) # m/s
+        omega = (dr * cmd_right - dl * cmd_left) / L # rad/s
+
+        elif self.measurement_coordinate_system == 'polar':
+            # position states in relation to kinetic states
+            rho_dot = vx # m/s
+            theta_dot = omega * 180 / np.pi # deg/s
+
+            return [rho_dot, theta_dot]
+
+
 """
 class KinematicDrive2(BaseModelClass):
 
