@@ -29,7 +29,7 @@ class ImgRectFullRatio(object):
         self.gpg = None
 
         # Parameters
-        self.operation_mode = self.setupParam("/operation_mode", 0)
+        self.operation_mode = rospy.get_param(param_name= "/operation_mode")
 
         # Publishers
         self.pub_rect = rospy.Publisher("image_rect",Image,queue_size=1)
@@ -42,12 +42,6 @@ class ImgRectFullRatio(object):
 
         # Debug
         self.saved_first_image = False
-
-    def setupParam(self,param_name,default_value):
-        value = rospy.get_param(param_name,default_value)
-        rospy.set_param(param_name,value) #Write to parameter server for transparancy
-        rospy.loginfo("[{}] {} = {} from {}".format(self.node_name,param_name,value, "param_server" if rospy.has_param(param_name) else "script"))
-        return value
 
     def cbSwitch(self,switch_msg):
         self.active = switch_msg.data
@@ -62,13 +56,11 @@ class ImgRectFullRatio(object):
         if self.gpg is None:
             #print "Run initialize gpg"
             robot_name = rospy.get_namespace()
-            rospy.logwarn(robot_name)
             robot_name = robot_name[1:-1]
             #disable_old_homography(robot_name)
             #homography_dummy = get_homography_default()
             robot_homography = get_homography_for_robot(robot_name)
             self.gpg = GroundProjectionGeometry(self.cam_info, robot_homography)
-
         #rospy.logwarn('[{}]  camera info {}\n\n'.format(self.node_name, self.cam_info))
 
     def cbImg(self,msg):

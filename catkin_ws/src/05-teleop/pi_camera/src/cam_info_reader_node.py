@@ -42,7 +42,7 @@ class CamInfoReader(object):
         self.camera_info_msg = load_camera_info_2(self.cali_file)
 
         #print 'XXXXXXXXXXXXXX  CALIBRATION CAM INFO  XXXXXXXXXXXXXXXXXXXX'
-        #rospy.logwarn(self.camera_info_msg)
+        rospy.logwarn(self.camera_info_msg)
         #print 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'
 
         if self.custom_resolution != "no":
@@ -54,7 +54,7 @@ class CamInfoReader(object):
             self.camera_info_msg.width = int(self.im_width)
 
             #print 'XXXXXXXXXXXXXXXXX  CORRECTED CAM INFO FOR NEW RESOLUTION   XXXXXXXXXXXXXXXXX'
-            #rospy.logwarn(self.camera_info_msg)
+            rospy.logwarn(self.camera_info_msg)
             #print 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'
 
 

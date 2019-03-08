@@ -2,9 +2,13 @@
   <arg name="veh" doc="Name of vehicle. ex: megaman"/>
   <arg name="package_namespace" default="calibration" />
   <arg name="node_namespace" default="data_collector" />
+  <arg name="output_rosbag_dir" default="$(env HOME)" doc="folder to save the rosbag" />
 
   <!-- Launch the rosbag_recorder node to start/stop bag file inside a node in this package -->
-  <node  pkg="rosbag_recorder" type="rosbag_recorder_server.py" name="rosbag_recorder_server" output="screen"/>
+  <include file="$(find rosbag_recorder)/launch/rosbag_recorder_server.launch">
+    <arg name="veh" value="$(arg veh)"/>
+    <arg name="output_rosbag_dir" value="$(arg output_rosbag_dir)"/>
+  </include>
 
   <!-- include the machines file  -->
   <include file="$(find duckietown)/machines"/>
@@ -18,6 +22,7 @@
   <group ns="$(arg veh)/$(arg package_namespace)">
     <node  pkg="calibration" type="$(arg node_namespace).py" name="$(arg node_namespace)" output="screen" clear_params="true" required="true">
       <param name="veh" value="$(arg veh)"/>
+      <param name="output_rosbag_dir" value="$(arg output_rosbag_dir)"/>
     </node>
   </group>
 </launch>

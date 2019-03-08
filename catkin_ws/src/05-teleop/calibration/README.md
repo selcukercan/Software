@@ -10,13 +10,9 @@
 
 To be able to run the launch file: compressed_image_to_world_frame.launch:
 
-* use local_env.sh which sets the DUCKIEFLEET_ROOT to the default location. Make sure to include your calibration folder at DUCKIEFLEET_ROOT.
+use local_env.sh which sets the DUCKIEFLEET_ROOT to the default location. Make sure to include your calibration folder at DUCKIEFLEET_ROOT.
 
-* Install the lastest version of the scipy, as the code uses `ivp_solver` that is introduced in scipy version v1.2.0: "pip install scipy"
-
-* pip install pyyaml
-
-* sudo apt-get install python-rospkg
+Install the lastest version of the scipy, as the code uses `ivp_solver` that is introduced in scipy version v1.2.0
 
 This package is an automatic wheels calibration procedure.
 
@@ -27,8 +23,32 @@ This package is an automatic wheels calibration procedure.
 - The launchfile test.launch tests if the calibration has succeed or not.
 
 
+## Docker run command
+
+docker -H 192.168.1.99 run -it --net host --privileged -v /data/logs:/logs -v /data:/data --memory="800m" --memory-swap="2.8g" --name base-dev-log_data selcukercan/rpi-duckiebot-base:base-dev2  /bin/bash
 ## Data Acquisition
 
+### Logging to USB
+It is recommended (or might be necessary depending on the free space available on your device) to use a USB for logging. Note that you have to run your container with `-v /data/logs:/logs`.
+
+First plugging in the USB. SSH to your device and create this folder
+
+```shell
+sudo mkdir /data/logs
+```
+then mount it with:
+
+```shell
+sudo mount -t vfat /dev/sda1 /data/logs -o umask=000
+```
+
+After data-acquisition has been completed unmount the USB
+
+```shell
+sudo umount /data/logs
+```
+
+### Launching required processes  
 Start camera-related functionality by roslaunching
 
 ```shell
@@ -38,8 +58,10 @@ roslaunch pi_camera cal_camera.launch veh:=![ROBOT_NAME] cam_param_file_name:=![
 Then start the data-acquisition interface by
 
 ```shell
-roslaunch calibration data_collector.launch veh:=![ROBOT_NAME]
+roslaunch calibration data_collector.launch veh:=![ROBOT_NAME] output_rosbag_dir:=/logs
 ```
+if `output_rosbag_dir` is not specified the program attempts to save the results to user´s home folder.
+
 With this interface can specify
 
 - the type of the experiment you would like to conduct by choosing amongst the presented options,
@@ -77,10 +99,10 @@ Also note that image processing pipeline requires the calibration files to work 
 On your local PC, start the optimization
 
 ```shell
-roslaunch calibration calibration.launch veh:=![ROBOT_NAME] folder_path:=![INPUT_FOLDER_PATH]
+roslaunch calibration calibration.launch veh:=![ROBOT_NAME] folder_path:=![INPUT_FOLDER_PATH] model:=![MODEL_NAME]
 ```
 
- Note that the optimization script automatically loads and feeds all the bag files that are located inside ![INPUT_FOLDER_PATH].
+Note that the optimization script automatically loads and feeds all the bag files that are located inside ![INPUT_FOLDER_PATH]. To see all available models and their definition, refer to `PACKAGE_ROOT/include/calibration/model_library.py`.
 
 ## Transfer the calibration YAML files
 
@@ -90,14 +112,15 @@ sudo mv ~/mete_kinematic_drive.yaml /data/config/calibrations/kinematics/
 ```
 ## Test
 
+Test script only contains a straight path test, and it automatically starts after roslaunch.
+
 Run the test script with
 ```shell
-scp /home/selcuk/duckiefleet/calibrations/kinematics/mete_kinematic_drive.yaml selcuk@mete:~/
-sudo mv ~/mete_kinematic_drive.yaml /data/config/calibrations/kinematics/
+roslaunch calibration test.launch veh:=![ROBOT_NAME] model:=![MODEL_NAME]
 ```
 
 ## Development Notes
-### Pose estimation from Lane Filter
+## Pose estimation from Lane Filter
 
 Develop offline by recording a bag by following the instructions above. Make sure bag contains compressed_image and cam_info. At this point, in case you use a different resolution than the custom one, the readings are expected to be off.
 
@@ -117,44 +140,24 @@ access the pose estiamtes through rostopic
 rostopic echo /![ROBOT_NAME]/lane_filter_node/lane_pose
 ```
 
-### Getting estimates from both Lane Filter and AprilTags
-
-Note that the input bag is expected to contain cam_info topic as it is required by the Lane Filter.
-
-```shell
-roslaunch calibration calculate_poses.launch veh:=![ROBOT_NAME] input_rosbag:=![INPUT_ROSBAG] output_rosbag:=![OUTPUT_ROSBAG] local:=true operation_mode:=1
-```
-
-### Post-Processing the recorded bag
+## Post-Processing the recorded bag
 
 Remarks:
 
 maximum allowed resolution to retain the default aspect ratio (4/3) is 1440 * 1080
 
-### Giving Reference velocity and manual tuning of model parameters
-
-This procedure is useful to get a feeling about the reasonable values of each parameter, and can be fed to optimization problem as initial condition.
+## Only launching AprilTag detection
 
 ```shell
-roslaunch dagu_car inverse_kinematics_node.launch veh:=mete local:=true model:=sysid
+roslaunch pi_camera camera_apriltag_demo.launch veh:=![ROBOT_NAME]
 ```
 
-publish to car_cmd (reference velocities for car to follow)
-rostopic pub /mete/inverse_kinematics_node/car_cmd duckietown_msgs/Twist2DStamped '{header: {}, v: 0.5, omega: 0.05}'
-
-
-### Notes
-
-If working with old software architecture and install the dependencies in a virtual environment
-
 ```shell
-virtualenv my_venv
-source my_venv/bin/activate
-pip install numpy scipy
+roslaunch apriltags2_ros apriltag2_demo.launch veh:=![ROBOT_NAME]
 ```
 
-to exit virtual environment
+## Launch Local pose detection
 
 ```shell
-source my_venv/bin/deactivate
+roslaunch apriltags2_ros detection_to_local_frame.launch veh:=![ROBOT_NAME]
 ```

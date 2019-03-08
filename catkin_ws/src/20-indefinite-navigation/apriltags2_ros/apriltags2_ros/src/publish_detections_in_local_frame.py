@@ -5,7 +5,6 @@ import numpy as np
 from threading import Lock
 from shutil import copy
 from std_msgs.msg import Bool
-from duckietown_msgs.msg import LanePose
 from apriltags2_ros.msg import AprilTagDetectionArray
 from apriltags2_ros.msg import VehiclePoseEuler
 from apriltags2_ros_post_process.rotation_utils import *
@@ -32,33 +31,33 @@ class ToLocalPose:
         # pass exach image through a localization pipeline (compressed_image -> decoder -> rectification -> apriltags_detection -> to_local_pose)
         # to extract the pose in world frame
         self.synchronous_mode = self.setupParam("/operation_mode", 0)
-        self.total_msg_count = rospy.get_param(param_name="/" + self.veh + "/buffer_node/message_count")
-        rospy.logwarn("TOTAL_MSG_COUNT: {}".format(self.total_msg_count))
 
         # Publisher
-        self.pub_topic_image_request = "/" + self.veh + "/" + self.node_name + "/" + "image_requested"
-        self.pub_image_request = rospy.Publisher(self.pub_topic_image_request, Bool, queue_size=1)
-
         self.pub_topic_name = host_package_node + '/tag_detections_local_frame'
         self.pub_detection_in_robot_frame = rospy.Publisher(self.pub_topic_name ,VehiclePoseEuler,queue_size=1)
 
         # Subscriber
-        sub_topic_name = '/' + self.veh + '/tag_detections'
+        sub_topic_name =  '/' + self.veh + '/tag_detections'
         self.sub_img = rospy.Subscriber(sub_topic_name, AprilTagDetectionArray, self.cbDetection)
 
-
         if self.synchronous_mode:
+            rospy.logwarn('[publish_detections_in_local_frame] operating in synchronous mode')
+            # wait until the message_count has been set by the buffer node
+            while not rospy.has_param("/" + self.veh + "/buffer_node/message_count"):
+                rospy.sleep(1)
+                rospy.loginfo("[{}] waiting for buffer node to set message_count".format(self.node_name))
+
+            # read the messages from the buffer node
+            self.total_msg_count = rospy.get_param(param_name="/" + self.veh + "/buffer_node/message_count")
+            rospy.logwarn("TOTAL_MSG_COUNT: {}".format(self.total_msg_count))
+            # request image after processing of a single image is completed
+            self.pub_topic_image_request = "/" + self.veh + "/" + self.node_name + "/" + "image_requested"
+            self.pub_image_request = rospy.Publisher(self.pub_topic_image_request, Bool, queue_size=1)
+
             # get the input rosbags, and name of the output bag we wish the create
             input_bag = rospy.get_param(param_name= host_package_node + "/input_rosbag")
             self.output_bag = rospy.get_param(param_name= host_package_node + "/output_rosbag")
 
-            # check whether we want to save the results of the lane filter as well
-            self.save_lane_filter = rospy.get_param(param_name=host_package_node + "/save_lane_filter")
-            if self.save_lane_filter == True:
-                self.top_lane_filter = '/' + self.veh + '/lane_filter_node/lane_pose'
-                self.sub_lane_pose = rospy.Subscriber(self.top_lane_filter, LanePose, self.cbLaneFilterPose)
-                self.new_lane_pose_available = False
-                self.timeout = 10 #sec
             # wrap bag file operations with a lock as rospy api is not threat-safe.
             self.lock = Lock()
             self.lock.acquire()
@@ -68,17 +67,12 @@ class ToLocalPose:
             self.numb_written_images = 0
             self.wrote_all_images = False
         else:
-            rospy.logwarn('INVALID MODE OF OPERATION in publish_detections_in_local_frame')
-
-    def cbLaneFilterPose(self, msg):
-        rospy.loginfo("SETTING new_lane_pose_available to TRUE")
-        self.new_lane_pose_available = True
-        self.lane_pose_msg = msg
+            rospy.logwarn('[publish_detections_in_local_frame] operating in asynchronous mode')
 
     def setupParam(self,param_name,default_value):
         value = rospy.get_param(param_name,default_value)
         rospy.set_param(param_name,value) #Write to parameter server for transparancy
-        rospy.loginfo("[{}] {} = {} from {}".format(self.node_name,param_name,value, "param_server" if rospy.has_param(param_name) else "script"))
+        rospy.loginfo("[%s] %s = %s " %(self.node_name,param_name,value))
         return value
 
     def cbDetection(self,msg):
@@ -93,7 +87,7 @@ class ToLocalPose:
             q = np.array([q_msg.x, q_msg.y, q_msg.z, q_msg.w])
 
             # express relative rotation of the robot wrt the global frame.
-            world_R_veh, world_t_veh = worldTveh(q,t)
+            world_R_veh, world_t_veh = vehTworld(q,t)
             veh_feaXYZ_world = rotation_matrix_to_euler(world_R_veh)
 
             # convert from numpy float to standart python float to be written into the message
@@ -114,33 +108,14 @@ class ToLocalPose:
 
             # finally publish the message
             self.pub_detection_in_robot_frame.publish(veh_pose_euler_msg)
-
-            rospy.loginfo('posx: {} posy:  {} rotz: {}'.format(world_t_veh[0],world_t_veh[1],veh_feaXYZ_world[2]))
+            rospy.loginfo('publish posx: {} posy:  {} rotz: {}'.format(veh_pose_euler_msg.posx,veh_pose_euler_msg.posy,veh_pose_euler_msg.rotz))
+            
             if self.synchronous_mode:
-                # in save lane filter pose mode
-                if self.save_lane_filter == True:
-                    # wait until a new pose estimate arrives from lane filter
-                    while self.new_lane_pose_available == False:
-                        try:
-                            rospy.loginfo("[{}] waiting for lane filter pose ...".format(self.node_name))
-                            lane_filter_pose_msg = rospy.wait_for_message(self.top_lane_filter, LanePose, self.timeout)
-                        except rospy.ROSException:
-                            rospy.loginfo("[{}] timeout waiting for new lane filter pose estimate.".format(self.node_name))
-                            return False
-                    else:
-                        lane_filter_pose_msg = self.lane_pose_msg
-
                 # save the message to the bag file that contains compressed_images
                 self.lock.acquire()
                 output_rosbag = rosbag.Bag(self.output_bag, 'a') # open bag to write
                 output_rosbag.write(self.pub_topic_name, veh_pose_euler_msg)
-                if self.save_lane_filter == True:
-                    output_rosbag.write(self.top_lane_filter, lane_filter_pose_msg)
-                    rospy.loginfo("WROTE TO BAG LANE POSE")
                 output_rosbag.close()
-                # after writing the values new_lane_pose_available needs to be reset to False
-                rospy.loginfo("[{}] self.new_lane_pose_available des: False  actual: {}".format(self.node_name, self.new_lane_pose_available))
-                self.new_lane_pose_available = False
                 self.lock.release()
 
                 rospy.loginfo("[{}] wrote image {}".format(self.node_name, self.numb_written_images))
@@ -155,7 +130,7 @@ class ToLocalPose:
 
 
         else:
-            rospy.loginfo("[{}] empty apriltag detection recieved".format(self.node_name, self.numb_written_images))
+            rospy.loginfo("[{}] empty apriltag detection recieved".format(self.node_name))
 
             if self.synchronous_mode:
                 rospy.loginfo("[{}] in synchronous mode publishing VehiclePoseEuler with entries equal to 0.0".format(self.node_name,self.numb_written_images))
