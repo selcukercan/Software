@@ -25,6 +25,9 @@
     <arg name="/lane_following/lane_controller" default="true"/>
     <arg name="fsm" default="true"/>
 
+    <!-- General -->
+    <arg name="operation_mode" default="0"  doc="for asynchronous (the standard ros operation):0 (default),for synchronous (sequential) operation:1." />
+
     <!-- include the machines file  -->
     <include file="$(find duckietown)/machines"/>
 
@@ -34,7 +37,7 @@
         <!-- Start anti-instagram -->
         <group if="$(arg anti_instagram)">
             <!-- NOT LOADING PARAMS FROM A YAML FILE -->
-            <remap from="camera_node/image/compressed" to="buffer_node/image/compressed" />
+            <remap if="$(arg operation_mode)" from="camera_node/image/compressed" to="buffer_node/image/compressed" />
             <include file="$(find anti_instagram)/launch/cont_anti_instagram_node.launch">
                 <arg name="veh" value="$(arg veh)"/>
                 <arg name="ai_trafo_mode" value="$(arg ai_trafo_mode)"/>
@@ -85,6 +88,7 @@
                 <arg name="config" value="$(arg config)"/>
                 <arg name="param_file_name" value="$(arg param_file_name)"/>
                 <arg name="local" value="$(arg local)"/>
+                <arg name="operation_mode" value="$(arg operation_mode)"/>
             </include>
         </group>
 

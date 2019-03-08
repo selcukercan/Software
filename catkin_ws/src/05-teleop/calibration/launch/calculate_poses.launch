@@ -2,6 +2,7 @@
     <!-- General -->
     <arg name="veh" doc="Name of vehicle. ex: megaman"/>
     <arg name="local" default="true" doc="true for running everything you possibly can on laptop. false for everything running on vehicle."/>
+
     <!-- Camera -->
     <arg name="config" default="baseline" doc="Specify a config."/>
     <arg name="param_file_name" default="default" doc="Specify a param file. ex:megaman." />
@@ -43,6 +44,7 @@
             <!-- General -->
             <arg name="veh" value="$(arg veh)"/>
             <arg name="local" value="$(arg local)"/>
+            <arg name="operation_mode" value="$(arg operation_mode)"/>
             <!-- Configuration -->
             <arg name="config" value="$(arg config)" />
             <arg name="param_file_name" value="$(arg param_file_name)" />
@@ -79,6 +81,15 @@
             <arg name="operation_mode" value="$(arg operation_mode)" />
             <arg name="save_lane_filter" value="$(arg save_lane_filter)"/>
         </include>
+    </group>
+
+    <group ns="$(arg veh)/$(arg package_namespace)">
+      <node pkg="$(arg package_namespace)" type="measurement_buffer.py" name="measurement_buffer" clear_params="true" required="true" output="screen">
+        <param name="veh" value="$(arg veh)"/>
+        <param name="input_rosbag" value="$(arg input_rosbag)"/>
+        <param name="output_rosbag" value="$(arg output_rosbag)"/>
+        <param name="operation_mode" value="$(arg operation_mode)"/>
+      </node>
     </group>
 
 </launch>

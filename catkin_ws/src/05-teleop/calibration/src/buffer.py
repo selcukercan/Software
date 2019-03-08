@@ -24,7 +24,7 @@ class Buffer:
         rospy.init_node('Buffer', anonymous=True)
 
         # Subscriber
-        sub_topic_image_request = '/' + self.veh + '/publish_detections_in_local_frame/image_requested' # 30 Hz
+        sub_topic_image_request = '/' + self.veh + '/measurement_buffer/image_requested' # 30 Hz
         self.sub_processed_image = rospy.Subscriber(sub_topic_image_request, Bool, self.cb_recieved_ack, queue_size=1)
         #self.recieved_pub_image_request = False
 

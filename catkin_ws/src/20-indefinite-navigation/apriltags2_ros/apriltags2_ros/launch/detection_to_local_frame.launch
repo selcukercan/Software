@@ -12,11 +12,10 @@
 
   <!-- Set parameters -->
   <group ns="$(arg veh)/$(arg package_namespace)">
-
     <node unless="$(arg operation_mode)" pkg="apriltags2_ros" type="$(arg node_namespace).py" name="$(arg node_namespace)" clear_params="true" required="true" output="screen">
       <param name="veh" value="$(arg veh)"/>
     </node>
-
+    
     <node if="$(arg operation_mode)" pkg="apriltags2_ros" type="$(arg node_namespace).py" name="$(arg node_namespace)" clear_params="true" required="true" output="screen">
       <param name="veh" value="$(arg veh)"/>
       <param name="input_rosbag" value="$(arg input_rosbag)"/>

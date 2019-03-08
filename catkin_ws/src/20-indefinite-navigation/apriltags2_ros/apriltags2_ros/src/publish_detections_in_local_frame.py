@@ -8,7 +8,6 @@ from std_msgs.msg import Bool
 from apriltags2_ros.msg import AprilTagDetectionArray
 from apriltags2_ros.msg import VehiclePoseEuler
 from apriltags2_ros_post_process.rotation_utils import *
-from apriltags2_ros_post_process.time_sync_utils import *
 
 class ToLocalPose:
     def __init__(self):
@@ -24,13 +23,15 @@ class ToLocalPose:
         # initialize the node
         rospy.init_node('publish_detections_in_local_frame_node', anonymous=False)
         rospy.sleep(2) # to ensure that the the rosparam service is initialized before the values requested below (an observed issue)
+
+
         # Parameters
         # determine we work synchronously or asynchronously, where asynchronous is the default
         # mode of operation. synchronous operation is benefitial when post-processing the recorded
         # experiment data. For example it is beneficial when only compressed image is available from the experiment and we want to
         # pass exach image through a localization pipeline (compressed_image -> decoder -> rectification -> apriltags_detection -> to_local_pose)
         # to extract the pose in world frame
-        self.synchronous_mode = self.setupParam("/operation_mode", 0)
+        self.synchronous_mode = rospy.get_param(param_name="/operation_mode")
 
         # Publisher
         self.pub_topic_name = host_package_node + '/tag_detections_local_frame'
@@ -40,34 +41,7 @@ class ToLocalPose:
         sub_topic_name =  '/' + self.veh + '/tag_detections'
         self.sub_img = rospy.Subscriber(sub_topic_name, AprilTagDetectionArray, self.cbDetection)
 
-        if self.synchronous_mode:
-            rospy.logwarn('[publish_detections_in_local_frame] operating in synchronous mode')
-            # wait until the message_count has been set by the buffer node
-            while not rospy.has_param("/" + self.veh + "/buffer_node/message_count"):
-                rospy.sleep(1)
-                rospy.loginfo("[{}] waiting for buffer node to set message_count".format(self.node_name))
-
-            # read the messages from the buffer node
-            self.total_msg_count = rospy.get_param(param_name="/" + self.veh + "/buffer_node/message_count")
-            rospy.logwarn("TOTAL_MSG_COUNT: {}".format(self.total_msg_count))
-            # request image after processing of a single image is completed
-            self.pub_topic_image_request = "/" + self.veh + "/" + self.node_name + "/" + "image_requested"
-            self.pub_image_request = rospy.Publisher(self.pub_topic_image_request, Bool, queue_size=1)
-
-            # get the input rosbags, and name of the output bag we wish the create
-            input_bag = rospy.get_param(param_name= host_package_node + "/input_rosbag")
-            self.output_bag = rospy.get_param(param_name= host_package_node + "/output_rosbag")
-
-            # wrap bag file operations with a lock as rospy api is not threat-safe.
-            self.lock = Lock()
-            self.lock.acquire()
-            copy(input_bag, self.output_bag)
-            self.lock.release()
-
-            self.numb_written_images = 0
-            self.wrote_all_images = False
-        else:
-            rospy.logwarn('[publish_detections_in_local_frame] operating in asynchronous mode')
+        self.image_id = 0
 
     def setupParam(self,param_name,default_value):
         value = rospy.get_param(param_name,default_value)
@@ -108,33 +82,13 @@ class ToLocalPose:
 
             # finally publish the message
             self.pub_detection_in_robot_frame.publish(veh_pose_euler_msg)
-            rospy.loginfo('publish posx: {} posy:  {} rotz: {}'.format(veh_pose_euler_msg.posx,veh_pose_euler_msg.posy,veh_pose_euler_msg.rotz))
-            
-            if self.synchronous_mode:
-                # save the message to the bag file that contains compressed_images
-                self.lock.acquire()
-                output_rosbag = rosbag.Bag(self.output_bag, 'a') # open bag to write
-                output_rosbag.write(self.pub_topic_name, veh_pose_euler_msg)
-                output_rosbag.close()
-                self.lock.release()
-
-                rospy.loginfo("[{}] wrote image {}".format(self.node_name, self.numb_written_images))
-                self.numb_written_images += 1
-
-                # request a new image from "buffer.py"
-                req_msg = Bool(True)
-                self.pub_image_request.publish(req_msg)
-
-                if self.numb_written_images == self.total_msg_count:
-                    time_sync(self.output_bag, self.veh)
-
+            self.image_id += 1
+            rospy.loginfo('publish image {} posx: {} posy:  {} rotz: {}'.format(self.image_id,veh_pose_euler_msg.posx,veh_pose_euler_msg.posy,veh_pose_euler_msg.rotz))
 
         else:
             rospy.loginfo("[{}] empty apriltag detection recieved".format(self.node_name))
 
             if self.synchronous_mode:
-                rospy.loginfo("[{}] in synchronous mode publishing VehiclePoseEuler with entries equal to 0.0".format(self.node_name,self.numb_written_images))
-
                 # form message to publish
                 veh_pose_euler_msg = VehiclePoseEuler()
                 veh_pose_euler_msg.header.stamp = rospy.Time.now()
@@ -147,27 +101,11 @@ class ToLocalPose:
                 veh_pose_euler_msg.roty = 0.
                 veh_pose_euler_msg.rotz = 0.
 
-                """
                 # finally publish the message
                 self.pub_detection_in_robot_frame.publish(veh_pose_euler_msg)
-                """
+                self.image_id += 1
+                rospy.loginfo("[{}] in synchronous mode publishing VehiclePoseEuler with entries equal to 0.0".format(self.node_name,self.image_id))
 
-                # save the message to the bag file that contains compressed_images
-                self.lock.acquire()
-                output_rosbag = rosbag.Bag(self.output_bag, 'a') # open bag to write
-                output_rosbag.write(self.pub_topic_name, veh_pose_euler_msg)
-                output_rosbag.close()
-                self.lock.release()
-
-                rospy.loginfo("[{}] wrote image {}".format(self.node_name, self.numb_written_images))
-                self.numb_written_images += 1
-
-                # request a new image from "buffer.py"
-                req_msg = Bool(True)
-                self.pub_image_request.publish(req_msg)
-
-                if self.numb_written_images == self.total_msg_count:
-                    time_sync(self.output_bag, self.veh)
 
 if __name__ == '__main__':
     to_local_pose = ToLocalPose()

@@ -11,7 +11,11 @@ import json
 class LaneFilterNode(object):
 
     def __init__(self):
-        self.node_name = "Lane Filter"
+        host_package = rospy.get_namespace()  # as defined by <group> in launch file
+        self.node_name = 'lane_filter_node'  # node name , as defined in launch file
+        host_package_node = host_package + self.node_name
+        self.veh = host_package.split('/')[1]
+
         self.active = True
         self.filter = None
         self.updateParams(None)
@@ -22,7 +26,6 @@ class LaneFilterNode(object):
         self.d_median = []
         self.phi_median = []
         self.latencyArray = []
-
 
         # Define Constants
         self.curvature_res = self.filter.curvature_res
@@ -38,13 +41,8 @@ class LaneFilterNode(object):
         # Publishers
         self.pub_lane_pose = rospy.Publisher("~lane_pose", LanePose, queue_size=1)
         self.pub_belief_img = rospy.Publisher("~belief_img", Image, queue_size=1)
-
-
         self.pub_ml_img = rospy.Publisher("~ml_img", Image, queue_size=1)
-
-
         self.pub_entropy    = rospy.Publisher("~entropy",Float32, queue_size=1)
-
 
         # FSM
         self.sub_switch = rospy.Subscriber("~switch",BoolStamped, self.cbSwitch, queue_size=1)
@@ -134,7 +132,7 @@ class LaneFilterNode(object):
             lanePose.curvature = self.filter.getCurvature(d_max[1:], phi_max[1:])
 
 
-            
+
         # publish the belief image
         bridge = CvBridge()
         belief_img = bridge.cv2_to_imgmsg(np.array(255 * self.filter.beliefArray[0]).astype("uint8"), "mono8")
@@ -142,9 +140,9 @@ class LaneFilterNode(object):
 
         self.pub_lane_pose.publish(lanePose)
         self.pub_belief_img.publish(belief_img)
-        
-        
-        
+
+
+
         # Latency of Estimation including curvature estimation
         estimation_latency_stamp = rospy.Time.now() - timestamp_now
         estimation_latency = estimation_latency_stamp.secs + estimation_latency_stamp.nsecs/1e9
@@ -166,7 +164,7 @@ class LaneFilterNode(object):
         self.pub_in_lane.publish(in_lane_msg)
 
 
-        
+
     def cbMode(self, msg):
         return #TODO adjust self.active
 
