@@ -25,7 +25,8 @@ class MeasurementBuffer:
         # Initialize the node with rospy
         rospy.init_node('MeasurementBuffer', anonymous=True)
 
-        active_methods = ['apriltag', 'lane_filter']
+        available_methods = ['apriltag', 'lane_filter']
+        active_methods = self.set_active_methods(available_methods)
 
         self.method_objects = self.construct_localization_method_objects(active_methods)
 
@@ -95,6 +96,17 @@ class MeasurementBuffer:
 
         self.pub_single_compressed_image() # send the first image
         """
+    def set_active_methods(self, available_methods):
+        active_methods = []
+        print(rospy.get_param('/calibration_use_apriltags'))
+        print(rospy.get_param('/calibration_use_lane_filter'))
+
+        if rospy.get_param('/calibration_use_apriltags'):
+            active_methods.append('apriltag')
+        if rospy.get_param('/calibration_use_lane_filter'):
+            active_methods.append('lane_filter')
+        return active_methods
+
 
     def setupParam(self,param_name,default_value):
         value = rospy.get_param(param_name,default_value)
@@ -136,19 +148,22 @@ class MeasurementBuffer:
 
         ready = self.check_ready_to_publish()
         if ready: self.pub_messages()
-
+        """
         if self.synchronous_mode:
-            # save the message to the bag file that contains compressed_images
-            self.lock.acquire()
-            output_rosbag = rosbag.Bag(self.output_bag, 'a') # open bag to write
-            output_rosbag.write(self.method_objects['apriltag'].sub_top, msg)
-            output_rosbag.close()
-            self.lock.release()
-            self.numb_written_images += 1
-            rospy.loginfo("[{}] wrote image {}".format(self.node_name, self.numb_written_images))
+            self.write_bag()
+        """
+    def write_bag(self):
+        # save the message to the bag file that contains compressed_images
+        self.lock.acquire()
+        output_rosbag = rosbag.Bag(self.output_bag, 'a') # open bag to write
+        output_rosbag.write(self.method_objects['apriltag'].sub_top, msg)
+        output_rosbag.close()
+        self.lock.release()
+        self.numb_written_images += 1
+        rospy.loginfo("[{}] wrote image {}".format(self.node_name, self.numb_written_images))
 
-            if self.numb_written_images == self.total_msg_count:
-                time_sync(self.output_bag, self.veh)
+        if self.numb_written_images == self.total_msg_count:
+            time_sync(self.output_bag, self.veh)
 
     def check_ready_to_publish(self):
         localization_method_dict = self.method_objects
@@ -188,6 +203,7 @@ class LocalizationMethod():
         self.pub=rospy.Publisher(self.pub_top, topic_type, queue_size=queue_size)
     def _add(self, msg):
         self.hist.append(msg)
+
 if __name__ == '__main__':
     measurement_buffer = MeasurementBuffer()
     rospy.spin()

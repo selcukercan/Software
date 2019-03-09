@@ -38,6 +38,9 @@
     <arg name="lane_filter" default="true" />
     <arg name="apriltag" default="true" />
 
+    <param name="/calibration_use_apriltags" value="$(arg apriltag)"/>
+    <param name="/calibration_use_lane_filter" value="$(arg lane_filter)"/>
+
     <!-- start local pose calculation lane filter -->
     <group if="$(arg lane_filter)">
         <include file="$(find calibration)/launch/lane_pose.launch">
