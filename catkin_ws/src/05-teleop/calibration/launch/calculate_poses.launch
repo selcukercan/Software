@@ -35,11 +35,11 @@
     <arg name="save_lane_filter" default="false" doc="specify if you would like to save the output returned by lane filter."/>
 
     <!-- Activate Sections-->
-    <arg name="lane_filter_pose" default="true" />
-    <arg name="april_tag_pose" default="true" />
+    <arg name="lane_filter" default="true" />
+    <arg name="apriltag" default="true" />
 
     <!-- start local pose calculation lane filter -->
-    <group if="$(arg lane_filter_pose)">
+    <group if="$(arg lane_filter)">
         <include file="$(find calibration)/launch/lane_pose.launch">
             <!-- General -->
             <arg name="veh" value="$(arg veh)"/>
@@ -61,8 +61,8 @@
     </group>
 
     <!-- start local pose calculation from apriltag detections -->
-    <group if="$(arg april_tag_pose)">
-        <include file="$(find calibration)/launch/compressed_image_to_world_frame.launch">
+    <group if="$(arg apriltag)">
+        <include file="$(find calibration)/launch/apriltag_pose.launch">
             <!-- General -->
             <arg name="veh" value="$(arg veh)"/>
             <arg name="local" value="$(arg local)"/>
@@ -83,6 +83,13 @@
         </include>
     </group>
 
+    <!-- start buffer launch -->
+    <include file="$(find calibration)/launch/buffer_node.launch">
+      <arg name="veh" value="$(arg veh)"/>
+      <arg name="input_rosbag" value="$(arg input_rosbag)"/>
+    </include>
+
+    <!-- start measurement buffer launch -->
     <group ns="$(arg veh)/$(arg package_namespace)">
       <node pkg="$(arg package_namespace)" type="measurement_buffer.py" name="measurement_buffer" clear_params="true" required="true" output="screen">
         <param name="veh" value="$(arg veh)"/>

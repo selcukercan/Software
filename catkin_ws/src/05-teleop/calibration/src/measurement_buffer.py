@@ -10,8 +10,7 @@ from shutil import copy
 # package utilities import
 from std_msgs.msg import String, Bool
 from sensor_msgs.msg import CompressedImage
-from duckietown_msgs.msg import WheelsCmdStamped, Twist2DStamped, AprilTagDetectionArray
-from duckietown_msgs.msg import VehiclePoseEuler
+from duckietown_msgs.msg import WheelsCmdStamped, Twist2DStamped, AprilTagDetectionArray, LanePose, VehiclePoseEuler
 from calibration.wheel_cmd_utils import *
 from calibration.time_sync_utils import time_sync
 
@@ -26,19 +25,8 @@ class MeasurementBuffer:
         # Initialize the node with rospy
         rospy.init_node('MeasurementBuffer', anonymous=True)
 
-        # Localization Information Aggregates
-        self.at_local_pose_history = deque()
-        self.lane_filter_pose_history = deque()
-        self.lane_visual_odometry_history = deque()
-
-        # Subscriber
-        self.sub_at_local_detection = '/' + self.veh + '/apriltags2_ros/publish_detections_in_local_frame/tag_detections_local_frame' # 30 Hz
-        self.sub_processed_image = rospy.Subscriber(self.sub_at_local_detection, VehiclePoseEuler, self.cb_AT_local_pose, queue_size=None)
-        #self.recieved_pub_image_request = False
-
-        # Publisher
-        pub_topic_compressed_image= '/' + self.veh + "/check_status"
-        self.pub_check_status = rospy.Publisher(pub_topic_compressed_image, Bool, queue_size=1)
+        active_methods = ['lane_filter']
+        self.method_objects = self.construct_localization_method_objects(active_methods)
 
         # Parameters
         # determine we work synchronously or asynchronously, where asynchronous is the default
@@ -46,7 +34,7 @@ class MeasurementBuffer:
         # experiment data. For example it is beneficial when only compressed image is available from the experiment and we want to
         # pass exach image through a localization pipeline (compressed_image -> decoder -> rectification -> apriltags_detection -> to_local_pose)
         # to extract the pose in world frame
-        self.synchronous_mode = self.setupParam("/operation_mode", 0)
+        self.synchronous_mode = rospy.get_param('/' + self.veh + '/calibration/measurement_buffer/operation_mode')
 
         if self.synchronous_mode:
             rospy.logwarn('[publish_detections_in_local_frame] operating in synchronous mode')
@@ -110,42 +98,94 @@ class MeasurementBuffer:
         rospy.loginfo("[%s] %s = %s " %(self.node_name,param_name,value))
         return value
 
-    def cb_AT_local_pose(self, msg):
-        self.at_local_pose_history.append(msg)
+    def construct_localization_method_objects(self, active_methods):
+        method_objects = {}
+        for method in active_methods:
+            if method == 'apriltag':
+                obj = LocalizationMethod(method_name=method,
+                sub_top='/' + self.veh + '/apriltags2_ros/publish_detections_in_local_frame/tag_detections_local_frame',
+                pub_top='/' + self.veh + '/calibration/measurement_buffer/tag_detections_local_frame')
+                obj.set_sub(topic_type=VehiclePoseEuler, callback_fn=self.cb_apriltag)
+                obj.set_pub(topic_type=VehiclePoseEuler, queue_size=1)
+            elif method == 'lane_filter':
+                obj = LocalizationMethod(method_name=method,
+                sub_top='/' + self.veh + '/lane_filter_node/lane_pose',
+                pub_top='/' + self.veh + '/calibration/measurement_buffer/lane_pose')
+                obj.set_sub(topic_type=LanePose, callback_fn=self.cb_lane_filter)
+                obj.set_pub(topic_type=LanePose, queue_size=1)
+            else:
+                rospy.logwarn('[{}] invalid localization method requested'.format(self.node_name))
+            method_objects[method] = obj
+        return method_objects
+
+    def form_message(self):
+        pass
+
+    def cb_lane_filter(self, msg):
+        self.method_objects['lane_filter'].add(msg)
         ready = self.check_ready_to_publish()
+
+        if ready: self.pub_messages()
+
+    def cb_apriltag(self, msg):
+        self.method_objects['apriltag'].add(msg)
+
+        ready = self.check_ready_to_publish()
+        if ready: self.pub_messages()
+
 
         if self.synchronous_mode:
             # save the message to the bag file that contains compressed_images
             self.lock.acquire()
             output_rosbag = rosbag.Bag(self.output_bag, 'a') # open bag to write
-            output_rosbag.write(self.sub_at_local_detection, msg)
+            output_rosbag.write(self.method_objects['apriltag'].sub_top, msg)
             output_rosbag.close()
             self.lock.release()
-
             rospy.loginfo("[{}] wrote image {}".format(self.node_name, self.numb_written_images))
-            self.numb_written_images += 1
 
-            # request a new image from "buffer.py"
-            req_msg = Bool(True)
-            self.pub_image_request.publish(req_msg)
+            self.numb_written_images += 1
 
             if self.numb_written_images == self.total_msg_count:
                 time_sync(self.output_bag, self.veh)
 
-        """
-        if ready:
-            req_msg = Bool(True)
-            self.pub_image_request(req_msg)
-        else:
-            rospy.logwarn('NOT REQUESTED MESSAGE')
-        """
     def check_ready_to_publish(self):
-        ready = len(self.at_local_pose_history)
-        rospy.logwarn('[{}] number of elements in at deque: {}'.format('check_ready_to_publish', ready))
-        return ready
+        localization_method_dict = self.method_objects
+        for method_name in localization_method_dict.keys():
+            if not localization_method_dict[method_name].ready():
+                return False
+        return True
 
-    def pub_combined_messages(self):
-        pass
+    def pub_messages(self):
+        localization_method_dict = self.method_objects
+        for method_name in localization_method_dict.keys():
+            method_obj = localization_method_dict[method_name]
+            method_obj._publish()
+        # request a new image from "buffer.py"
+        req_msg = Bool(True)
+        self.pub_image_request.publish(req_msg)
+
+class LocalizationMethod():
+    def __init__(self, method_name=None, sub_top=None, pub_top=None):
+        self.method_name = method_name
+        self.sub_top = sub_top
+        self.pub_top = pub_top
+        self.sub = None
+        self.pub = None
+        self.hist = deque()
+
+    def _publish(self):
+        self.pub.publish(self.hist.pop())
+    def ready(self):
+        if len(self.hist) == 0:
+            return False
+        else:
+            return True
+    def set_sub(self, topic_type=None, callback_fn=None):
+        self.sub=rospy.Subscriber(self.sub_top, topic_type, callback_fn, queue_size=None)
+    def set_pub(self, topic_type=None, queue_size=None):
+        self.pub=rospy.Publisher(self.pub_top, topic_type, queue_size=queue_size)
+    def add(self, msg):
+        self.hist.append(msg)
 if __name__ == '__main__':
     measurement_buffer = MeasurementBuffer()
     rospy.spin()
