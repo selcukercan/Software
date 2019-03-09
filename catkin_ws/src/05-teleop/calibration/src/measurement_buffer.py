@@ -25,7 +25,8 @@ class MeasurementBuffer:
         # Initialize the node with rospy
         rospy.init_node('MeasurementBuffer', anonymous=True)
 
-        active_methods = ['lane_filter']
+        active_methods = ['apriltag', 'lane_filter']
+
         self.method_objects = self.construct_localization_method_objects(active_methods)
 
         # Parameters
@@ -38,14 +39,17 @@ class MeasurementBuffer:
 
         if self.synchronous_mode:
             rospy.logwarn('[publish_detections_in_local_frame] operating in synchronous mode')
-            # wait until the message_count has been set by the buffer node
+            self.total_msg_count = -1
+            # wait until the message_parameter is written to parameter server
             while not rospy.has_param("/" + self.veh + "/buffer_node/message_count"):
-                rospy.sleep(1)
+                rospy.sleep(0.1)
                 rospy.loginfo("[{}] waiting for buffer node to set message_count".format(self.node_name))
-
-            # read the messages from the buffer node
-            self.total_msg_count = rospy.get_param(param_name="/" + self.veh + "/buffer_node/message_count")
+            # wait until parameter has been set by the buffer node
+            while self.total_msg_count == -1:
+                rospy.sleep(0.1)
+                self.total_msg_count=rospy.get_param("/" + self.veh + "/buffer_node/message_count")
             rospy.logwarn("TOTAL_MSG_COUNT: {}".format(self.total_msg_count))
+
             # request image after processing of a single image is completed
             self.pub_topic_image_request = "/" + self.veh + "/" + self.node_name + "/" + "image_requested"
             self.pub_image_request = rospy.Publisher(self.pub_topic_image_request, Bool, queue_size=1)
@@ -122,17 +126,16 @@ class MeasurementBuffer:
         pass
 
     def cb_lane_filter(self, msg):
-        self.method_objects['lane_filter'].add(msg)
+        self.method_objects['lane_filter']._add(msg)
         ready = self.check_ready_to_publish()
 
         if ready: self.pub_messages()
 
     def cb_apriltag(self, msg):
-        self.method_objects['apriltag'].add(msg)
+        self.method_objects['apriltag']._add(msg)
 
         ready = self.check_ready_to_publish()
         if ready: self.pub_messages()
-
 
         if self.synchronous_mode:
             # save the message to the bag file that contains compressed_images
@@ -141,9 +144,8 @@ class MeasurementBuffer:
             output_rosbag.write(self.method_objects['apriltag'].sub_top, msg)
             output_rosbag.close()
             self.lock.release()
-            rospy.loginfo("[{}] wrote image {}".format(self.node_name, self.numb_written_images))
-
             self.numb_written_images += 1
+            rospy.loginfo("[{}] wrote image {}".format(self.node_name, self.numb_written_images))
 
             if self.numb_written_images == self.total_msg_count:
                 time_sync(self.output_bag, self.veh)
@@ -151,7 +153,7 @@ class MeasurementBuffer:
     def check_ready_to_publish(self):
         localization_method_dict = self.method_objects
         for method_name in localization_method_dict.keys():
-            if not localization_method_dict[method_name].ready():
+            if not localization_method_dict[method_name]._ready():
                 return False
         return True
 
@@ -175,7 +177,7 @@ class LocalizationMethod():
 
     def _publish(self):
         self.pub.publish(self.hist.pop())
-    def ready(self):
+    def _ready(self):
         if len(self.hist) == 0:
             return False
         else:
@@ -184,7 +186,7 @@ class LocalizationMethod():
         self.sub=rospy.Subscriber(self.sub_top, topic_type, callback_fn, queue_size=None)
     def set_pub(self, topic_type=None, queue_size=None):
         self.pub=rospy.Publisher(self.pub_top, topic_type, queue_size=queue_size)
-    def add(self, msg):
+    def _add(self, msg):
         self.hist.append(msg)
 if __name__ == '__main__':
     measurement_buffer = MeasurementBuffer()

@@ -31,6 +31,10 @@ class ContAntiInstagramNode():
         self.active = True
         self.locked = False
 
+        # Operation operation mode
+        operation_mode = rospy.get_param("~operation_mode", 0)
+        image_node = 'camera_node' if operation_mode == 0 else 'buffer_node'
+
         # Initialize publishers and subsImportError: cannot import namecribers
         self.pub_trafo = rospy.Publisher(
             "~transform", AntiInstagramTransform, queue_size=1)
@@ -43,7 +47,7 @@ class ContAntiInstagramNode():
         self.pub_geomImage = rospy.Publisher(
             "~geomImage", Image, queue_size=1)
         self.sub_image = rospy.Subscriber(
-            '/{}/camera_node/image/compressed'.format(robot_name), CompressedImage, self.cbNewImage, queue_size=1)
+            '/{}/{}/image/compressed'.format(robot_name, image_node), CompressedImage, self.cbNewImage, queue_size=1)
 
 
         # Verbose option

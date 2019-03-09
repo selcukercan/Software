@@ -42,6 +42,7 @@
                 <arg name="veh" value="$(arg veh)"/>
                 <arg name="ai_trafo_mode" value="$(arg ai_trafo_mode)"/>
                 <arg name="ai_interval" value="$(arg ai_interval)"/>
+                <arg name="operation_mode" value="$(arg operation_mode)"/>
             </include>
         </group>
         <!-- End anti-instagram -->
@@ -69,6 +70,7 @@
                 <arg name="config" value="$(arg config)"/>
                 <arg name="param_file_name" value="$(arg param_file_name)"/>
                 <arg name="local" value="$(arg local)"/>
+                <arg name="operation_mode" value="$(arg operation_mode)"/>
             </include>
             <group if="$(arg visualization)">
                 <remap from="duckiebot_visualizer/segment_list" to="ground_projection/lineseglist_out"/>

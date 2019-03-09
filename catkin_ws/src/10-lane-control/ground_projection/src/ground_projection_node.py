@@ -20,20 +20,23 @@ class GroundProjectionNode(object):
 
         robot_name = rospy.get_param("~config_file_name", None)
 
+        # Operation operation mode
+        operation_mode = rospy.get_param("~operation_mode", 0)
+        image_node = 'camera_node' if operation_mode == 0 else 'buffer_node'
+        # Subs and Pubs
+        self.pub_lineseglist_ = rospy.Publisher("~lineseglist_out", SegmentList, queue_size=1)
+        self.sub_lineseglist_ = rospy.Subscriber("~lineseglist_in", SegmentList, self.lineseglist_cb)
+
         if robot_name is None:
             robot_name = dtu.get_current_robot_name()
-
         self.robot_name = robot_name
 
         self.gp = GroundProjection(self.robot_name)
+        self.gpg = get_ground_projection_geometry_for_robot(self.robot_name)
 
-        self.gpg = get_ground_projection_geometry_for_robot(
-            self.robot_name)
-
-        camera_info_topic = "/" + self.robot_name + "/camera_node/camera_info"
+        camera_info_topic = "/{}/{}/camera_info".format(self.robot_name, image_node)
         rospy.loginfo("[{}] camera info topic is {}".format(self.node_name, camera_info_topic))
         rospy.loginfo("[{}] waiting for camera info".format(self.node_name))
-        #rospy.logwarn("11111111111111111111111111111111")
         camera_info = rospy.wait_for_message(camera_info_topic, CameraInfo)
         rospy.loginfo("[{}] camera info received".format(self.node_name))
 
@@ -43,14 +46,8 @@ class GroundProjectionNode(object):
 
             self.gp.robot_name = self.robot_name
             self.gp.rectified_input_ = rospy.get_param("rectified_input", False)
-        #rospy.logwarn("222222222222222222222222222222222")
         self.image_channel_name = "image_raw"
 
-        # Subs and Pubs
-        self.pub_lineseglist_ = rospy.Publisher("~lineseglist_out", SegmentList, queue_size=1)
-        self.sub_lineseglist_ = rospy.Subscriber("~lineseglist_in", SegmentList, self.lineseglist_cb)
-
-        #rospy.logwarn(self.sub_lineseglist)
         # TODO prepare services
         self.service_homog_ = rospy.Service("~estimate_homography", EstimateHomography, self.estimate_homography_cb)
         self.service_gnd_coord_ = rospy.Service("~get_ground_coordinate", GetGroundCoord, self.get_ground_coordinate_cb)
@@ -65,8 +62,6 @@ class GroundProjectionNode(object):
 
     def lineseglist_cb(self, seglist_msg):
         seglist_out = SegmentList()
-
-        #print("Seglist out: \n{}".format(seglist_msg))
 
         seglist_out.header = seglist_msg.header
 

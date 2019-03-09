@@ -7,7 +7,7 @@ from os import remove
 
 # package utilities import
 from std_msgs.msg import String, Bool
-from sensor_msgs.msg import CompressedImage
+from sensor_msgs.msg import CompressedImage, CameraInfo
 from duckietown_msgs.msg import WheelsCmdStamped, Twist2DStamped, AprilTagDetectionArray
 from duckietown_msgs.msg import VehiclePoseEuler
 from calibration.wheel_cmd_utils import *
@@ -30,7 +30,10 @@ class Buffer:
 
         # Publisher
         pub_topic_compressed_image= '/' + self.veh + "/buffer_node/image/compressed"
+        pub_topic_camera_info= '/' + self.veh + "/buffer_node/camera_info"
+
         self.pub_compressed_image = rospy.Publisher(pub_topic_compressed_image, CompressedImage, queue_size=1)
+        self.pub_camera_info = rospy.Publisher(pub_topic_camera_info, CameraInfo, queue_size=1)
 
         # ROS Parameters
         self.pm_send_status = "/" + self.veh + "/buffer_node/process_status"
@@ -45,10 +48,13 @@ class Buffer:
         self.send_out_all_images = False
 
         # Read the compressed image topic from the bag
-        topicname = "/" + self.veh + "/camera_node/image/compressed"
+        image_topicname = "/" + self.veh + "/camera_node/image/compressed"
         self.input_rosbag = rosbag.Bag(path_to_bag)
-        self.total_msg_count = self.input_rosbag.get_message_count(topicname)
-        self.view_generator = self.input_rosbag.read_messages(topics=topicname) # create a rosbag generator
+        self.total_msg_count = self.input_rosbag.get_message_count(image_topicname)
+        self.view_generator = self.input_rosbag.read_messages(topics=image_topicname) # create a rosbag generator
+
+        cam_info_topicname = "/" + self.veh + "/camera_node/camera_info"
+        self.view_generator_cam_info = self.input_rosbag.read_messages(topics=cam_info_topicname) # create a rosbag generator
 
         rospy.set_param(self.pm_message_count, self.total_msg_count)
 
@@ -57,7 +63,13 @@ class Buffer:
         rospy.sleep(init_wait)
 
         self.pub_single_compressed_image() # send the first image
+        self.publish_single_cam_info() # publish camera info only once // necessary for for lane filter by ground_projection_node
 
+    def publish_single_cam_info(self):
+        view_output = next(self.view_generator_cam_info) # view_output class : <class 'rosbag.bag.BagMessage'>, has return value (topic_name, msg, time_stamp of the message)
+        msg = view_output.message # message content of the view is what we want to publish
+        rospy.loginfo("[{}] publishing camera info".format(self.node_name))
+        self.pub_camera_info.publish(msg) # publish the message
 
     def setupParam(self,param_name,default_value):
         value = rospy.get_param(param_name,default_value)
@@ -79,6 +91,7 @@ class Buffer:
             # message generation
             msg = CompressedImage() # create a compressed image object to publish
             msg = view_output.message # message content of the view is what we want to publish
+
             rospy.loginfo("[{}] publishing image {}".format(self.node_name, self.cur_image_i))
             self.pub_compressed_image.publish(msg) # publish the message
             self.cur_image_i += 1
