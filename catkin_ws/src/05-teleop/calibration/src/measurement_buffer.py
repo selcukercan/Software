@@ -27,7 +27,6 @@ class MeasurementBuffer:
 
         available_methods = ['apriltag', 'lane_filter']
         active_methods = self.set_active_methods(available_methods)
-
         self.method_objects = self.construct_localization_method_objects(active_methods)
 
         # Parameters
@@ -139,24 +138,26 @@ class MeasurementBuffer:
 
     def cb_lane_filter(self, msg):
         self.method_objects['lane_filter']._add(msg)
-        ready = self.check_ready_to_publish()
 
-        if ready: self.pub_messages()
+        if self.check_ready_to_publish():
+            self.pub_messages()
+            self.write_bag()
+
 
     def cb_apriltag(self, msg):
         self.method_objects['apriltag']._add(msg)
 
-        ready = self.check_ready_to_publish()
-        if ready: self.pub_messages()
-        """
-        if self.synchronous_mode:
+        if self.check_ready_to_publish():
+            self.pub_messages()
             self.write_bag()
-        """
+
     def write_bag(self):
         # save the message to the bag file that contains compressed_images
         self.lock.acquire()
         output_rosbag = rosbag.Bag(self.output_bag, 'a') # open bag to write
-        output_rosbag.write(self.method_objects['apriltag'].sub_top, msg)
+        for method in self.method_objects.keys():
+            method_object = self.method_objects[method]
+            output_rosbag.write(method_object.sub_top, method_object.last_publish)
         output_rosbag.close()
         self.lock.release()
         self.numb_written_images += 1
@@ -189,9 +190,11 @@ class LocalizationMethod():
         self.sub = None
         self.pub = None
         self.hist = deque()
+        self.last_publish = None
 
     def _publish(self):
-        self.pub.publish(self.hist.pop())
+        self.last_publish = self.hist.pop()
+        self.pub.publish(self.last_publish)
     def _ready(self):
         if len(self.hist) == 0:
             return False
@@ -203,6 +206,7 @@ class LocalizationMethod():
         self.pub=rospy.Publisher(self.pub_top, topic_type, queue_size=queue_size)
     def _add(self, msg):
         self.hist.append(msg)
+
 
 if __name__ == '__main__':
     measurement_buffer = MeasurementBuffer()

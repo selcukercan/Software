@@ -16,7 +16,8 @@ def time_sync(input_bag, veh_name):
     copy(input_bag, input_backup_bag)
 
     t_compressed = []
-    t_tag_detectons = []
+    t_at = []
+    t_lf = []
 
     top_compressed_image = "/" + veh_name + "/camera_node/image/compressed"
     top_tag_detections = "/" + veh_name + "/apriltags2_ros/publish_detections_in_local_frame/tag_detections_local_frame"
@@ -27,14 +28,18 @@ def time_sync(input_bag, veh_name):
         if topic == top_compressed_image:
             t_compressed.append(t)
         elif topic == top_tag_detections:
-            t_tag_detectons.append(t)
+            t_at.append(t)
+        elif topic == top_lane_filter:
+            t_lf.append(t)
 
     # make sure they are in ascending order
     t_compressed.sort()
-    t_tag_detectons.sort()
+    t_at.sort()
+    t_lf.sort()
 
     # t_tag_detections: keys, t_compressed: values
-    my_dict = dict(zip(t_tag_detectons, t_compressed))
+    map_comp_at = dict(zip(t_at, t_compressed))
+    map_comp_lf = dict(zip(t_lf, t_compressed))
 
     # read the values from the input bag and replace the ros time of the tag_detections
     # to match to that of the compressed_image. Note the output is written only when an
@@ -44,9 +49,11 @@ def time_sync(input_bag, veh_name):
             if topic == top_tag_detections:
                 try:
                     if non_empty_tag_detection(msg):
-                        outbag.write(topic, msg, my_dict[t])
+                        outbag.write(topic, msg, map_comp_at[t])
                 except:
                     pass
+            elif topic == top_lane_filter:
+                outbag.write(topic, msg, map_comp_lf[t])
             else:
                 outbag.write(topic, msg, t)
 
