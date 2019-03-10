@@ -23,12 +23,13 @@ class DataPreparation():
         self.exp_name = exp_name
         self.operation_mode = mode
         self.measurement_coordinate_frame = measurement_coordinate_frame
-        self.wheel_cmd, self.robot_pose = self.load_bag(input_bag, top_wheel_cmd_exec, top_robot_pose, localization_method=localization_method)
-        self.data = self.select_interval_and_resample()
+        self.wheel_cmd, self.robot_pose = self.load_bag(input_bag, top_wheel_cmd_exec, top_robot_pose, localization_type=localization_method)
+        self.data = self.select_interval_and_resample_numpify(localization_type=localization_method)
 
-    def select_interval_and_resample(self):
+    def select_interval_and_resample_numpify(self, localization_type=None):
         """
-        choose an subsection of data and resample
+        choose an subsection of data, resample and cast the data into numpy format after selecting singals of interest.
+        For instance apriltag returns  (px, py, pz, rx, ry, rz) , but we only use (px, py, rz).
 
         returns:
             2-element tuple containing
@@ -47,13 +48,13 @@ class DataPreparation():
         robot_pose_sel = self.select_interval(robot_pose_clipped, self.discard_first, self.discard_last)
         t = wheel_cmd_exec_sel['timestamp'] #at this point the times should be synced so select time from either of them
 
-        data['wheel_cmd_exec'] = wheel_cmd_exec_sel
-        data['robot_pose'] = robot_pose_sel
+        data['wheel_cmd_exec'] = u_adapter(wheel_cmd_exec_sel)
+        data['robot_pose'] = x_adapter(robot_pose_sel, localization_type=localization_type)
         data['timestamp'] = t
 
         return data
 
-    def filter(self, localization_type=None):
+    def filter(self):
         """
         filter the measurement signals
 
@@ -71,20 +72,15 @@ class DataPreparation():
         robot_pose_sel = data_sel['robot_pose']
 
         # cast the measurements into a numpy array and apply filtering
-        wheel_cmd_exec_np = u_adapter(wheel_cmd_exec_sel)
+        # u operations are the same across different localization schemes
         wheel_cmd_exec_opt = self.u_filter(wheel_cmd_exec_np,
                                            [self.filter_length, self.filter_length, self.filter_length],
                                            [self.filter_type, self.filter_type, self.filter_type])
-
-        robot_pose_opt_np = x_adapter(robot_pose_sel, localization_type=localization_type)
-        # apply filtering
+        # x operations vary for apriltag, lane filter etc.
         robot_pose_opt = self.x_filter(robot_pose_opt_np,
                                        [self.filter_length, self.filter_length, self.filter_length],
                                        [self.filter_type, self.filter_type, self.filter_type],
                                        localization_type=localization_type)
-
-        if self.measurement_coordinate_frame == 'polar':
-            robot_pose_opt = x_cart_to_polar(robot_pose_opt)
 
         data['wheel_cmd_exec'] = wheel_cmd_exec_opt
         data['robot_pose'] = robot_pose_opt
@@ -234,7 +230,7 @@ class DataPreparation():
 
         return wheel_cmd_exec_rs
 
-    def load_bag(self, input_bag, top_wheel_cmd_exec, top_robot_pose, localization_method=None):
+    def load_bag(self, input_bag, top_wheel_cmd_exec, top_robot_pose, localization_type=None):
         """
         generates dictionaries for  by reading the content available in their respective topics.
         as a convention each function takes in a topic name, and returns the parameter dictionary.
@@ -242,9 +238,9 @@ class DataPreparation():
         :return:
         """
         wheel_cmd_exec = self.get_wheels_command(input_bag, top_wheel_cmd_exec)
-        if localization_method == 'apriltag':
+        if localization_type == 'apriltag':
             robot_pose = self.get_robot_pose_apriltag(input_bag, top_robot_pose)
-        elif localization_method == 'lane_filter':
+        elif localization_type == 'lane_filter':
             robot_pose = self.get_robot_pose_lane_filter(input_bag, top_robot_pose)
         else:
             rospy.logwarn('invalid localization_method method specified')

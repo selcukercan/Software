@@ -7,6 +7,8 @@ from utils import rad, save_gzip
 from plotting_utils import simple_plot, multiplot
 from calibration.utils import get_param_from_config_file
 
+express_measurements_in = get_param_from_config_file("express_measurements_in")
+
 def col(a):
     """
     Args:
@@ -35,14 +37,31 @@ def u_adapter(u_dict):
     return np.vstack([v_r_r, v_l_r])
 
 
-def x_adapter(x_dict):
-    """ converts from dict to numpy array """
+def x_adapter_apriltag(x_dict):
+    """ selects/converts apriltag measurements from dict to numpy array """
     px = row(np.array(x_dict['px']))
     py = row(np.array(x_dict['py']))
     rz = row(np.array(x_dict['rz']))
 
     return np.vstack([px, py, rz])
 
+def x_adapter_lane_filter(x_dict):
+    """ converts lane filter measurements from dict to numpy array """
+    d = row(np.array(x_dict['px']))
+    phi = row(np.array(x_dict['py']))
+
+    return np.vstack([d, phi])
+
+
+def x_adapter(x_dict, localization_type=None):
+    """ from load bag format to optimization format also takig into account the requested coordiate frame representation"""
+    if localization_type == 'apriltag':
+        if express_measurements_in == 'cartesian':
+            return x_adapter_apriltag(x_dict)
+        elif express_measurements_in == 'polar':
+            return x_cart_to_polar(x_adapter_apriltag(x_dict))
+    elif localization_type == 'lane_filter':
+        return x_adapter_lane_filter(x_dict)
 
 def x_cart_to_polar(x_cart):
     # initialize the array for storing measurements represented in polar coordinates
