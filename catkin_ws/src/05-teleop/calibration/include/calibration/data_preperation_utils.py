@@ -18,24 +18,23 @@ class DataPreparation():
     discard_last = get_param_from_config_file("discard_last_n_data")
 
     def __init__(self, input_bag = None, top_wheel_cmd_exec = None, top_robot_pose = None,
-                 save_as = None, dump = False, exp_name='', mode='train', measurement_coordinate_frame='cartesian'):
+                 save_as = None, dump = False, exp_name='', mode='train', measurement_coordinate_frame='cartesian', localization_method=None):
         self.input_bag = input_bag
         self.exp_name = exp_name
         self.operation_mode = mode
         self.measurement_coordinate_frame = measurement_coordinate_frame
-        self.wheel_cmd, self.robot_pose = self.load_bag(input_bag, top_wheel_cmd_exec, top_robot_pose)
-        self.data = self.process_raw_data() # bring data set to format usable by the optimizer
+        self.wheel_cmd, self.robot_pose = self.load_bag(input_bag, top_wheel_cmd_exec, top_robot_pose, localization_method=localization_method)
+        self.data = self.select_interval_and_resample()
 
-    def process_raw_data(self):
+    def select_interval_and_resample(self):
         """
-        process the data contained in a rosbag file and bring it to the form accepted by the optimization
+        choose an subsection of data and resample
 
         returns:
-            3-element tuple containing
+            2-element tuple containing
 
         - **wheel_cmd_exec_opt** (*ndarray*) - 2*N ndarray, where first row is right wheel, and second row is left wheel commands
         - **robot_pose_opt** (*ndarray*) - 3*N ndarray, where first row is x coordinate, the second row is y coordinate, and the third row is yaw angle
-        - **t** (*list*) - timestamps.
 
         """
         data = {'wheel_cmd_exec': None, 'robot_pose': None, 'timestamp': None}
@@ -46,20 +45,44 @@ class DataPreparation():
 
         wheel_cmd_exec_sel = self.select_interval(wheel_cmd_exec_rs, self.discard_first, self.discard_last)
         robot_pose_sel = self.select_interval(robot_pose_clipped, self.discard_first, self.discard_last)
+        t = wheel_cmd_exec_sel['timestamp'] #at this point the times should be synced so select time from either of them
 
-        # at this point the times should be synced so select time from either of them
-        # assert(wheel_cmd_exec_sel['timestamp'] == robot_pose_opt['timestamp'])
-        t = wheel_cmd_exec_sel['timestamp']
+        data['wheel_cmd_exec'] = wheel_cmd_exec_sel
+        data['robot_pose'] = robot_pose_sel
+        data['timestamp'] = t
+
+        return data
+
+    def filter(self, localization_type=None):
+        """
+        filter the measurement signals
+
+        returns:
+            3-element tuple containing
+
+        - **wheel_cmd_exec_opt** (*ndarray*) - 2*N ndarray, where first row is right wheel, and second row is left wheel commands
+        - **robot_pose_opt** (*ndarray*) - 3*N ndarray, where first row is x coordinate, the second row is y coordinate, and the third row is yaw angle
+        - **t** (*list*) - timestamps.
+
+        """
+        data_sel = copy.deepcopy(self.data_selected)
+
+        wheel_cmd_exec_sel = data_sel['wheel_cmd_exec']
+        robot_pose_sel = data_sel['robot_pose']
+
+        # cast the measurements into a numpy array and apply filtering
         wheel_cmd_exec_np = u_adapter(wheel_cmd_exec_sel)
-        robot_pose_opt_np = x_adapter(robot_pose_sel)
-
-        # apply filtering
         wheel_cmd_exec_opt = self.u_filter(wheel_cmd_exec_np,
                                            [self.filter_length, self.filter_length, self.filter_length],
                                            [self.filter_type, self.filter_type, self.filter_type])
+
+        robot_pose_opt_np = x_adapter(robot_pose_sel, localization_type=localization_type)
+        # apply filtering
         robot_pose_opt = self.x_filter(robot_pose_opt_np,
                                        [self.filter_length, self.filter_length, self.filter_length],
-                                       [self.filter_type, self.filter_type, self.filter_type])
+                                       [self.filter_type, self.filter_type, self.filter_type],
+                                       localization_type=localization_type)
+
         if self.measurement_coordinate_frame == 'polar':
             robot_pose_opt = x_cart_to_polar(robot_pose_opt)
 
@@ -68,6 +91,7 @@ class DataPreparation():
         data['timestamp'] = t
 
         return data
+
 
     def experiment_duration(self):
         """
@@ -210,7 +234,7 @@ class DataPreparation():
 
         return wheel_cmd_exec_rs
 
-    def load_bag(self, input_bag, top_wheel_cmd_exec, top_robot_pose):
+    def load_bag(self, input_bag, top_wheel_cmd_exec, top_robot_pose, localization_method=None):
         """
         generates dictionaries for  by reading the content available in their respective topics.
         as a convention each function takes in a topic name, and returns the parameter dictionary.
@@ -218,8 +242,12 @@ class DataPreparation():
         :return:
         """
         wheel_cmd_exec = self.get_wheels_command(input_bag, top_wheel_cmd_exec)
-        robot_pose = self.get_robot_pose(input_bag, top_robot_pose)
-
+        if localization_method == 'apriltag':
+            robot_pose = self.get_robot_pose_apriltag(input_bag, top_robot_pose)
+        elif localization_method == 'lane_filter':
+            robot_pose = self.get_robot_pose_lane_filter(input_bag, top_robot_pose)
+        else:
+            rospy.logwarn('invalid localization_method method specified')
         return wheel_cmd_exec, robot_pose
 
     def get_wheels_command(self, input_bag, topic_name):
@@ -238,7 +266,7 @@ class DataPreparation():
 
         return cmd
 
-    def get_robot_pose(self, input_bag, topic_name):
+    def get_robot_pose_apriltag(self, input_bag, topic_name):
 
         pose = {
             'px': [],'py': [],'pz': [],
@@ -257,6 +285,15 @@ class DataPreparation():
             pose['timestamp'].append(t.to_sec())
         return pose
 
+    def get_robot_pose_lane_filter(self, input_bag, topic_name):
+        pose = {'d': [],'phi': [], 'timestamp': []}
+
+        # Loop over the image files contained in rosbag
+        for topic, msg, t in rosbag.Bag(input_bag).read_messages(topics=topic_name):
+            pose['d'].append(msg.d)
+            pose['phi'].append(msg.phi)
+            pose['timestamp'].append(t.to_sec())
+        return pose
 
     @staticmethod
     def select_interval(dict, discard_first, discard_last):

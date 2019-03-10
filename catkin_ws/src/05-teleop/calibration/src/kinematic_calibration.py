@@ -52,16 +52,16 @@ class calib():
 
         # topics of interest
         self.top_wheel_cmd_exec = "/" + self.robot_name + "/wheels_driver_node/wheels_cmd_executed"
-        self.top_robot_pose = "/" + self.robot_name + "/apriltags2_ros/publish_detections_in_local_frame/tag_detections_local_frame"
-
+        self.top_robot_pose_apriltag = "/" + self.robot_name + "/apriltags2_ros/publish_detections_in_local_frame/tag_detections_local_frame"
+        self.top_robot_pose_lane_filter = "/" + self.robot_name + "/lane_filter_node/lane_pose"
         # load data for use in optimization
         self.measurement_coordinate_frame = self.conf['express_measurements_in']
-        experiments = self.load_dataset("Training", self.path_training_data)
+        experiments = self.load_dataset("Training", self.path_training_data, localization_type='apriltag')
 
-        add_x_dot_estimate_to_dataset(experiments, "train")
-        """
+        #add_x_dot_estimate_to_dataset(experiments, "train")
+
         # load and process the experiment data to be used for testing the model
-        validation_dataset = self.load_dataset("Validation", self.path_validation_data)
+        validation_dataset = self.load_dataset("Validation", self.path_validation_data, localization_type='apriltag')
 
         # construct a model by specifying which model to use
         model_object = model_generator(self.model_type, self.measurement_coordinate_frame)
@@ -102,9 +102,9 @@ class calib():
 
         # write to the kinematic calibration file
         self.write_calibration(model_object, popt)
-        """
+
     # Data Operations
-    def load_dataset(self, dataset_name, path_to_dataset):
+    def load_dataset(self, dataset_name, path_to_dataset, localization_type=None):
         """
         loads the rosbags from path_to_dataset
 
@@ -120,6 +120,7 @@ class calib():
         """
         # loads the experiments from the path_to_dataset
         experiments = input_folder_to_experiment_dict(path_to_dataset)
+        pose_topic = self.select_pose_topic(localization_type)
 
         # options
         source = 'folder'  # change to "pickle" to load a previously dumped experiment data
@@ -130,9 +131,10 @@ class calib():
             for i, exp in enumerate(experiments.keys()):
                 experiments[exp] = DataPreparation(input_bag=experiments[exp]['path'],
                                                    top_wheel_cmd_exec=self.top_wheel_cmd_exec,
-                                                   top_robot_pose=self.top_robot_pose,
+                                                   top_robot_pose=pose_topic,
                                                    exp_name=dataset_name + ' Data {}: {}'.format(i + 1, exp),
-                                                   measurement_coordinate_frame=self.measurement_coordinate_frame)
+                                                   measurement_coordinate_frame=self.measurement_coordinate_frame,
+                                                   localization_method=localization_type)
             if save_to_pickle:
                 set_name = 'test_run'
                 save_pickle(object=experiments, save_as=os.path.join(self.tmp_dir, set_name))
@@ -218,7 +220,7 @@ class calib():
                       plot_title= "N-Horizan " + plot_title,
                       save=self.save_experiment_results,
                       save_dir=self.results_dir)
-    
+
 
             multi_path_plot([exp_data, x_sim_init, x_sim_opt], ["measurement", "initial_values", "optimal_values"] )
             """
@@ -280,7 +282,13 @@ class calib():
         for i, param_name in enumerate(model_ordered_param_list):
             self.param_hist[param_name].append(p[i])
 
-
+    def select_pose_topic(self,localization_type):
+        if localization_type == 'apriltag':
+            return self.top_robot_pose_apriltag
+        elif localization_type == 'lane_filter':
+            return self.top_robot_pose_lane_filter
+        else:
+            rospy.logfatal('BOOM')
 if __name__ == '__main__':
     calib = calib()
 
