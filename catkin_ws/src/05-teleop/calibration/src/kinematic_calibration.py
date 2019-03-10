@@ -56,8 +56,9 @@ class calib():
         self.top_robot_pose_lane_filter = "/" + self.robot_name + "/lane_filter_node/lane_pose"
         # load data for use in optimization
         self.measurement_coordinate_frame = self.conf['express_measurements_in']
-        experiments = self.load_dataset("Training", self.path_training_data, localization_type='apriltag')
+        experiments = self.load_dataset("Training", self.path_training_data, localization_type='lane_filter')
 
+        """
         #add_x_dot_estimate_to_dataset(experiments, "train")
 
         # load and process the experiment data to be used for testing the model
@@ -102,7 +103,7 @@ class calib():
 
         # write to the kinematic calibration file
         self.write_calibration(model_object, popt)
-
+        """
     # Data Operations
     def load_dataset(self, dataset_name, path_to_dataset, localization_type=None):
         """

@@ -47,8 +47,8 @@ def x_adapter_apriltag(x_dict):
 
 def x_adapter_lane_filter(x_dict):
     """ converts lane filter measurements from dict to numpy array """
-    d = row(np.array(x_dict['px']))
-    phi = row(np.array(x_dict['py']))
+    d = row(np.array(x_dict['d']))
+    phi = row(np.array(x_dict['phi']))
 
     return np.vstack([d, phi])
 

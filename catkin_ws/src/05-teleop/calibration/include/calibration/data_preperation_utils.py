@@ -24,12 +24,14 @@ class DataPreparation():
         self.operation_mode = mode
         self.measurement_coordinate_frame = measurement_coordinate_frame
         self.wheel_cmd, self.robot_pose = self.load_bag(input_bag, top_wheel_cmd_exec, top_robot_pose, localization_type=localization_method)
-        self.data = self.select_interval_and_resample_numpify(localization_type=localization_method)
+        data_selected = self.select_interval_and_resample_numpify(localization_type=localization_method)
+        self.data = self.filter(data_selected)
+
 
     def select_interval_and_resample_numpify(self, localization_type=None):
         """
-        choose an subsection of data, resample and cast the data into numpy format after selecting singals of interest.
-        For instance apriltag returns  (px, py, pz, rx, ry, rz) , but we only use (px, py, rz).
+        choose a subsection of data, resample and cast the data into numpy format after selecting singals of interest,
+        for instance apriltag returns  (px, py, pz, rx, ry, rz) , but we only require (px, py, rz).
 
         returns:
             2-element tuple containing
@@ -54,37 +56,29 @@ class DataPreparation():
 
         return data
 
-    def filter(self):
+
+    def filter(self, data_selected):
         """
         filter the measurement signals
 
         returns:
-            3-element tuple containing
+            a dictionary of the measurement with the filtered measurement values
 
         - **wheel_cmd_exec_opt** (*ndarray*) - 2*N ndarray, where first row is right wheel, and second row is left wheel commands
         - **robot_pose_opt** (*ndarray*) - 3*N ndarray, where first row is x coordinate, the second row is y coordinate, and the third row is yaw angle
         - **t** (*list*) - timestamps.
 
         """
-        data_sel = copy.deepcopy(self.data_selected)
-
-        wheel_cmd_exec_sel = data_sel['wheel_cmd_exec']
-        robot_pose_sel = data_sel['robot_pose']
-
+        data = copy.deepcopy(data_selected)
         # cast the measurements into a numpy array and apply filtering
         # u operations are the same across different localization schemes
-        wheel_cmd_exec_opt = self.u_filter(wheel_cmd_exec_np,
+        data['wheel_cmd_exec'] = self.filter_measurement(data['wheel_cmd_exec'],
                                            [self.filter_length, self.filter_length, self.filter_length],
                                            [self.filter_type, self.filter_type, self.filter_type])
         # x operations vary for apriltag, lane filter etc.
-        robot_pose_opt = self.x_filter(robot_pose_opt_np,
+        data['robot_pose'] = self.filter_measurement(data['robot_pose'],
                                        [self.filter_length, self.filter_length, self.filter_length],
-                                       [self.filter_type, self.filter_type, self.filter_type],
-                                       localization_type=localization_type)
-
-        data['wheel_cmd_exec'] = wheel_cmd_exec_opt
-        data['robot_pose'] = robot_pose_opt
-        data['timestamp'] = t
+                                       [self.filter_type, self.filter_type, self.filter_type])
 
         return data
 
@@ -238,6 +232,10 @@ class DataPreparation():
         :return:
         """
         wheel_cmd_exec = self.get_wheels_command(input_bag, top_wheel_cmd_exec)
+
+        if rosbag.Bag(input_bag).get_message_count(top_robot_pose) == 0:
+            rospy.logfatal('provided rosbag: {} does not contain topic: {}'.format(input_bag,top_robot_pose))
+
         if localization_type == 'apriltag':
             robot_pose = self.get_robot_pose_apriltag(input_bag, top_robot_pose)
         elif localization_type == 'lane_filter':
@@ -297,88 +295,32 @@ class DataPreparation():
             dict[key] = dict[key][discard_first:-discard_last]
         return dict
 
-    def x_filter(self, robot_pose_opt, flen_array, filter_type):
-        return self.filter_cartesian(robot_pose_opt, flen_array, filter_type)
-
-    def u_filter(self, input_opt, flen_array, filter_type):
+    def filter_measurement(self, original_signal, flen_array, filter_type):
         from calibration.plotting_utils import multiplot
+        n = original_signal.shape[0]
 
-        (u_r, u_l) = [input_opt[i, :] for i in range(2)]  # unpack position measurements
-        (flen_r, flen_l) = [flen_array[i] for i in range(2)]  # unpack filter lengths
-        (ftype_r, ftype_l) = [filter_type[i] for i in range(2)]  # unpack filter types
+        measurements = [original_signal[i, :] for i in range(n)]  # unpack position measurements
+        flens = [flen_array[i] for i in range(n)]  # unpack filter lengths
+        ftypes = [filter_type[i] for i in range(n)]  # unpack filter types
 
         # apply filters
-        u_r_filt = smooth(u_r, window_len=flen_r, window=ftype_r)
-        u_l_filt = smooth(u_l, window_len=flen_l, window=ftype_l)
-
-        # construct filtered output
-        input_opt_filt = np.zeros((2, u_r_filt.shape[0]))
-        input_opt_filt[0, :] = u_r_filt
-        input_opt_filt[1, :] = u_l_filt
+        first = True
+        for i in range(n):
+            filtered = smooth(measurements[i], window_len=flens[i], window=ftypes[i])
+            if first:
+                filtered_signal = np.zeros((n, filtered.shape[0]))
+                first = False
+            filtered_signal[i, :] = filtered
 
         # plot original and filtered signals on the same pot
-        """
         if self.show_plots:
-            multiplot(states_list=[input_opt, input_opt_filt],
+            multiplot(states_list=[original_signal, filtered_signal],
                       experiment_name_list=['Original Signal', 'Filtered Signal'],
-                      plot_title='input commands' + self.exp_name + ' filtering')
-        """
-        return input_opt_filt
+                      plot_title="Original and Filtered Signal for " + self.exp_name,
+                      save=save_plot
+                      )
+        return filtered_signal
 
-    def filter_cartesian(self, robot_pose_opt, flen_array, filter_type):
-            from calibration.plotting_utils import multiplot
-
-            (x_pos , y_pos, yaw_pos) = [robot_pose_opt[i,:] for i in range(3)] #unpack position measurements
-            (flen_x, flen_y, flen_yaw) = [flen_array[i] for i in range(3)] #unpack filter lengths
-            (ftype_x, ftype_y, ftype_yaw) = [filter_type[i] for i in range(3)] #unpack filter types
-
-            # apply filters
-            xpos_filt = smooth(x_pos, window_len=flen_x, window=ftype_x)
-            ypos_filt = smooth(y_pos, window_len=flen_y, window=ftype_y)
-            yaw_pos_filt = smooth(yaw_pos, window_len=flen_yaw, window=ftype_yaw)
-
-            # construct filtered output
-            robot_pose_opt_filt = np.zeros((3, xpos_filt.shape[0]))
-            robot_pose_opt_filt[0,:] = xpos_filt
-            robot_pose_opt_filt[1,:] = ypos_filt
-            robot_pose_opt_filt[2,:] = yaw_pos_filt
-
-            # plot original and filtered signals on the same pot
-            if self.show_plots:
-                multiplot(states_list=[robot_pose_opt, robot_pose_opt_filt],
-                          experiment_name_list=['Original Signal', 'Filtered Signal'],
-                          plot_title = "Original and Filtered Signal for " + self.exp_name,
-                          save=save_plot
-                          )
-
-            return robot_pose_opt_filt
-
-    """
-    def filter_polar(self, robot_pose_opt, flen_array, filter_type):
-            from calibration.plotting_utils import multiplot
-
-            (rho_pos, yaw_pos) = [robot_pose_opt[i,:] for i in range(2)] #unpack position measurements
-            (flen_rho, flen_yaw) = [flen_array[i] for i in range(2)] #unpack filter lengths
-            (ftype_rho, ftype_yaw) = [filter_type[i] for i in range(2)] #unpack filter types
-
-            # apply filters
-            rho_filt = smooth(rho_pos, window_len=flen_rho, window=ftype_rho)
-            yaw_filt = smooth(yaw_pos, window_len=flen_yaw, window=ftype_yaw)
-
-            # construct filtered output
-            robot_pose_opt_filt = np.zeros((2, rho_filt.shape[0]))
-            robot_pose_opt_filt[0,:] = rho_filt
-            robot_pose_opt_filt[1,:] = yaw_filt
-
-
-            # plot original and filtered signals on the same pot
-            if TEST_MODE:
-                multiplot(states_list=[robot_pose_opt, robot_pose_opt_filt],
-                          experiment_name_list=['Original Signal', 'Filtered Signal'],
-                          plot_title = self.exp_name + ' filtering')
-
-            return robot_pose_opt_filt
-    """
 
 def smooth(x, window_len=1, window='hanning'):
     """
@@ -461,36 +403,10 @@ def load_pickle(experiment_name):
 class ExperimentData():
     pass
 
-
-"""
-def u_filter(input_opt, flen_array, filter_type):
-    from calibration.plotting_utils import multiplot
-
-    (u_r, u_l) = [input_opt[i, :] for i in range(2)]  # unpack position measurements
-    (flen_r, flen_l) = [flen_array[i] for i in range(2)]  # unpack filter lengths
-    (ftype_r, ftype_l) = [filter_type[i] for i in range(2)]  # unpack filter types
-
-    # apply filters
-    u_r_filt = smooth(u_r, window_len=flen_r, window=ftype_r)
-    u_l_filt = smooth(u_l, window_len=flen_l, window=ftype_l)
-
-    # construct filtered output
-    input_opt_filt = np.zeros((2, u_r_filt.shape[0]))
-    input_opt_filt[0, :] = u_r_filt
-    input_opt_filt[1, :] = u_l_filt
-
-    # plot original and filtered signals on the same pot
-    if 1:
-        multiplot(states_list=[input_opt, input_opt_filt],
-                  experiment_name_list=['Original Signal', 'Filtered Signal'],
-                  plot_title='input commands' + ' filtering')
-
-    return input_opt_filt
-"""
 if __name__ == '__main__':
     from plotting_utils import multiplot
     single_channel_raw = np.arange(0,5,1)
     u_raw = np.zeros((2, single_channel_raw.size))
     u_raw[0,:] = single_channel_raw
     u_raw[1,:] = single_channel_raw
-    u = u_filter(u_raw, [5,5], ['flat','flat'])
+    #u = u_filter(u_raw, [5,5], ['flat','flat'])
