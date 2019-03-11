@@ -41,8 +41,19 @@ class LaneFilterNode(object):
 
         operation_mode = 1
         if operation_mode:
+            from calibration.model_library import model_generator
+            from calibration.utils import cautious_read_param_from_file
+            rospy.logwarn("[{}] operating in model-based velocity prediction mode".format(self.node_name))
+            # Publisher
             top_wheel_cmd_exec = "/" + self.veh + "/wheels_driver_node/wheels_cmd_executed"
             self.sub_model_velocity = rospy.Subscriber(top_wheel_cmd_exec, WheelsCmdStamped, self.modelBasedVelocityUpdate)
+
+            # construct a model by specifying which model to use
+            model_type = "kinematic_drive"
+            measurement_coordinate_frame = "polar"
+
+            self.model_object = model_generator(model_type, measurement_coordinate_frame)
+            self.model_params = cautious_read_param_from_file(self.veh, self.model_object)
 
         # Publishers
         self.pub_lane_pose = rospy.Publisher("~lane_pose", LanePose, queue_size=1)
@@ -59,10 +70,11 @@ class LaneFilterNode(object):
         self.timer = rospy.Timer(rospy.Duration.from_sec(1.0), self.updateParams)
 
     def modelBasedVelocityUpdate(self, msg):
-        rospy.logwarn('\n\n\nXXXXXXXXXXXXXXXXXXXXX\n\n\n')
-        rospy.logwarn(msg)
-        rospy.logwarn('\n\n\nXXXXXXXXXXXXXXXXXXXXX\n\n\n')
-
+        # model(self, t, x, u, p) t and x are not required for model prediction and only required for SysId purposes.
+        u = (msg.vel_right, msg.vel_left)
+        x_dot = self.model_object.model(None, None, u, self.model_params) # returns  [m/s, deg/s]
+        self.velocity.v = x_dot[0]
+        self.velocity.omega = x_dot[1] * (np.pi/180)
 
     def cbChangeParams(self, msg):
         data = json.loads(msg.data)
@@ -114,10 +126,10 @@ class LaneFilterNode(object):
         # Step 1: predict
         current_time = rospy.get_time()
         dt = current_time - self.t_last_update
+
         v = self.velocity.v
         w = self.velocity.omega
-
-        rospy.logwarn('[lane_filter] v_ref: {} w_ref: {}'.format(v,w))
+        rospy.logwarn('[lane_filter] dt: {} v_ref: {} w_ref: {}'.format(dt, v, w))
 
         self.filter.predict(dt=dt, v=v, w=w)
         self.t_last_update = current_time
@@ -185,6 +197,7 @@ class LaneFilterNode(object):
         return #TODO adjust self.active
 
     def updateVelocity(self,twist_msg):
+        rospy.logwarn("\n\n\n\n EVER HERE ?\n\n\n\n")
         self.velocity = twist_msg
 
     def onShutdown(self):

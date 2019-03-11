@@ -172,3 +172,17 @@ def work_space_settings():
 
 def get_workspace_param(option):
     return options[option]
+
+
+def cautious_read_param_from_file(robot_name, model_object):
+    """ attempt to read the parameter values from config file, fallback model defaults if ccnfig file does not exist"""
+    # see if there already is a yaml file for the model we can use
+    model_param_dict = read_param_from_file(robot_name, model_object)
+    if model_param_dict is not None:
+        p0 = dict_to_ordered_array(model_object,
+                                        model_param_dict)  # if you have one, use these values as your initial guesses.
+    else:
+        p0 = dict_to_ordered_array(model_object,
+                                        model_object.get_param_initial_guess_dict())  # otherwise use the default initial guesses as defined in the class of our model choice
+        rospy.logwarn('[{}] using default initial guesses defined in model {}'.format('kinematic_calibration',model_object.name))
+    return p0
