@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 from cv_bridge import CvBridge
-from duckietown_msgs.msg import SegmentList, LanePose, BoolStamped, Twist2DStamped, FSMState
+from duckietown_msgs.msg import SegmentList, LanePose, BoolStamped, Twist2DStamped, FSMState, WheelsCmdStamped
 from duckietown_utils.instantiate_utils import instantiate
 import numpy as np
 import rospy
@@ -38,6 +38,12 @@ class LaneFilterNode(object):
         self.sub = rospy.Subscriber("~segment_list", SegmentList, self.processSegments, queue_size=1)
         self.sub_velocity = rospy.Subscriber("~car_cmd", Twist2DStamped, self.updateVelocity)
         self.sub_change_params = rospy.Subscriber("~change_params", String, self.cbChangeParams)
+
+        operation_mode = 1
+        if operation_mode:
+            top_wheel_cmd_exec = "/" + self.veh + "/wheels_driver_node/wheels_cmd_executed"
+            self.sub_model_velocity = rospy.Subscriber(top_wheel_cmd_exec, WheelsCmdStamped, self.modelBasedVelocityUpdate)
+
         # Publishers
         self.pub_lane_pose = rospy.Publisher("~lane_pose", LanePose, queue_size=1)
         self.pub_belief_img = rospy.Publisher("~belief_img", Image, queue_size=1)
@@ -51,6 +57,11 @@ class LaneFilterNode(object):
 
         # timer for updating the params
         self.timer = rospy.Timer(rospy.Duration.from_sec(1.0), self.updateParams)
+
+    def modelBasedVelocityUpdate(self, msg):
+        rospy.logwarn('\n\n\nXXXXXXXXXXXXXXXXXXXXX\n\n\n')
+        rospy.logwarn(msg)
+        rospy.logwarn('\n\n\nXXXXXXXXXXXXXXXXXXXXX\n\n\n')
 
 
     def cbChangeParams(self, msg):
@@ -78,6 +89,9 @@ class LaneFilterNode(object):
             assert isinstance(c, list) and len(c) == 2, c
 
             self.loginfo('new filter config: %s' % str(c))
+            #rospy.logwarn('c0: {}\nc1: {}'.format(c[0], c[1]))
+            #c[0] : lane_filter.LaneFilterHistogram
+            #c[1] : parameters ..
             self.filter = instantiate(c[0], c[1])
 
     def cbSwitch(self, switch_msg):
@@ -102,6 +116,8 @@ class LaneFilterNode(object):
         dt = current_time - self.t_last_update
         v = self.velocity.v
         w = self.velocity.omega
+
+        rospy.logwarn('[lane_filter] v_ref: {} w_ref: {}'.format(v,w))
 
         self.filter.predict(dt=dt, v=v, w=w)
         self.t_last_update = current_time

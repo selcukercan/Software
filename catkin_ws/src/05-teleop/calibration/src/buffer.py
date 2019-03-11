@@ -31,9 +31,11 @@ class Buffer:
         # Publisher
         pub_topic_compressed_image= '/' + self.veh + "/buffer_node/image/compressed"
         pub_topic_camera_info= '/' + self.veh + "/buffer_node/camera_info"
+        pub_topic_wheels_cmd_executed= '/' + self.veh + '/wheels_driver_node/wheels_cmd_executed'
 
         self.pub_compressed_image = rospy.Publisher(pub_topic_compressed_image, CompressedImage, queue_size=1)
         self.pub_camera_info = rospy.Publisher(pub_topic_camera_info, CameraInfo, queue_size=1)
+        self.pub_wheels_cmd_exec = rospy.Publisher(pub_topic_wheels_cmd_executed, WheelsCmdStamped, queue_size=1)
 
         # ROS Parameters
         self.pm_send_status = "/" + self.veh + "/buffer_node/process_status"
@@ -52,9 +54,12 @@ class Buffer:
         self.input_rosbag = rosbag.Bag(path_to_bag)
         self.total_msg_count = self.input_rosbag.get_message_count(image_topicname)
         self.view_generator = self.input_rosbag.read_messages(topics=image_topicname) # create a rosbag generator
-
+        # Read compressed cam info
         cam_info_topicname = "/" + self.veh + "/camera_node/camera_info"
         self.view_generator_cam_info = self.input_rosbag.read_messages(topics=cam_info_topicname) # create a rosbag generator
+        # Read compressed cam info
+        wheels_cmd_topicname = "/" + self.veh + '/wheels_driver_node/wheels_cmd_executed'
+        self.view_generator_wheels_cmd = self.input_rosbag.read_messages(topics=wheels_cmd_topicname) # create a rosbag generator
 
         rospy.set_param(self.pm_message_count, self.total_msg_count)
 
@@ -64,12 +69,7 @@ class Buffer:
 
         self.pub_single_compressed_image() # send the first image
         self.publish_single_cam_info() # publish camera info only once // necessary for for lane filter by ground_projection_node
-
-    def publish_single_cam_info(self):
-        view_output = next(self.view_generator_cam_info) # view_output class : <class 'rosbag.bag.BagMessage'>, has return value (topic_name, msg, time_stamp of the message)
-        msg = view_output.message # message content of the view is what we want to publish
-        rospy.loginfo("[{}] publishing camera info".format(self.node_name))
-        self.pub_camera_info.publish(msg) # publish the message
+        self.pub_single_wheel_cmd() # publsih wheel_cmd // necessary for model based velocity calculation in lane filter node
 
     def setupParam(self,param_name,default_value):
         value = rospy.get_param(param_name,default_value)
@@ -81,6 +81,7 @@ class Buffer:
         if self.send_out_all_images == False:
             rospy.loginfo('[{}] recieved new image request'.format(self.node_name))
             self.pub_single_compressed_image()
+            self.pub_single_wheel_cmd()
         else:
             print("!!!!!!!!!! SHOULD NOT BE HERE 1")
 
@@ -102,7 +103,19 @@ class Buffer:
                 self.send_out_all_images = True
                 self.send_status = rospy.set_param(self.pm_send_status,1)
             else:
-                print("!!!!!!!!!! SHOULD NOT BE HERE 2 ")
+                print("SHOULD NOT BE HERE")
+
+    def publish_single_cam_info(self):
+        view_output = next(self.view_generator_cam_info) # view_output class : <class 'rosbag.bag.BagMessage'>, has return value (topic_name, msg, time_stamp of the message)
+        msg = view_output.message # message content of the view is what we want to publish
+        rospy.loginfo("[{}] publishing camera info".format(self.node_name))
+        self.pub_camera_info.publish(msg) # publish the message
+
+    def pub_single_wheel_cmd(self):
+        view_output = next(self.view_generator_wheels_cmd) # view_output class : <class 'rosbag.bag.BagMessage'>, has return value (topic_name, msg, time_stamp of the message)
+        msg = view_output.message # message content of the view is what we want to publish
+        rospy.loginfo("[{}] publishing wheels cmd".format(self.node_name))
+        self.pub_wheels_cmd_exec.publish(msg) # publish the message
 
 if __name__ == '__main__':
     buffer = Buffer()
