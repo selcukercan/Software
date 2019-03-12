@@ -36,10 +36,10 @@ class LaneFilterNode(object):
         self.pub_in_lane    = rospy.Publisher("~in_lane",BoolStamped, queue_size=1)
         # Subscribers
         self.sub = rospy.Subscriber("~segment_list", SegmentList, self.processSegments, queue_size=1)
-        self.sub_velocity = rospy.Subscriber("~car_cmd", Twist2DStamped, self.updateVelocity)
         self.sub_change_params = rospy.Subscriber("~change_params", String, self.cbChangeParams)
 
-        operation_mode = 1
+        operation_mode = rospy.get_param("/operation_mode", 0)
+
         if operation_mode:
             from calibration.model_library import model_generator
             from calibration.utils import cautious_read_param_from_file
@@ -54,6 +54,8 @@ class LaneFilterNode(object):
 
             self.model_object = model_generator(model_type, measurement_coordinate_frame)
             self.model_params = cautious_read_param_from_file(self.veh, self.model_object)
+        else:
+            self.sub_velocity = rospy.Subscriber("~car_cmd", Twist2DStamped, self.updateVelocity)
 
         # Publishers
         self.pub_lane_pose = rospy.Publisher("~lane_pose", LanePose, queue_size=1)
