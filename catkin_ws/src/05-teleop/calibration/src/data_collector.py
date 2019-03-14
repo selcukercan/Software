@@ -23,29 +23,33 @@ class DataCollector:
         rospy.init_node('Command', anonymous=True, disable_signals=True)
         self.rate = rospy.Rate(30)  # 30 Hz
 
-        # Publisher
-        publisher= '/' + self.veh + "/wheels_driver_node/wheels_cmd"
-        self.pub_wheels_cmd = rospy.Publisher(publisher, WheelsCmdStamped, queue_size=1)
-
-        # Topics to save into rosbag
-        # Output End
-        sub_topic_comp_image = '/' + self.veh + '/camera_node/image/compressed' # 30 Hz
-        sub_topic_cam_info = '/' + self.veh +'/camera_node/camera_info'
-        # Input End
-        sub_topic_wheels_cmd_executed = '/' + self.veh + '/wheels_driver_node/wheels_cmd_executed'
-        sub_topic_wheels_cmd = '/' + self.veh + '/wheels_driver_node/wheels_cmd'
-
         # Parameters
         self.rosbag_dir = rospy.get_param("~output_rosbag_dir")
         self.use_for = self.is_valid_param(param_name='use_for',
                                            param_address='~use_for',
                                            valid_params=['calibration', 'verification'])
 
+        # Publisher
+        if self.use_for == 'calibration':
+            topic_wheel_cmd = '/' + self.veh + "/wheels_driver_node/wheels_cmd"
+            self.pub_wheels_cmd = rospy.Publisher(topic_wheel_cmd, WheelsCmdStamped, queue_size=1)
+        elif self.use_for == 'verification':
+            topic_car_cmd = '/' + self.veh + "/joy_mapper_node/car_cmd"
+            self.pub_car_cmd = rospy.Publisher(topic_car_cmd, Twist2DStamped, queue_size=1)
+        # Topics to save into rosbag
+        # Output End
+        sub_topic_comp_image = '/' + self.veh + '/camera_node/image/compressed'  # 30 Hz
+        sub_topic_cam_info = '/' + self.veh + '/camera_node/camera_info'
+        # Input End
+        sub_topic_wheels_cmd_executed = '/' + self.veh + '/wheels_driver_node/wheels_cmd_executed'
+        sub_topic_wheels_cmd = '/' + self.veh + '/wheels_driver_node/wheels_cmd'
+        sub_topic_car_cmd = '/' + self.veh + "/joy_mapper_node/car_cmd"
+
         rospy.logwarn("[{}] perform data collection for {}".format(self.node_name, self.use_for))
 
-        self.cam_topics = [sub_topic_comp_image, sub_topic_cam_info, ]
+        self.cam_topics = [sub_topic_comp_image, sub_topic_cam_info]
         self.wheel_cmd_topics = [sub_topic_wheels_cmd_executed, sub_topic_wheels_cmd]
-        self.topics_to_follow = self.cam_topics + self.wheel_cmd_topics
+        self.topics_to_follow = self.cam_topics + self.wheel_cmd_topics + [sub_topic_car_cmd]
 
         # Wait for service server - rosbag-recorder services to start
         rospy.loginfo('[Data Collector Node] BEFORE SERVICE REGISTER')
@@ -65,13 +69,14 @@ class DataCollector:
 
     @staticmethod
     def exp_name_object_map():
-        """ maps the input names to input classes. note that return type is uninitialzied object"""
+        """ maps the input names to input classes. note that return type is an uninitialized object"""
         return {
             'ramp_up': RampUp,
             'sine': Sine,
             'sweep_sine': SweepSine,
             'step_salsa': StepSalsa,
-            'step': Step
+            'step': Step,
+            'circle': Circle
         }
 
 
@@ -109,53 +114,44 @@ class DataCollector:
         if self.use_for == 'calibration':
             self.available_experiments = ["ramp_up", "sine", "sweep_sine", "step_salsa", "step"]
         elif self.use_for == 'verification':
-            self.available_experiments = ["ramp_up", "sine"]
+            self.available_experiments = ["circle"]
         else:
             pass
+
         ui = ExperimentUI()
 
         while DO_EXPERIMENT == "yes":
             print("\nType in the name of the experiment to conduct: {}".format(str(self.available_experiments)))
-            experiment_type, experiment_object_add = self.get_valid_experiment(use_for=self.use_for)
-            experiment_object = experiment_object_add()
+            experiment_type, experiment_object_init = self.get_valid_experiment(use_for=self.use_for)
+            experiment_object = experiment_object_init(mode=self.use_for)
 
             if experiment_type != None:
                 default_param_dict = experiment_object.parameter_dict
                 param_dict_request = ui.request_param_values(experiment_type, default_param_dict) # get user input to decide the set of params to be used.
                 rospy.loginfo("[Data Collector Node] parameter set to be used in {} calibration: {}".format(experiment_type, str(param_dict_request)))
 
-                wheel_cmds = experiment_object.generate_input(param_dict_request)
+                if self.use_for == 'calibration':
+                    wheel_cmds = experiment_object.generate_input(param_dict_request)
+                elif self.use_for == 'verification':
+                    reference_traj = experiment_object.generate_trajectory(param_dict_request)
+
+                # rosbag
                 rosbag_name = experiment_object.generate_experiment_label()
                 rosbag_path = self.rosbag_dir + "/" + rosbag_name + ".bag"
+                # start recording
+                ready_to_start = self.start_recording(rosbag_name)
 
-                # start recording rosbag
-
-                cam_topics_ready = self.topics_ready(self.cam_topics)
-                if not cam_topics_ready:
-                    rospy.logfatal('[{}] {} are not published, did you roslaunch the camera-related functionality?'
-                                   .format(self.node_name, str(self.cam_topics)))
-                    rospy.signal_shutdown('missing a required topic(s)')
-
-                record_topic_response = self.topic_recorder(rosbag_name, self.topics_to_follow)
-                record_topic_response_val = record_topic_response.success
-
-                rospy.loginfo("[Data Collector Node] starting the node and waiting {} seconds to ensure rosbag is recording ...".format(str(self.wait_start_rosbag)))
-                rospy.sleep(self.wait_start_rosbag)  # wait for the bag to start recording
-
-                if record_topic_response_val == True: # if the recording had started
-                    self.send_commands(wheel_cmds)
+                if ready_to_start: # if the recording had started
+                    if self.use_for == 'calibration':
+                        self.send_commands(wheel_cmds)
+                    elif self.use_for == 'verification':
+                        self.send_reference_trajectory(reference_traj)
                 else:
                     rospy.loginfo('Failed to start recording the topics, needs handling!')
 
-                # stop recording rosbag.
-                rospy.loginfo("[Data Collector Node] waiting {} seconds to ensure all data is recorded into rosbag ...".format(str(self.wait_write_rosbag)))
+                self.stop_recording(rosbag_name)
 
-                rospy.sleep(self.wait_write_rosbag)  # wait for the bag to record all data
-                recording_stop_response = self.recording_stop(rosbag_name)
-                rospy.sleep(self.wait_write_rosbag)  # wait for the bag to record all data
-
-                print "recording_stop_response: {} ".format(recording_stop_response)
-                #ask whether user wants to keep the current measurements
+                # ask whether user wants to keep the current measurements
                 rospy.loginfo('do you want to keep the current experiments bag file? (respond with yes or no)')
 
                 user_input = raw_input()
@@ -188,6 +184,21 @@ class DataCollector:
             self.pub_wheels_cmd.publish(msg_wheels_cmd)
             self.rate.sleep()
 
+    def send_reference_trajectory(self, ref_traj):
+        v = ref_traj['v']
+        w = ref_traj['w']
+
+        # Put the wheel commands in a message and publish
+        msg_car_cmd = Twist2DStamped()
+
+        for i in range(len(w)):
+            msg_car_cmd.header.stamp = rospy.Time.now()
+            msg_car_cmd.v = v[i]
+            msg_car_cmd.omega = w[i]
+
+            self.pub_car_cmd.publish(msg_car_cmd)
+            self.rate.sleep()
+
     def is_valid_param(self, param_name=None, param_address=None, valid_params=None):
         param_val = rospy.get_param(param_address)
         if param_val in valid_params:
@@ -204,6 +215,33 @@ class DataCollector:
                 return False
         return True
 
+    def start_recording(self, rosbag_name):
+        # start recording rosbag
+        cam_topics_ready = self.topics_ready(self.cam_topics)
+        if not cam_topics_ready:
+            rospy.logfatal('[{}] {} are not published, did you roslaunch the camera-related functionality?'
+                           .format(self.node_name, str(self.cam_topics)))
+            rospy.signal_shutdown('missing a required topic(s)')
+
+        record_topic_response = self.topic_recorder(rosbag_name, self.topics_to_follow)
+        record_topic_response_val = record_topic_response.success
+
+        rospy.loginfo(
+            "[Data Collector Node] starting the node and waiting {} seconds to ensure rosbag is recording ...".format(
+                str(self.wait_start_rosbag)))
+        rospy.sleep(self.wait_start_rosbag)  # wait for the bag to start recording
+        return record_topic_response_val
+
+    def stop_recording(self, rosbag_name):
+        # stop recording rosbag.
+        rospy.loginfo("[Data Collector Node] waiting {} seconds to ensure all data is recorded into rosbag ...".format(
+            str(self.wait_write_rosbag)))
+
+        rospy.sleep(self.wait_write_rosbag)  # wait for the bag to record all data
+        recording_stop_response = self.recording_stop(rosbag_name)
+        rospy.sleep(self.wait_write_rosbag)  # wait for the bag to record all data
+
+        print"recording_stop_response: {} ".format(recording_stop_response)
 
 if __name__ == '__main__':
     calib = DataCollector()

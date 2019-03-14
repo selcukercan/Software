@@ -8,20 +8,48 @@ import numpy as np
 frequency = 30
 
 class BaseExperimentClass(object):
-    __metaclass__ = ABCMeta
+    #__metaclass__ = ABCMeta
 
-    @abstractmethod
-    def __init__(self):
+    #@abstractmethod
+    def __init__(self, mode='calibration'):
         pass
 
-    @abstractmethod
+    #@abstractmethod
     def generate_input(self, req_parameter_dict):
         """gets a dictionary containing the parameter values that are required to generate the input sequence for the particular input genre and returns a python list"""
         return
 
+    #@abstractmethod
+    def generate_trajectory(self, req_parameter_dict):
+        """gets a dictionary containing the parameter values that are required to generate a trajectory for the particular input genre and returns a python list"""
+        return
+
+    #@abstractmethod
     def advertise_experiment(self):
         """rosinfo brief description of the experiment, specifically the interpretation of parameters"""
         pass
+
+    #@abstractmethod
+    def advertise_verification(self):
+        pass
+
+    def get_advertisement(self):
+        if self.mode == 'calibration':
+            return self.advertise_experiment()
+        elif self.mode == 'verification':
+            return  self.advertise_verification()
+
+    def get_param_dict(self):
+        if self.mode == 'calibration':
+            return self.wheel_cmd_parameter_dict
+        elif self.mode == 'verification':
+            return self.traj_param_dict
+
+    def generate_reference(self):
+        if self.mode == 'calibration':
+            return self.generate_input(self.parameter_dict)
+        elif self.mode == 'verification':
+            return self.generate_trajectory(self.parameter_dict)
 
     def generate_experiment_label(self):
         """generates a custom experiment label with experiment time, experiment type, parameter names and their values"""
@@ -35,12 +63,18 @@ class BaseExperimentClass(object):
 
         return experiment_name_base + "_" + param_val_label
 
+
 class RampUp(BaseExperimentClass):
 
-    def __init__(self):
+    def __init__(self, mode='calibration'):
         self.name = "ramp_up"
-        self.parameter_dict = {'n_step': 180, 'd_max': 0.5}
-        self.advertise_experiment()
+        self.mode = mode
+
+        self.wheel_cmd_parameter_dict = {'n_step': 180, 'd_max': 0.5}
+        self.traj_param_dict = None
+
+        self.parameter_dict = self.get_param_dict()
+        self.advertisement = self.get_advertisement()
 
     def advertise_experiment(self):
         """rosinfo brief description of the experiment, specifically the interpretation of parameters"""
@@ -58,10 +92,11 @@ class RampUp(BaseExperimentClass):
 
     def generate_input(self, req_parameter_dict):
         input_sequence = {'left_wheel': [], 'right_wheel': []}
-        rospy.loginfo("[generate_input] generating input sequence of type {} with parameters {}".format(self.name, str(req_parameter_dict)))
+        rospy.loginfo("[generate_input] generating input sequence of type {} with parameters {}".format(self.name, str(
+            req_parameter_dict)))
 
         for n in range(1, int(req_parameter_dict['n_step']) + 1):
-            v = req_parameter_dict['d_max']/req_parameter_dict['n_step'] * n
+            v = req_parameter_dict['d_max'] / req_parameter_dict['n_step'] * n
             input_sequence['left_wheel'].append(v)
             input_sequence['right_wheel'].append(v)
         input_sequence['left_wheel'].append(0)
@@ -69,12 +104,24 @@ class RampUp(BaseExperimentClass):
 
         return input_sequence
 
+    def advertise_verification(self):
+        pass
+
+    def generate_trajectory(self, req_parameter_dict):
+        pass
+
+
 class Step(BaseExperimentClass):
 
-    def __init__(self):
+    def __init__(self, mode='calibration'):
         self.name = "step"
-        self.parameter_dict = {'d': 0.5, 'duration': 1.0}
-        self.advertise_experiment()
+        self.mode = mode
+
+        self.wheel_cmd_parameter_dict = {'d': 0.5, 'duration': 1.0}
+        self.traj_param_dict = None
+
+        self.parameter_dict = self.get_param_dict()
+        self.advertisement = self.get_advertisement()
 
     def advertise_experiment(self):
         """rosinfo brief description of the experiment, specifically the interpretation of parameters"""
@@ -102,12 +149,24 @@ class Step(BaseExperimentClass):
 
         return input_sequence
 
+    def advertise_verification(self):
+        pass
+
+    def generate_trajectory(self, req_parameter_dict):
+        pass
+
+
 class Sine(BaseExperimentClass):
 
-    def __init__(self):
+    def __init__(self, mode='calibration'):
         self.name = "sine"
-        self.parameter_dict = {'k1': 0.2, 'k2': 0.06, 'omega': 0.007, 'duration': 1500}
-        self.advertise_experiment()
+        self.mode = mode
+
+        self.wheel_cmd_parameter_dict = {'k1': 0.2, 'k2': 0.06, 'omega': 0.007, 'duration': 1500}
+        self.traj_param_dict = None
+
+        self.parameter_dict = self.get_param_dict()
+        self.advertisement = self.get_advertisement()
 
     def advertise_experiment(self):
         """rosinfo brief description of the experiment, specifically the interpretation of parameters"""
@@ -139,22 +198,33 @@ class Sine(BaseExperimentClass):
         input_sequence['left_wheel'].append(0)
         input_sequence['right_wheel'].append(0)
 
-
         return input_sequence
+
+    def advertise_verification(self):
+        pass
+
+    def generate_trajectory(self, req_parameter_dict):
+        pass
+
 
 class SweepSine(BaseExperimentClass):
 
-    def __init__(self):
+    def __init__(self, mode='calibration'):
         self.name = "sweep_sine"
-        self.parameter_dict = {'k1': 0.2, 'k2': 0.06, 'omega_low': 0.005, 'omega_high': 0.008, 'duration': 1500}
-        self.advertise_experiment()
+        self.mode = mode
+
+        self.wheel_cmd_parameter_dict = {'k1': 0.2, 'k2': 0.06, 'omega_low': 0.005, 'omega_high': 0.008, 'duration': 1500}
+        self.traj_param_dict = None
+
+        self.parameter_dict = self.get_param_dict()
+        self.advertisement = self.get_advertisement()
 
     def advertise_experiment(self):
         """rosinfo brief description of the experiment, specifically the interpretation of parameters"""
         info_msg = """
         Experiment Description:
 
-        Perform a sweep sine (aka: chirp signal) experiment for **duration** seconds, where omega content is linearly
+        Perform a sweep sine (aka: chirp signal) experiment for **duration** miliseconds, where omega content is linearly
         increased from **omega_low** to **omega_high**
         
         Paramaters:
@@ -187,12 +257,24 @@ class SweepSine(BaseExperimentClass):
 
         return input_sequence
 
+    def advertise_verification(self):
+        pass
+
+    def generate_trajectory(self, req_parameter_dict):
+        pass
+
+
 class StepSalsa(BaseExperimentClass):
 
-    def __init__(self):
+    def __init__(self, mode='calibration'):
         self.name = "step_salsa"
-        self.parameter_dict = {'d': 0.2, 'duration': 0.5, 'repeat': 1}
-        self.advertise_experiment()
+        self.mode = mode
+
+        self.wheel_cmd_parameter_dict = {'d': 0.2, 'duration': 0.5, 'repeat': 1}
+        self.traj_param_dict = None
+
+        self.parameter_dict = self.get_param_dict()
+        self.advertisement = self.get_advertisement()
 
     def advertise_experiment(self):
         """rosinfo brief description of the experiment, specifically the interpretation of parameters"""
@@ -243,6 +325,84 @@ class StepSalsa(BaseExperimentClass):
         #simple_plot(None, input_sequence['right_wheel'], plot_name="right_wheel")
 
         return input_sequence
+
+    def advertise_verification(self):
+        pass
+
+    def generate_trajectory(self, req_parameter_dict):
+        pass
+
+
+class Circle(BaseExperimentClass):
+
+    def __init__(self, mode='calibration'):
+        self.name = "circle"
+        self.mode = mode
+
+        self.wheel_cmd_parameter_dict = {'d_r': 0.6, 'd_r': 0.5, 'duration': 1500}
+        self.traj_param_dict = {'v': 0.5, 'w': 0.1, 'duration': 1500}
+
+        self.parameter_dict = self.get_param_dict()
+        self.advertisement = self.get_advertisement()
+
+
+    def advertise_experiment(self):
+        """rosinfo brief description of the experiment, specifically the interpretation of parameters"""
+        info_msg = """
+        Experiment Description:
+
+        Command your duckiebot to follow a circular path by specifing the duty cycle for the right and the left motor with 
+        **d_r** and **d_l** respectively. Note that the higer the difference between the duty-cycles smaller the circle 
+        radius will be. 
+
+        Paramaters:
+
+        d_r:\t\tduty cycle of the right motor
+        d_l:\t\tduty cycle of the left motor
+        duration:\t\tduration of the experiment
+        """
+        print(info_msg)
+
+
+    def advertise_verification(self):
+        """rosinfo brief description of the experiment, specifically the interpretation of parameters"""
+        info_msg = """
+        Verification Experiment Description:
+
+        Command your duckiebot to follow a circular path by specifing the longitudinal and angular velocities, 
+        **v** and **w** respectively.
+
+        Paramaters:
+
+        v:\t\tlongitudinal velocity [m/sec]
+        w:\t\tangular velocity [rad/sec]
+        duration:\t\tduration of the experiment
+        """
+        print(info_msg)
+
+
+    def generate_input(self, req_parameter_dict):
+        input_sequence = {'left_wheel': [], 'right_wheel': []}
+        rospy.loginfo("[generate_input] generating input sequence of type {} with parameters {}".format(self.name, str(req_parameter_dict)))
+
+        for t in range(0,int(req_parameter_dict['duration']), 10): # increments of 10 ms
+            input_sequence['left_wheel'].append(req_parameter_dict['d_l'])
+            input_sequence['right_wheel'].append(req_parameter_dict['d_r'])
+        input_sequence['left_wheel'].append(0)
+        input_sequence['right_wheel'].append(0)
+
+        return input_sequence
+
+
+    def generate_trajectory(self, req_parameter_dict):
+        traj_sequence = {'v': [], 'w': []}
+        rospy.loginfo("[generate_input] generating trajectory sequence of type {} with parameters {}".format(self.name, str(req_parameter_dict)))
+
+        for t in range(0,int(req_parameter_dict['duration']), 10): # increments of 10 ms
+            traj_sequence['v'].append(req_parameter_dict['v'])
+            traj_sequence['w'].append(req_parameter_dict['w'])
+        return traj_sequence
+
 
 class ExperimentUI():
 
