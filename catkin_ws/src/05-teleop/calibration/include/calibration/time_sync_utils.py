@@ -20,7 +20,7 @@ def time_sync(input_bag, veh_name):
     t_lf = []
 
     top_compressed_image = "/" + veh_name + "/camera_node/image/compressed"
-    top_tag_detections = "/" + veh_name + "/apriltags2_ros/publish_detections_in_local_frame/tag_detections_local_frame"
+    top_tag_detections = "/" + veh_name + "/apriltags2_ros/publish_detections_in_local_frame/tag_detections_array_local_frame"
     top_lane_filter = "/" + veh_name + "/lane_filter_node/lane_pose"
 
     # record the ros times of compressed_image and tag_detections topics into a list
@@ -64,6 +64,17 @@ def time_sync(input_bag, veh_name):
     rospy.loginfo('finished time-syncing, file is at {}'.format(output_bag))
 
 def non_empty_tag_detection(msg):
+    """ write to bag if there exist at least one non-empty tag-detection"""
+    tag_list = msg.local_pose_list
+    if len(tag_list ) != 0:
+        for tag_i in range(len(tag_list)):
+            if non_empty_tag_detection_single_tag(tag_list[tag_i]):
+                return True
+            return False
+    else:
+        rospy.logwarn("[time_sync] empty april tag detection array recieved")
+
+def non_empty_tag_detection_single_tag(msg):
     els = [px, py, pz, rx, ry, rz] = [msg.posx, msg.posy, msg.posz, msg.rotx, msg.roty, msg.rotz]
     for el in els:
         if el != 0.:

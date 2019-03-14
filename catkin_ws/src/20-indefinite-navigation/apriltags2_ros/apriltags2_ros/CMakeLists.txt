@@ -44,7 +44,6 @@ add_message_files(
   FILES
   AprilTagDetectionArray.msg
   AprilTagDetection.msg
-  VehiclePoseEuler.msg
 )
 
 add_service_files(

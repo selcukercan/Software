@@ -9,8 +9,7 @@ from threading import Lock
 from shutil import copy
 # package utilities import
 from std_msgs.msg import String, Bool
-from sensor_msgs.msg import CompressedImage
-from duckietown_msgs.msg import WheelsCmdStamped, Twist2DStamped, AprilTagDetectionArray, LanePose, VehiclePoseEuler
+from duckietown_msgs.msg import LanePose, VehiclePoseEulerArray
 from calibration.wheel_cmd_utils import *
 from calibration.time_sync_utils import time_sync
 
@@ -118,10 +117,10 @@ class MeasurementBuffer:
         for method in active_methods:
             if method == 'apriltag':
                 obj = LocalizationMethod(method_name=method,
-                sub_top='/' + self.veh + '/apriltags2_ros/publish_detections_in_local_frame/tag_detections_local_frame',
-                pub_top='/' + self.veh + '/calibration/measurement_buffer/tag_detections_local_frame')
-                obj.set_sub(topic_type=VehiclePoseEuler, callback_fn=self.cb_apriltag)
-                obj.set_pub(topic_type=VehiclePoseEuler, queue_size=1)
+                sub_top='/' + self.veh + '/apriltags2_ros/publish_detections_in_local_frame/tag_detections_array_local_frame',
+                pub_top='/' + self.veh + '/calibration/measurement_buffer/tag_detections_array_local_frame')
+                obj.set_sub(topic_type=VehiclePoseEulerArray, callback_fn=self.cb_apriltag)
+                obj.set_pub(topic_type=VehiclePoseEulerArray, queue_size=1)
             elif method == 'lane_filter':
                 obj = LocalizationMethod(method_name=method,
                 sub_top='/' + self.veh + '/lane_filter_node/lane_pose',
@@ -133,9 +132,6 @@ class MeasurementBuffer:
             method_objects[method] = obj
         return method_objects
 
-    def form_message(self):
-        pass
-
     def cb_lane_filter(self, msg):
         self.method_objects['lane_filter']._add(msg)
 
@@ -146,7 +142,6 @@ class MeasurementBuffer:
 
     def cb_apriltag(self, msg):
         self.method_objects['apriltag']._add(msg)
-
         if self.check_ready_to_publish():
             self.pub_messages()
             self.write_bag()

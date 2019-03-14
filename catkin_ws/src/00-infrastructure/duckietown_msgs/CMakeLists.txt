@@ -58,6 +58,8 @@ add_message_files(
 #  TrafficLightDetection.msg
   VehicleCorners.msg
   VehiclePose.msg
+  VehiclePoseEuler.msg
+  VehiclePoseEulerArray.msg
 #  VehicleDetection.msg
   FSMState.msg
   BoolStamped.msg
@@ -77,7 +79,6 @@ add_message_files(
   ObstacleImageDetectionList.msg
   ObstacleProjectedDetection.msg
   ObstacleProjectedDetectionList.msg
-  VehiclePoseEuler.msg
 
 )
 

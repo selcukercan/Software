@@ -6,7 +6,8 @@ from ruamel import yaml
 from os import path
 from os import makedirs
 from apriltags2_ros.msg import AprilTagDetectionArray
-from apriltags2_ros.msg import VehiclePoseEuler
+from duckietown_msgs.msg import VehiclePoseEuler
+
 from apriltags2_ros_post_process.rotation_utils import *
 
 class WorkSpaceParams(object):
