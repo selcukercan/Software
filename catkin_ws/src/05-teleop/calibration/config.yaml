@@ -4,6 +4,8 @@ debug: True # needs to be set True while debugging through an IDE
 save_experiment_results: False # save the plots under the results
 save_to_pickle: False
 show_plots: True # display the plots
+multitag_pose_estimation: False # not yet implemented
+
 # Optimization
 express_measurements_in: polar # or cartesian. polar coordinates is the recommended option
 cost_function_type: AsRMSE # see include/calibration/cost_function_library.py for available options

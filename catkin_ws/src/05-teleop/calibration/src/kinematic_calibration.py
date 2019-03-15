@@ -52,7 +52,8 @@ class calib():
 
         # topics of interest
         self.top_wheel_cmd_exec = "/" + self.robot_name + "/wheels_driver_node/wheels_cmd_executed"
-        self.top_robot_pose_apriltag = "/" + self.robot_name + "/apriltags2_ros/publish_detections_in_local_frame/tag_detections_local_frame"
+        #self.top_robot_pose_apriltag = "/" + self.robot_name + "/apriltags2_ros/publish_detections_in_local_frame/tag_detections_local_frame"
+        self.top_robot_pose_apriltag = "/" + self.robot_name + '/apriltags2_ros/publish_detections_in_local_frame/tag_detections_array_local_frame'
         self.top_robot_pose_lane_filter = "/" + self.robot_name + "/lane_filter_node/lane_pose"
         # load data for use in optimization
         self.measurement_coordinate_frame = self.conf['express_measurements_in']
@@ -62,6 +63,7 @@ class calib():
         #add_x_dot_estimate_to_dataset(experiments, "train")
         """
 
+        """
         # load and process the experiment data to be used for testing the model
         validation_dataset = self.load_dataset("Validation", self.path_validation_data, localization_type='apriltag')
 
@@ -104,7 +106,7 @@ class calib():
 
         # write to the kinematic calibration file
         self.write_calibration(model_object, popt)
-
+        """
     # Data Operations
     def load_dataset(self, dataset_name, path_to_dataset, localization_type=None):
         """

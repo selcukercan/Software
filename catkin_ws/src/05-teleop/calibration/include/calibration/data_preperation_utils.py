@@ -16,6 +16,7 @@ class DataPreparation():
     filter_length = get_param_from_config_file("filter_length")
     discard_first = get_param_from_config_file("discard_first_n_data")
     discard_last = get_param_from_config_file("discard_last_n_data")
+    multitag_pose_estimation = get_param_from_config_file("multitag_pose_estimation")
 
     def __init__(self, input_bag = None, top_wheel_cmd_exec = None, top_robot_pose = None,
                  save_as = None, dump = False, exp_name='', mode='train', measurement_coordinate_frame='cartesian', localization_method=None):
@@ -260,24 +261,32 @@ class DataPreparation():
 
         return cmd
 
-    def get_robot_pose_apriltag(self, input_bag, topic_name):
-
-        pose = {
-            'px': [],'py': [],'pz': [],
-            'rx':[],'ry':[],'rz':[],
-            'timestamp': []
-        }
-
+    def get_apriltag_detections(self, input_bag, topic_name):
+        known_at = {}
         # Loop over the image files contained in rosbag
         for topic, msg, t in rosbag.Bag(input_bag).read_messages(topics=topic_name):
-            pose['px'].append(msg.posx)
-            pose['py'].append(msg.posy)
-            pose['pz'].append(msg.posz)
-            pose['rx'].append(msg.rotx)
-            pose['ry'].append(msg.roty)
-            pose['rz'].append(msg.rotz)
-            pose['timestamp'].append(t.to_sec())
-        return pose
+            for at in msg.local_pose_list:
+                if at.id not in known_at:
+                    at_obj = AprilTagDetection(at.id, at.size)
+                    known_at[at.id] = at_obj
+                at_obj = known_at[at.id]
+                at_obj.add('px', msg.posx)
+                at_obj.add('py', msg.posy)
+                at_obj.add('pz', msg.posz)
+                at_obj.add('rx', msg.rotx)
+                at_obj.add('ry', msg.roty)
+                at_obj.add('rz', msg.rotz)
+                at_obj.add('timestamp', t.to_sec())
+        return known_at
+
+    def get_robot_pose_apriltag(self, input_bag, topic_name):
+        at_detections = self.get_apriltag_detections(input_bag, topic_name)
+        if self.multitag_pose_estimation == False:
+            # This case corresponds to offline calibration, distributed AprilTag ID:0.
+            return at_detections['0'].pose
+        else:
+            raise NotImplementedError
+
 
     def get_robot_pose_lane_filter(self, input_bag, topic_name):
         pose = {'d': [],'phi': [], 'timestamp': []}
@@ -402,6 +411,19 @@ def load_pickle(experiment_name):
 # To save data easily with pickle create a trivial class
 class ExperimentData():
     pass
+
+class AprilTagDetection():
+    def __init__(self, id=None, size=None):
+        self.pose = {
+            'px': [],'py': [],'pz': [],
+            'rx':[],'ry':[],'rz':[],
+            'timestamp': []
+        }
+        self.id = id
+        self.size = size
+
+    def add(self, pose_key , pose_val):
+        self.pose[pose_key].append(pose_val)
 
 if __name__ == '__main__':
     from plotting_utils import multiplot
