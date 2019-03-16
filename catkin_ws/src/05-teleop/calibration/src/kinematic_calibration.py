@@ -15,7 +15,7 @@ from calibration.data_preperation_utils import load_pickle, save_pickle
 from calibration.model_library import model_generator, simulate
 from calibration.plotting_utils import *
 from calibration.utils import work_space_settings, get_workspace_param, \
-    defined_ros_param, input_folder_to_experiment_dict, read_param_from_file, dict_to_ordered_array, get_file_path, \
+    defined_ros_param, input_folder_to_experiment_dict, read_param_from_file, get_file_path,  defaulted_param_load, \
     pack_results
 # duckietown imports
 from duckietown_utils.yaml_wrap import yaml_load_file, yaml_write_to_file
@@ -48,33 +48,34 @@ class calib():
         self.node_name = 'kinematic_calibration'  # node name , as defined in launch file
         self.host_package_node = host_package + self.node_name
 
-        # set parameters
+        # set parameters / train and or validate options
         self.rosparam_to_program()
 
         # topics of interest
         self.top_wheel_cmd_exec = "/" + self.robot_name + "/wheels_driver_node/wheels_cmd_executed"
-        #self.top_robot_pose_apriltag = "/" + self.robot_name + "/apriltags2_ros/publish_detections_in_local_frame/tag_detections_local_frame"
         self.top_robot_pose_apriltag = "/" + self.robot_name + '/apriltags2_ros/publish_detections_in_local_frame/tag_detections_array_local_frame'
         self.top_robot_pose_lane_filter = "/" + self.robot_name + "/lane_filter_node/lane_pose"
 
-        OPERATION_MODE = 'train'
+        self.initial_param_vs_optimal_param = False
+
 
         self.measurement_coordinate_frame = self.conf['express_measurements_in']
         # construct a model by specifying which model to use
         model_object = model_generator(self.model_type, self.measurement_coordinate_frame)
 
-        # Training Begin
-        # load data for use in optimization
-        experiments = self.load_dataset("Training", self.path_training_data, localization_type='apriltag')
-        self.training_routine(model_object, experiments)
-        # Training End
+        if self.do_train:
+            # load data for use in optimization
+            experiments = self.load_dataset("Training", self.path_training_data, localization_type='apriltag')
+            self.training_routine(model_object, experiments)
+        else:
+            rospy.logwarn('[{}] not training the model'.format(self.node_name))
 
-        # Validation Begin
-        # load and process the experiment data to be used for testing the model
-        validation_dataset = self.load_dataset("Validation", self.path_validation_data, localization_type='apriltag')
-        # make predictions with the optimization results
-        self.validation_routine(model_object, validation_dataset, popt, model_name=model_object)
-        # Validation End
+        if self.do_validate:
+            # load and process the experiment data to be used for testing the model
+            validation_dataset = self.load_dataset("Validation", self.path_validation_data, localization_type='apriltag')
+            self.validation_routine(model_object, validation_dataset)
+        else:
+            rospy.logwarn('[{}] not validating the model'.format(self.node_name))
 
         pack_results(self.results_dir)
 
@@ -86,15 +87,7 @@ class calib():
     def training_routine(self, model_object, experiments):
         """ train the model and write the results to the YAML file"""
         # see if there already is a yaml file for the model we can use
-        model_param_dict = read_param_from_file(self.robot_name, model_object)
-        if model_param_dict is not None:
-            self.p0 = dict_to_ordered_array(model_object,
-                                            model_param_dict)  # if you have one, use these values as your initial guesses.
-        else:
-            self.p0 = dict_to_ordered_array(model_object,
-                                            model_object.get_param_initial_guess_dict())  # otherwise use the default initial guesses as defined in the class of our model choice
-            rospy.logwarn('[{}] using default initial guesses defined in model {}'.format('kinematic_calibration',
-                                                                                          model_object.name))
+        self.p0 = defaulted_param_load(model_object, self.robot_name)
 
         # use the parameter bounds defined in the class of our model choice
         self.bounds = model_object.get_param_bounds_list()
@@ -185,7 +178,6 @@ class calib():
         for more information on scipy.optimize.min fn:
         https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html
         """
-
         rospy.loginfo('started the nonlinear optimization ... ')
         # Actual Parameter Optimization/Fitting
         # Minimize the error between the model predictions and position estimations
@@ -194,7 +186,10 @@ class calib():
 
         return result.x
 
-    def validation_routine(self, model_object, experiments, popt):
+    def validation_routine(self, model_object, experiments):
+        """ performs validation with the specified model and its latest parameters """
+        popt = defaulted_param_load(model_object, self.robot_name)
+
         for exp_name in experiments.keys():
             exp_data = experiments[exp_name].data
             t = exp_data['timestamp']
@@ -204,7 +199,6 @@ class calib():
             # simulate the model
             # states for a particular p set
             x_sim_opt = simulate(model_object, t, x, u, popt)
-            x_sim_init = simulate(model_object, t, x, u, self.p0)
 
             # calculate the error metric
             error = calculate_cost(x, x_sim_opt, self.metric)
@@ -214,31 +208,43 @@ class calib():
                                                                                                         error))
 
             if self.show_plots:
-                multiplot(states_list=[x, x_sim_init, x_sim_opt],
-                          input_list=[u, u, u],
-                          time_list=[t, t, t],
-                          experiment_name_list=[exp_name + '_measurement', exp_name + '_simulated_init',
-                                                exp_name + '_simulated_optimal'],
-                          plot_title="One Step Ahead Predictions for Model: {} Dataset: {}".format(model_name,
+                multiplot(states_list=[x, x_sim_opt],
+                          input_list=[u, u],
+                          time_list=[t, t],
+                          experiment_name_list=[exp_name + '_measurement', exp_name + '_simulated_optimal'],
+                          plot_title="One Step Ahead Predictions for Model: {} Dataset: {}".format(model_object.name,
                                                                                                    exp_name),
                           save=self.save_experiment_results)
-            """
-            x0 = x[:, 0]
-            x_sim_opt_osap = simulate_horizan(model_object, t, x0, u, popt)
-            x_sim_init_osap = simulate_horizan(model_object, t, x0, u, self.p0)
 
-            if self.show_plots:
-                multiplot(states_list=[x, x_sim_init_osap, x_sim_opt_osap],
-                      input_list=[u,u,u],
-                      time_list=[t,t,t],
-                      experiment_name_list=[exp_name + '_measurement', exp_name + '_simulated_init', exp_name + '_simulated_optimal'],
-                      plot_title= "N-Horizan " + plot_title,
-                      save=self.save_experiment_results,
-                      save_dir=self.results_dir)
+            if self.initial_param_vs_optimal_param:
+                x_sim_init = simulate(model_object, t, x, u, self.p0)
+                if self.show_plots:
+                    multiplot(states_list=[x, x_sim_init, x_sim_opt],
+                              input_list=[u, u, u],
+                              time_list=[t, t, t],
+                              experiment_name_list=[exp_name + '_measurement', exp_name + '_simulated_init',
+                                                    exp_name + '_simulated_optimal'],
+                              plot_title="One Step Ahead Predictions for Model: {} Dataset: {}".format(model_object.name,
+                                                                                                       exp_name),
+                              save=self.save_experiment_results)
+                """
+                x0 = x[:, 0]
+                x_sim_opt_osap = simulate_horizan(model_object, t, x0, u, popt)
+                x_sim_init_osap = simulate_horizan(model_object, t, x0, u, self.p0)
+    
+                if self.show_plots:
+                    multiplot(states_list=[x, x_sim_init_osap, x_sim_opt_osap],
+                          input_list=[u,u,u],
+                          time_list=[t,t,t],
+                          experiment_name_list=[exp_name + '_measurement', exp_name + '_simulated_init', exp_name + '_simulated_optimal'],
+                          plot_title= "N-Horizan " + plot_title,
+                          save=self.save_experiment_results,
+                          save_dir=self.results_dir)
+    
+    
+                multi_path_plot([exp_data, x_sim_init, x_sim_opt], ["measurement", "initial_values", "optimal_values"] )
+                """
 
-
-            multi_path_plot([exp_data, x_sim_init, x_sim_opt], ["measurement", "initial_values", "optimal_values"] )
-            """
 
     # Save results
     def write_calibration(self, model_object, popt):
@@ -290,6 +296,13 @@ class calib():
         self.path_training_data = defined_ros_param(param_train_path)
         self.path_validation_data = defined_ros_param(param_validation_path)
         self.model_type = defined_ros_param(param_model_type)
+
+        self.do_train = True
+        self.do_validate = True
+        if self.path_training_data == 'for_good_reason':
+            self.do_train = False
+        if self.path_validation_data == 'for_good_reason':
+            self.do_validate = False
 
     @staticmethod
     def init_param_hist(model_params):

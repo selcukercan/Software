@@ -192,3 +192,16 @@ def pack_results(results_dir):
     result_name = os.path.basename(results_dir)
     results_root = os.path.dirname(results_dir)
     shutil.make_archive(results_dir, 'zip', results_root, result_name)
+
+def defaulted_param_load(model_object, robot_name):
+    """ check if there already exists a previous calibration, if none use default values defined by the model """
+    model_param_dict = read_param_from_file(robot_name, model_object)
+    if model_param_dict is not None:
+        p0 = dict_to_ordered_array(model_object,
+                                        model_param_dict)  # if you have one, use these values as your initial guesses.
+        rospy.logwarn('using existing parameters..')
+    else:
+        p0 = dict_to_ordered_array(model_object,
+                                        model_object.get_param_initial_guess_dict())  # otherwise use the default initial guesses as defined in the class of our model choice
+        rospy.logwarn('using default initial guesses defined in model {} ..'.format(model_object.name))
+    return p0
