@@ -266,16 +266,16 @@ class DataPreparation():
         # Loop over the image files contained in rosbag
         for topic, msg, t in rosbag.Bag(input_bag).read_messages(topics=topic_name):
             for at in msg.local_pose_list:
-                if at.id not in known_at:
+                if at.id not in known_at.keys():
                     at_obj = AprilTagDetection(at.id, at.size)
                     known_at[at.id] = at_obj
                 at_obj = known_at[at.id]
-                at_obj.add('px', msg.posx)
-                at_obj.add('py', msg.posy)
-                at_obj.add('pz', msg.posz)
-                at_obj.add('rx', msg.rotx)
-                at_obj.add('ry', msg.roty)
-                at_obj.add('rz', msg.rotz)
+                at_obj.add('px', at.posx)
+                at_obj.add('py', at.posy)
+                at_obj.add('pz', at.posz)
+                at_obj.add('rx', at.rotx)
+                at_obj.add('ry', at.roty)
+                at_obj.add('rz', at.rotz)
                 at_obj.add('timestamp', t.to_sec())
         return known_at
 
@@ -283,7 +283,7 @@ class DataPreparation():
         at_detections = self.get_apriltag_detections(input_bag, topic_name)
         if self.multitag_pose_estimation == False:
             # This case corresponds to offline calibration, distributed AprilTag ID:0.
-            return at_detections['0'].pose
+            return at_detections[1].pose
         else:
             raise NotImplementedError
 

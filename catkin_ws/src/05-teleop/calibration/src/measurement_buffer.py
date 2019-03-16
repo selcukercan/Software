@@ -96,8 +96,6 @@ class MeasurementBuffer:
         """
     def set_active_methods(self, available_methods):
         active_methods = []
-        print(rospy.get_param('/calibration_use_apriltags'))
-        print(rospy.get_param('/calibration_use_lane_filter'))
 
         if rospy.get_param('/calibration_use_apriltags'):
             active_methods.append('apriltag')
@@ -159,7 +157,10 @@ class MeasurementBuffer:
         rospy.loginfo("[{}] wrote image {}".format(self.node_name, self.numb_written_images))
 
         if self.numb_written_images == self.total_msg_count:
+            time_sync_lock = Lock()
+            time_sync_lock.acquire()
             time_sync(self.output_bag, self.veh)
+            time_sync_lock.release()
 
     def check_ready_to_publish(self):
         localization_method_dict = self.method_objects
