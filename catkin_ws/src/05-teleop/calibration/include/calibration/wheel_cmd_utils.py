@@ -6,6 +6,7 @@ from scipy.signal import sweep_poly
 import numpy as np
 
 frequency = 30
+step_duration = 1 / float(frequency) * 1000
 
 class BaseExperimentClass(object):
     #__metaclass__ = ABCMeta
@@ -192,7 +193,7 @@ class Sine(BaseExperimentClass):
         input_sequence = {'left_wheel': [], 'right_wheel': []}
         rospy.loginfo("[generate_input] generating input sequence of type {} with parameters {}".format(self.name, str(req_parameter_dict)))
 
-        for t in range(0,int(req_parameter_dict['duration']), 10): # increments of 10 ms
+        for t in np.arange(0, req_parameter_dict['duration'], step_duration):
             input_sequence['left_wheel'].append(req_parameter_dict['k1'] - req_parameter_dict['k2'] * cos(req_parameter_dict['omega'] * t))
             input_sequence['right_wheel'].append(req_parameter_dict['k1'] + req_parameter_dict['k2'] * cos(req_parameter_dict['omega'] * t))
         input_sequence['left_wheel'].append(0)
@@ -243,7 +244,7 @@ class SweepSine(BaseExperimentClass):
         rospy.loginfo("[generate_input] generating input sequence of type {} with parameters {}".format(self.name, str(req_parameter_dict)))
 
         poly = np.poly1d([(req_parameter_dict['omega_high'] - req_parameter_dict['omega_low']) / req_parameter_dict['duration'], req_parameter_dict['omega_low']])
-        t = np.arange(0,int(req_parameter_dict['duration']), 10)
+        t = np.arange(0,int(req_parameter_dict['duration']), step_duration)
         fval = sweep_poly(t, poly)
 
         input_sequence['left_wheel'] = req_parameter_dict['k1'] - req_parameter_dict['k2'] * fval
@@ -370,7 +371,7 @@ class Circle(BaseExperimentClass):
         Verification Experiment Description:
 
         Command your duckiebot to follow a circular path by specifing the longitudinal and angular velocities, 
-        **v** and **w** respectively.
+        **v** and **w** respectively. Higher **v** means duckiebot will travel faster.
 
         Paramaters:
 
@@ -385,7 +386,7 @@ class Circle(BaseExperimentClass):
         input_sequence = {'left_wheel': [], 'right_wheel': []}
         rospy.loginfo("[generate_input] generating input sequence of type {} with parameters {}".format(self.name, str(req_parameter_dict)))
 
-        for t in range(0,int(req_parameter_dict['duration']), 10): # increments of 10 ms
+        for t in np.arange(0, req_parameter_dict['duration'], step_duration):
             input_sequence['left_wheel'].append(req_parameter_dict['d_l'])
             input_sequence['right_wheel'].append(req_parameter_dict['d_r'])
         input_sequence['left_wheel'].append(0)
@@ -398,11 +399,91 @@ class Circle(BaseExperimentClass):
         traj_sequence = {'v': [], 'w': []}
         rospy.loginfo("[generate_input] generating trajectory sequence of type {} with parameters {}".format(self.name, str(req_parameter_dict)))
 
-        for t in range(0,int(req_parameter_dict['duration']), 10): # increments of 10 ms
+        for t in np.arange(0, req_parameter_dict['duration'], step_duration):
             traj_sequence['v'].append(req_parameter_dict['v'])
             traj_sequence['w'].append(req_parameter_dict['w'])
         return traj_sequence
 
+
+class Infinity(BaseExperimentClass):
+
+    def __init__(self, mode='calibration'):
+        self.name = "infinity"
+        self.mode = mode
+
+        self.wheel_cmd_parameter_dict = {'d_r': 0.6, 'd_r': 0.5, 'duration': 1500}
+        self.traj_param_dict = {'v': 0.5, 'w': 0.1, 'duration': 3000}
+
+        self.parameter_dict = self.get_param_dict()
+        self.advertisement = self.get_advertisement()
+
+    '''
+    def advertise_experiment(self):
+        """rosinfo brief description of the experiment, specifically the interpretation of parameters"""
+        info_msg = """
+        Experiment Description:
+
+        Command your duckiebot to follow a infinity (eight) pattern by specifing the duty cycle for the right and the left motor with 
+        **d_r** and **d_l** respectively. Note that the higer the difference between the duty-cycles smaller the circles of the eigth 
+        will be. 
+
+        Paramaters:
+
+        d_r:\t\tduty cycle of the right motor
+        d_l:\t\tduty cycle of the left motor
+        duration:\t\tduration of the experiment
+        """
+        print(info_msg)
+    '''
+
+    def advertise_verification(self):
+        """rosinfo brief description of the experiment, specifically the interpretation of parameters"""
+        info_msg = """
+        Verification Experiment Description:
+
+        Command your duckiebot to follow an infinity pattern by specifing the longitudinal and angular velocities, 
+        **v** and **w** respectively. Higher **v** means duckiebot will travel faster.
+
+        Paramaters:
+
+        v:\t\tlongitudinal velocity [m/sec]
+        w:\t\tangular velocity [rad/sec]
+        duration:\t\tduration of the experiment [msec]
+        """
+        print(info_msg)
+
+    '''
+    def generate_input(self, req_parameter_dict):
+        input_sequence = {'left_wheel': [], 'right_wheel': []}
+        rospy.loginfo("[generate_input] generating input sequence of type {} with parameters {}".format(self.name, str(req_parameter_dict)))
+
+        for t in range(0,int(req_parameter_dict['duration']), step_duration): 
+            input_sequence['left_wheel'].append(req_parameter_dict['d_l'])
+            input_sequence['right_wheel'].append(req_parameter_dict['d_r'])
+        input_sequence['left_wheel'].append(0)
+        input_sequence['right_wheel'].append(0)
+
+        return input_sequence
+    '''
+
+    def generate_trajectory(self, req_parameter_dict):
+        traj_sequence = {'v': [], 'w': []}
+        rospy.loginfo("[generate_input] generating trajectory sequence of type {} with parameters {}".format(self.name, str(req_parameter_dict)))
+
+        # First Quarter
+        for t in np.arange(0, req_parameter_dict['duration'] / 4.0, step_duration):
+            traj_sequence['v'].append(req_parameter_dict['v'])
+            traj_sequence['w'].append(req_parameter_dict['w'])
+        # Second and Third Quarter: w is negated
+        for t in np.arange(0, req_parameter_dict['duration'] / 2.0, step_duration):
+            traj_sequence['v'].append(req_parameter_dict['v'])
+            traj_sequence['w'].append(-req_parameter_dict['w'])
+        # Fourth Quarter
+        for t in np.arange(0, req_parameter_dict['duration'] / 4.0, step_duration):
+            traj_sequence['v'].append(req_parameter_dict['v'])
+            traj_sequence['w'].append(req_parameter_dict['w'])
+
+        return traj_sequence
 
 class ExperimentUI():
 
