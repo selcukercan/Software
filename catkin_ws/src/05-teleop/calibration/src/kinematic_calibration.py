@@ -1,15 +1,17 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+# python imports
 import datetime
 import os
 import os.path
-
-# python imports
+from shutil import copy,copyfile
 import rospy
+from scipy.optimize import minimize
+
+# ros-package-level imports
 from calibration.cost_function_library import *
 from calibration.data_adapter_utils import *
-# ros-package-level imports
 from calibration.data_preperation_utils import DataPreparation
 from calibration.data_preperation_utils import load_pickle, save_pickle
 from calibration.model_library import model_generator, simulate
@@ -17,9 +19,9 @@ from calibration.plotting_utils import *
 from calibration.utils import work_space_settings, get_workspace_param, \
     defined_ros_param, input_folder_to_experiment_dict, read_param_from_file, get_file_path,  defaulted_param_load, \
     pack_results
+
 # duckietown imports
-from duckietown_utils.yaml_wrap import yaml_load_file, yaml_write_to_file
-from scipy.optimize import minimize
+from duckietown_utils.yaml_wrap import yaml_load_file, yaml_write_to_file, get_duckiefleet_root
 
 
 class calib():
@@ -77,8 +79,14 @@ class calib():
         else:
             rospy.logwarn('[{}] not validating the model'.format(self.node_name))
 
+        # get ready to leave
+        self.copy_experiment_data()
+        self.generate_report()
+        self.copy_config_file()
+        self.copy_calibrations_folder()
         pack_results(self.results_dir)
 
+        print 'selcuk'
         """
         #add_x_dot_estimate_to_dataset(experiments, "train")
         """
@@ -156,7 +164,7 @@ class calib():
     # Optimization-Related Functions
     def cost_function(self, p, model_object, experiments):
         """
-        calculates t
+        calculates stage cost
         """
         for exp_name in experiments.keys():
             exp_data = experiments[exp_name].data
@@ -273,7 +281,6 @@ class calib():
         if not os.path.isfile(filename):
             os.mknod(filename)
         else:
-            from shutil import copyfile
             file_dir = os.path.dirname(filename)
             new_file_name = self.robot_name + "_" + model_object.name + "_previous.yaml"
             copyfile(filename, os.path.join(file_dir, new_file_name))
@@ -323,6 +330,66 @@ class calib():
         else:
             rospy.logfatal('BOOM')
 
+    # Report-Related Functions
+    def get_verdict(self):
+        return 'NotEvaluated'
+
+    @staticmethod
+    def get_hostname():
+        import socket
+        hostname = socket.gethostname()
+        return hostname
+
+    @staticmethod
+    def get_cpu_info():
+        import platform
+        return platform.processor()
+
+    def copy_experiment_data(self):
+        # create the data directory to store experiment data
+        data_folder = os.path.join(self.results_dir,'data')
+        os.mkdir(data_folder)
+
+        # copy the training files under data/training_data
+        if self.do_train:
+            training_path = os.path.join(data_folder, 'training_data')
+            os.mkdir(training_path)
+            train_files = os.listdir(self.path_training_data)
+            for file in train_files:
+                copy(os.path.join(self.path_training_data, file), training_path)
+
+        # copy the validation files under data/validation_data
+        if self.do_validate:
+            validation_path = os.path.join(data_folder, 'validation_data')
+            os.mkdir(validation_path)
+            validation_files = os.listdir(self.path_validation_data)
+            for file in validation_files:
+                copy(os.path.join(self.path_validation_data, file), validation_path)
+
+    def copy_config_file(self):
+        copy(get_workspace_param("path_to_config_file"), self.results_dir)
+
+    def copy_calibrations_folder(self):
+        from distutils.dir_util import copy_tree
+        calibrations_folder = os.path.join(get_duckiefleet_root(), 'calibrations')
+        dst = os.path.join(self.results_dir, 'calibrations')
+        os.mkdir(dst)
+        copy_tree(calibrations_folder, dst)
+
+    def generate_report(self):
+        yaml_dict = {
+            'sysid_protocol_version': 'v1.0',
+            'hostname': self.get_hostname(),
+            'platform': self.get_cpu_info(),
+            'experiment time': os.path.basename(self.results_dir),
+            'used_model': self.model_type,
+            'verdict': self.get_verdict()
+        }
+
+        report = os.path.join(self.results_dir, 'report.yaml')
+        os.mknod(report)
+
+        yaml_write_to_file(yaml_dict, report)
 
 if __name__ == '__main__':
     calib = calib()
@@ -332,12 +399,9 @@ TODO:
 
 1) Generate a result yaml.
 * conf
-* used model
+
 * initial kinetic parameter/whether was default
-* train / validation files
-* optimization results
-    - minimize output + metric calculations + time
-* computer_name / platform info
+
+* optimization time
 * camera calibrations
-* vehicle name
 """
