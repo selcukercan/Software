@@ -2,6 +2,7 @@ import datetime
 import gzip
 import os
 import pickle
+import shutil
 from os import mkdir
 from os.path import join
 
@@ -186,3 +187,8 @@ def cautious_read_param_from_file(robot_name, model_object):
                                         model_object.get_param_initial_guess_dict())  # otherwise use the default initial guesses as defined in the class of our model choice
         rospy.logwarn('[{}] using default initial guesses defined in model {}'.format('kinematic_calibration',model_object.name))
     return p0
+
+def pack_results(results_dir):
+    result_name = os.path.basename(results_dir)
+    results_root = os.path.dirname(results_dir)
+    shutil.make_archive(results_dir, 'zip', results_root, result_name)

@@ -15,7 +15,8 @@ from calibration.data_preperation_utils import load_pickle, save_pickle
 from calibration.model_library import model_generator, simulate
 from calibration.plotting_utils import *
 from calibration.utils import work_space_settings, get_workspace_param, \
-    defined_ros_param, input_folder_to_experiment_dict, read_param_from_file, dict_to_ordered_array, get_file_path
+    defined_ros_param, input_folder_to_experiment_dict, read_param_from_file, dict_to_ordered_array, get_file_path, \
+    pack_results
 # duckietown imports
 from duckietown_utils.yaml_wrap import yaml_load_file, yaml_write_to_file
 from scipy.optimize import minimize
@@ -63,7 +64,7 @@ class calib():
         #add_x_dot_estimate_to_dataset(experiments, "train")
         """
 
-        """
+
         # load and process the experiment data to be used for testing the model
         validation_dataset = self.load_dataset("Validation", self.path_validation_data, localization_type='apriltag')
 
@@ -106,7 +107,8 @@ class calib():
 
         # write to the kinematic calibration file
         self.write_calibration(model_object, popt)
-        """
+        pack_results(self.results_dir)
+
     # Data Operations
     def load_dataset(self, dataset_name, path_to_dataset, localization_type=None):
         """
@@ -293,6 +295,8 @@ class calib():
             return self.top_robot_pose_lane_filter
         else:
             rospy.logfatal('BOOM')
+
+
 if __name__ == '__main__':
     calib = calib()
 

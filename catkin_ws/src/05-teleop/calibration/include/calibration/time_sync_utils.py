@@ -62,9 +62,10 @@ def time_sync(input_bag, veh_name):
                 try:
                     if msg.at_detected:
                         outbag.write(topic, msg, map_comp_at[t])
-                        rospy.logwarn("[time_sync] FULL april tag detection array recieved")
+                        #rospy.logwarn("[time_sync] FULL april tag detection array recieved")
                     else:
-                        rospy.logwarn("[time_sync] empty april tag detection array recieved")
+                        pass
+                        #rospy.logwarn("[time_sync] empty april tag detection array recieved")
                 except:
                     pass
             elif topic == top_lane_filter:
