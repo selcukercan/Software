@@ -56,22 +56,35 @@ class calib():
         #self.top_robot_pose_apriltag = "/" + self.robot_name + "/apriltags2_ros/publish_detections_in_local_frame/tag_detections_local_frame"
         self.top_robot_pose_apriltag = "/" + self.robot_name + '/apriltags2_ros/publish_detections_in_local_frame/tag_detections_array_local_frame'
         self.top_robot_pose_lane_filter = "/" + self.robot_name + "/lane_filter_node/lane_pose"
-        # load data for use in optimization
+
+        OPERATION_MODE = 'train'
+
         self.measurement_coordinate_frame = self.conf['express_measurements_in']
+        # construct a model by specifying which model to use
+        model_object = model_generator(self.model_type, self.measurement_coordinate_frame)
+
+        # Training Begin
+        # load data for use in optimization
         experiments = self.load_dataset("Training", self.path_training_data, localization_type='apriltag')
+        self.training_routine(model_object, experiments)
+        # Training End
+
+        # Validation Begin
+        # load and process the experiment data to be used for testing the model
+        validation_dataset = self.load_dataset("Validation", self.path_validation_data, localization_type='apriltag')
+        # make predictions with the optimization results
+        self.validation_routine(model_object, validation_dataset, popt, model_name=model_object)
+        # Validation End
+
+        pack_results(self.results_dir)
 
         """
         #add_x_dot_estimate_to_dataset(experiments, "train")
         """
 
-
-        # load and process the experiment data to be used for testing the model
-        validation_dataset = self.load_dataset("Validation", self.path_validation_data, localization_type='apriltag')
-
-        # construct a model by specifying which model to use
-        model_object = model_generator(self.model_type, self.measurement_coordinate_frame)
-
-        # OPTIMIZATION
+    # train
+    def training_routine(self, model_object, experiments):
+        """ train the model and write the results to the YAML file"""
         # see if there already is a yaml file for the model we can use
         model_param_dict = read_param_from_file(self.robot_name, model_object)
         if model_param_dict is not None:
@@ -102,12 +115,8 @@ class calib():
         if self.show_plots: simple_plot(range(len(self.cost_fn_val_list)), self.cost_fn_val_list,
                                         plot_name='Cost Function', save_dir=self.results_dir)
 
-        # make predictions with the optimization results
-        self.model_predictions(model_object, validation_dataset, popt, model_name=model_object)
-
         # write to the kinematic calibration file
         self.write_calibration(model_object, popt)
-        pack_results(self.results_dir)
 
     # Data Operations
     def load_dataset(self, dataset_name, path_to_dataset, localization_type=None):
@@ -185,7 +194,7 @@ class calib():
 
         return result.x
 
-    def model_predictions(self, model_object, experiments, popt, model_name=''):
+    def validation_routine(self, model_object, experiments, popt):
         for exp_name in experiments.keys():
             exp_data = experiments[exp_name].data
             t = exp_data['timestamp']
@@ -253,10 +262,15 @@ class calib():
         yaml_dict['calibration_time'] = datetime.datetime.now().strftime('%Y-%m-%d__%H:%M:%S')
 
         # load calibration file
-        filename = get_file_path(self.robot_name, model_object.name)  # TODO getpath yerine get_name olmali
+        filename = get_file_path(self.robot_name, model_object.name)
 
         if not os.path.isfile(filename):
             os.mknod(filename)
+        else:
+            from shutil import copyfile
+            file_dir = os.path.dirname(filename)
+            new_file_name = self.robot_name + "_" + model_object.name + "_previous.yaml"
+            copyfile(filename, os.path.join(file_dir, new_file_name))
         rospy.loginfo('writing the YAML file to: [{}]'.format(filename))
         yaml_write_to_file(yaml_dict, filename)
 
