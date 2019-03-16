@@ -76,7 +76,8 @@ class DataCollector:
             'sweep_sine': SweepSine,
             'step_salsa': StepSalsa,
             'step': Step,
-            'circle': Circle
+            'circle': Circle,
+            'infinity': Infinity
         }
 
 
@@ -114,7 +115,7 @@ class DataCollector:
         if self.use_for == 'calibration':
             self.available_experiments = ["ramp_up", "sine", "sweep_sine", "step_salsa", "step"]
         elif self.use_for == 'verification':
-            self.available_experiments = ["circle"]
+            self.available_experiments = ["circle", "infinity"]
         else:
             pass
 
@@ -180,7 +181,7 @@ class DataCollector:
             msg_wheels_cmd.vel_right = vel_right_array[i]
             msg_wheels_cmd.vel_left = vel_left_array[i]
 
-            #rospy.loginfo("Left Wheel: {} \t Right Wheel: {}".format(vel_left_array[i], vel_right_array[i]))
+            rospy.loginfo("sending Left Wheel: {} \t Right Wheel: {}".format(vel_left_array[i], vel_right_array[i]))
             self.pub_wheels_cmd.publish(msg_wheels_cmd)
             self.rate.sleep()
 
@@ -195,6 +196,8 @@ class DataCollector:
             msg_car_cmd.header.stamp = rospy.Time.now()
             msg_car_cmd.v = v[i]
             msg_car_cmd.omega = w[i]
+
+            rospy.loginfo("sending v: {} \t w: {}".format(v[i], w[i]))
 
             self.pub_car_cmd.publish(msg_car_cmd)
             self.rate.sleep()

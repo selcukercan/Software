@@ -3,7 +3,6 @@
   <arg name="package_namespace" default="calibration" />
   <arg name="node_namespace" default="data_collector" />
   <arg name="use_for" default="calibration" doc="determines the open loop commands to present, takes values calibration or verification" />
-  <arg name="development" default="false" doc="specify whether you are in development stage, if so wheel commands are not need to be sent to the vehicle"/>
   <arg name="output_rosbag_dir" default="$(env HOME)" doc="folder to save the rosbag" />
 
   <arg name="local" default="false" doc="true for running on laptop. false for running on vehicle."/>
@@ -24,7 +23,7 @@
   <!-- launch the wheel drive node -->
   <include file="$(find dagu_car)/launch/wheels_driver_node.launch">
     <arg name="veh" value="$(arg veh)"/>
-    <arg name="development" value="$(arg development)"/>
+    <arg name="local" value="$(arg local)"/>
   </include>
 
   <!-- run inverse_kinematics_node -->
