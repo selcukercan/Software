@@ -3,6 +3,7 @@
 
 # python imports
 import datetime
+import time
 import os
 import os.path
 from shutil import copy,copyfile
@@ -109,8 +110,9 @@ class calib():
         self.metric = metric_selector(self.req_metric)
 
         # run the optimization problem
+        start_time = time.time()
         popt = self.nonlinear_model_fit(model_object, experiments)
-
+        self.total_calculation_time = time.time() - start_time
         # parameter converge plots and cost fn
         if self.show_plots: param_convergence_plot(self.param_hist, save_dir=self.results_dir)
         if self.show_plots: simple_plot(range(len(self.cost_fn_val_list)), self.cost_fn_val_list,
@@ -190,6 +192,7 @@ class calib():
         # Actual Parameter Optimization/Fitting
         # Minimize the error between the model predictions and position estimations
         result = minimize(self.cost_function, self.p0, args=(model_object, experiments), bounds=self.bounds)
+        self.optimization_status = result.success
         print('[BEGIN] Optimization Result\n {} [END] Optimization Result\n'.format(result))
 
         return result.x
@@ -383,7 +386,9 @@ class calib():
             'platform': self.get_cpu_info(),
             'experiment time': os.path.basename(self.results_dir),
             'used_model': self.model_type,
-            'verdict': self.get_verdict()
+            'verdict': self.get_verdict(),
+            'optimization_converged': self.optimization_status,
+            'optimization_solve_time': str(self.total_calculation_time)
         }
 
         report = os.path.join(self.results_dir, 'report.yaml')
@@ -393,15 +398,3 @@ class calib():
 
 if __name__ == '__main__':
     calib = calib()
-
-"""
-TODO:
-
-1) Generate a result yaml.
-* conf
-
-* initial kinetic parameter/whether was default
-
-* optimization time
-* camera calibrations
-"""
