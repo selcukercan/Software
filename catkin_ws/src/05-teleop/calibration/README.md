@@ -193,6 +193,18 @@ In development phase, developer is required to run a rosbag containing `compress
 compressed_image: ![ROBOT_NAME]/camera_node/image/compressed
 camera_info: ![ROBOT_NAME]/camera_node/camera_info
 
+## Building and Pushing a Docker Image
 
+At ![SOFTWARE_ROOT], to build
 
+```shell
+make docker-build VERSION=![VERSION_NO]
+```
 
+to push the docker image to DockerHub
+
+```shell
+make docker-upload VERSION=![VERSION_NO]
+```
+
+Note that we also label the image with the commit id.

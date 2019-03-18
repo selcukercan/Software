@@ -43,3 +43,6 @@ CMD [ "/bin/bash" ]
 ENV DISABLE_CONTRACTS=1
 
 LABEL maintainer="Breandan Considine breandan.considine@umontreal.ca"
+# add current commit id a label
+ARG commit_id=unknown
+LABEL commit_id=$COMMIT_ID
