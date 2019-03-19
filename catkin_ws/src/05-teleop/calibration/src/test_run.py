@@ -6,23 +6,29 @@ import rospy
 from std_msgs.msg import String #Imports msg
 from duckietown_msgs.msg import WheelsCmdStamped, Twist2DStamped, AprilTagDetectionArray, VehiclePoseEuler
 from calibration.wheel_cmd_utils import *
+from calibration.utils import defined_ros_param, get_param_from_config_file
 
 class TestRun:
     def __init__(self):
-        # namespace variables
-        host_package = rospy.get_namespace()  # as defined by <group> in launch file
-        node_name = 'data_collector'  # node name , as defined in launch file
-        host_package_node = host_package + node_name
-        veh = host_package.split('/')[1]
-
         # Initialize the node with rospy
         rospy.init_node('Command', anonymous=True)
-        self.rate = rospy.Rate(30) # 30 Hz
 
-        veh = "mete"
+        DEBUG = get_param_from_config_file("debug")
+        # namespace variables
+        if not DEBUG:
+            host_package = rospy.get_namespace()  # as defined by <group> in launch file
+        else:
+            robot_name_from_conf = get_param_from_config_file('vehicle_name')
+            host_package = "/" + robot_name_from_conf + "/calibration/"
+
+        node_name = 'data_collector'  # node name , as defined in launch file
+        self.veh = host_package.split('/')[1]
+
         # Publisher
-        publisher= '/' + veh + "/joy_mapper_node/car_cmd"
+        publisher= '/' + self.veh + "/joy_mapper_node/car_cmd"
         self.pub_car_cmd = rospy.Publisher(publisher, Twist2DStamped, queue_size=1)
+
+        self.rate = rospy.Rate(30)  # 30 Hz
 
     def exp_name_to_exp_object(self, exp_name):
         """

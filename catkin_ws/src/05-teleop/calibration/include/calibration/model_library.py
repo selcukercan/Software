@@ -69,7 +69,7 @@ class KinematicDrive(BaseModelClass):
             # position states in relation to kinetic states
             x_dot = (np.cos(theta * np.pi / 180.0) * vx)
             y_dot = (np.sin(theta * np.pi / 180.0) * vx)
-            theta_dot = (omega)
+            theta_dot = (omega) * 180 / np.pi # deg/s
 
             return [x_dot, y_dot, theta_dot]
         elif self.measurement_coordinate_system == 'polar':

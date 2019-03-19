@@ -2,8 +2,8 @@
     <arg name="veh" doc="Name of vehicle. ex: megaman"/>
     <arg name="package_namespace" default="calibration" />
     <arg name="node_namespace" default="calibration" />
-    <arg name="train_path" doc="path to the folder containing the rosbags that are used during optimization" />
-    <arg name="validation_path" doc="path to the folder containing rosbags that are used for validation of the fitted model" />
+    <arg name="train_path" default="for_good_reason" doc="path to the folder containing the rosbags that are used during optimization" />
+    <arg name="validation_path" default="for_good_reason" doc="path to the folder containing rosbags that are used for validation of the fitted model" />
 
     <arg name="model" default="gt" doc="Type of the model to be run by the node, ex: gain-trin model (standard one)"/>
 

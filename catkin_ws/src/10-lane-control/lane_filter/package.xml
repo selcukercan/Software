@@ -19,7 +19,7 @@
   <run_depend>rospy</run_depend>
   <run_depend>cv_bridge</run_depend>
   <run_depend>tf</run_depend>
-  
+  <run_depend>calibration</run_depend>
   <export>
 
   </export>

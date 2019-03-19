@@ -20,12 +20,12 @@ docker:
 #
 #docker-upload:
 #	docker push $(docker_image_name):$(tag)
-
-branch=$(shell git rev-parse --abbrev-ref HEAD)
+commit_id=$(shell git rev-parse --short HEAD)
+branch=$(shell git rev-parse --abbrev-ref HEAD)_v$(VERSION)
 docker_image_name=duckietown/rpi-duckiebot-base:$(branch)
 
 docker-build:
-	docker build -t $(docker_image_name) .
+	docker build -t $(docker_image_name) --build-arg commit_id=$(commit_id) .
 
 docker-upload:
 	docker push $(docker_image_name)

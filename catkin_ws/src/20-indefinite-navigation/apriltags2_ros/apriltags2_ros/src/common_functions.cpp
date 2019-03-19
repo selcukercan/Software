@@ -607,7 +607,7 @@ geometry_msgs::PoseWithCovarianceStamped TagDetector::makeTagPose(
   pose.pose.pose.orientation.y = rot_quaternion.y();
   pose.pose.pose.orientation.z = rot_quaternion.z();
   pose.pose.pose.orientation.w = rot_quaternion.w();
-  printf("transformation estimation x:%lf cm ,y:%lf cm ,z:%lf cm\n",pose.pose.pose.position.x*100,pose.pose.pose.position.y*100,pose.pose.pose.position.z*100);
+  //printf("transformation estimation x:%lf cm ,y:%lf cm ,z:%lf cm\n",pose.pose.pose.position.x*100,pose.pose.pose.position.y*100,pose.pose.pose.position.z*100);
   rotationTransform(pose.pose.pose.orientation.x,pose.pose.pose.orientation.y,pose.pose.pose.orientation.z,pose.pose.pose.orientation.w);
   Quaterniond2Euler(pose.pose.pose.orientation.x,pose.pose.pose.orientation.y,pose.pose.pose.orientation.z,pose.pose.pose.orientation.w);
   return pose;

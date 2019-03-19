@@ -161,3 +161,50 @@ roslaunch apriltags2_ros apriltag2_demo.launch veh:=![ROBOT_NAME]
 ```shell
 roslaunch apriltags2_ros detection_to_local_frame.launch veh:=![ROBOT_NAME]
 ```
+
+
+## Adding New Experiments for Calibration/or Verification
+
+Define the new experiment in `include/wheel_cmd_utils.py`. You can use `circle` as a template.
+
+If you want to use it for calibration you have to implement `generate_input` and `advertise_experiment` functions
+and define the default experiment parameters `wheel_cmd_parameter_dict`. Or if you want to use it for verification,
+then you have to implement `generate_trajectory` and `advertise_verification` functions
+and define the default experiment parameters `traj_param_dict`.
+
+Next, add the defined input class to `exp_name_object_map` inside `/src/data_collector.py`. Also, you have to add
+experiment's name as defined in the class definition to `available_experiments` with `self.name`. This lets you control the
+experiments that will be presented to user.
+
+Next you can launch the data acquistion interface with
+
+```shell
+roslaunch calibration data_collector.launch veh:=![ROBOT_NAME] output_rosbag_dir:=![SAVE_DIR] use_for:=verification local:=true model:=[VEHICE_MODEL]
+```
+
+Lets go through the flags:
+
+ * `use_for`: choose either calibration or verification depending on what you want,
+ * `local`: set to true while developing, otherwise fails as it searches for a duckiebot,
+ * `model`: the model type to be used for verification, ex: `kinematic_drive`.
+
+In development phase, developer is required to run a rosbag containing `compressed_image` and `camera_info` topics before roslaunching.
+
+compressed_image: ![ROBOT_NAME]/camera_node/image/compressed
+camera_info: ![ROBOT_NAME]/camera_node/camera_info
+
+## Building and Pushing a Docker Image
+
+At ![SOFTWARE_ROOT], to build
+
+```shell
+make docker-build VERSION=![VERSION_NO]
+```
+
+to push the docker image to DockerHub
+
+```shell
+make docker-upload VERSION=![VERSION_NO]
+```
+
+Note that we also label the image with the commit id.
