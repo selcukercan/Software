@@ -1,6 +1,7 @@
 # Note: this container will have the name duckietown/rpi-duckiebot-base
 FROM duckietown/rpi-ros-kinetic-base:master18
 
+
 RUN [ "cross-build-start" ]
 
 COPY requirements.txt /requirements.txt
@@ -16,7 +17,7 @@ RUN pip install -r /requirements.txt
 
 RUN mkdir /home/software
 COPY . /home/software/
-COPY .git /home/software/.git/
+# COPY .git /home/software/.git/
 COPY docker/machines.xml /home/software/catkin_ws/src/00-infrastructure/duckietown/machines
 
 ENV ROS_LANG_DISABLE=gennodejs:geneus:genlisp
@@ -43,6 +44,3 @@ CMD [ "/bin/bash" ]
 ENV DISABLE_CONTRACTS=1
 
 LABEL maintainer="Breandan Considine breandan.considine@umontreal.ca"
-# add current commit id a label
-ARG commit_id=unknown
-LABEL commit_id=$COMMIT_ID

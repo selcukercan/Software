@@ -72,7 +72,7 @@ class RampUp(BaseExperimentClass):
         self.mode = mode
 
         self.wheel_cmd_parameter_dict = {'n_step': 180, 'd_max': 0.5}
-        self.traj_param_dict = None
+        self.traj_param_dict = {'n_step': 120, 'v_max': 0.5}
 
         self.parameter_dict = self.get_param_dict()
         self.advertisement = self.get_advertisement()
@@ -105,11 +105,34 @@ class RampUp(BaseExperimentClass):
 
         return input_sequence
 
+
     def advertise_verification(self):
-        pass
+        """rosinfo brief description of the experiment, specifically the interpretation of parameters"""
+        info_msg = """
+        Verification Experiment Description:
+
+        Tell your duckiebot to go straight at linearly increasing speeds starting from 0 and reaching to **v_max**.
+
+        Paramaters:
+
+        v_max:\t\tlongitudinal velocity [m/sec]
+        n_step:\t\tnumber of steps (increments) to take till reaching v_max
+        """
+        print(info_msg)
+
 
     def generate_trajectory(self, req_parameter_dict):
-        pass
+        traj_sequence = {'v': [], 'w': []}
+        rospy.loginfo("[generate_trajectory] generating trajectory sequence of type {} with parameters {}".format(self.name, str(req_parameter_dict)))
+
+        for n in range(1, int(req_parameter_dict['n_step']) + 1):
+            v = req_parameter_dict['v_max'] / req_parameter_dict['n_step'] * n
+            traj_sequence['v'].append(v)
+            traj_sequence['w'].append(0)
+        # finally send a (v=0, w=0) to stop the motion
+        traj_sequence['v'].append(0)
+        traj_sequence['w'].append(0)
+        return traj_sequence
 
 
 class Step(BaseExperimentClass):
@@ -119,7 +142,7 @@ class Step(BaseExperimentClass):
         self.mode = mode
 
         self.wheel_cmd_parameter_dict = {'d': 0.5, 'duration': 1.0}
-        self.traj_param_dict = None
+        self.traj_param_dict = {'v': 0.3, 'duration': 1500}
 
         self.parameter_dict = self.get_param_dict()
         self.advertisement = self.get_advertisement()
@@ -134,9 +157,25 @@ class Step(BaseExperimentClass):
         Paramaters:
 
         d:\t\tconstant duty-cycle value [0 <= d <= 1]
-        duration:\t\tlength of the experiment in seconds
+        duration:\tlength of the experiment in seconds
         """
         print(info_msg)
+
+
+    def advertise_verification(self):
+        """rosinfo brief description of the experiment, specifically the interpretation of parameters"""
+        info_msg = """
+        Verification Experiment Description:
+
+        Tell your duckiebot to go straight at a constant **v** for **d** miliseconds.
+
+        Paramaters:
+
+        v:\t\tlongitudinal velocity [m/sec]
+        duration:\t\tduration of the experiment
+        """
+        print(info_msg)
+
 
     def generate_input(self, req_parameter_dict):
         input_sequence = {'left_wheel': [], 'right_wheel': []}
@@ -150,11 +189,18 @@ class Step(BaseExperimentClass):
 
         return input_sequence
 
-    def advertise_verification(self):
-        pass
 
     def generate_trajectory(self, req_parameter_dict):
-        pass
+        traj_sequence = {'v': [], 'w': []}
+        rospy.loginfo("[generate_trajectory] generating trajectory sequence of type {} with parameters {}".format(self.name, str(req_parameter_dict)))
+
+        for t in np.arange(0, req_parameter_dict['duration'], step_duration):
+            traj_sequence['v'].append(req_parameter_dict['v'])
+            traj_sequence['w'].append(0)
+        # finally send a (v=0, w=0) to stop the motion
+        traj_sequence['v'].append(0)
+        traj_sequence['w'].append(0)
+        return traj_sequence
 
 
 class Sine(BaseExperimentClass):
@@ -164,7 +210,7 @@ class Sine(BaseExperimentClass):
         self.mode = mode
 
         self.wheel_cmd_parameter_dict = {'k1': 0.2, 'k2': 0.06, 'omega': 0.007, 'duration': 1500}
-        self.traj_param_dict = None
+        self.traj_param_dict ={'v': 0.4, 'w': 0.5,  'repeats': 2, 'period': 750}
 
         self.parameter_dict = self.get_param_dict()
         self.advertisement = self.get_advertisement()
@@ -202,10 +248,42 @@ class Sine(BaseExperimentClass):
         return input_sequence
 
     def advertise_verification(self):
-        pass
+        """rosinfo brief description of the experiment, specifically the interpretation of parameters"""
+        info_msg = """
+        Verification Experiment Description:
+
+        Tell your duckiebot to follow a sine-like maneuver characterized by longitudinal  velocity **v** and 
+        angular veloicity **w**. In total **repeats** motion cycles are executed  where each motion cycle lasts 
+        for **period** miliseconds. 
+        
+        Note that this maneuver does not command a real-sine trajectory but rather half circles.
+        
+        Paramaters:
+
+        v:\t\tlongitudinal velocity [m/sec]
+        w:\t\tangular velocity [rad/sec]
+        period:\t\tlength of one period [milisecond]
+        repeats:\t\tnumber of periods
+        """
+        print(info_msg)
 
     def generate_trajectory(self, req_parameter_dict):
-        pass
+        traj_sequence = {'v': [], 'w': []}
+        rospy.loginfo("[generate_trajectory] generating trajectory sequence of type {} with parameters {}".format(self.name, str(req_parameter_dict)))
+
+        for i in range(req_parameter_dict['repeats']):
+            # Heading towards left in the first half of the period
+            for t in np.arange(0, req_parameter_dict['period'] / 2, step_duration):
+                traj_sequence['v'].append(req_parameter_dict['v'])
+                traj_sequence['w'].append(req_parameter_dict['w'])
+            # Heading towards right in the second half of the period
+            for t in np.arange(0, req_parameter_dict['period'] / 2, step_duration):
+                traj_sequence['v'].append(req_parameter_dict['v'])
+                traj_sequence['w'].append(-req_parameter_dict['w'])
+        # finally send a (v=0, w=0) to stop the motion
+        traj_sequence['v'].append(0)
+        traj_sequence['w'].append(0)
+        return traj_sequence
 
 
 class SweepSine(BaseExperimentClass):
@@ -341,7 +419,7 @@ class Circle(BaseExperimentClass):
         self.mode = mode
 
         self.wheel_cmd_parameter_dict = {'d_r': 0.6, 'd_r': 0.5, 'duration': 1500}
-        self.traj_param_dict = {'v': 0.5, 'w': 0.1, 'duration': 1500}
+        self.traj_param_dict = {'v': 0.3, 'w': 1.2 , 'duration': 3000}
 
         self.parameter_dict = self.get_param_dict()
         self.advertisement = self.get_advertisement()
@@ -397,11 +475,14 @@ class Circle(BaseExperimentClass):
 
     def generate_trajectory(self, req_parameter_dict):
         traj_sequence = {'v': [], 'w': []}
-        rospy.loginfo("[generate_input] generating trajectory sequence of type {} with parameters {}".format(self.name, str(req_parameter_dict)))
+        rospy.loginfo("[generate_trajectory] generating trajectory sequence of type {} with parameters {}".format(self.name, str(req_parameter_dict)))
 
         for t in np.arange(0, req_parameter_dict['duration'], step_duration):
             traj_sequence['v'].append(req_parameter_dict['v'])
             traj_sequence['w'].append(req_parameter_dict['w'])
+        # finally send a (v=0, w=0) to stop the motion
+        traj_sequence['v'].append(0)
+        traj_sequence['w'].append(0)
         return traj_sequence
 
 
@@ -412,7 +493,7 @@ class Infinity(BaseExperimentClass):
         self.mode = mode
 
         self.wheel_cmd_parameter_dict = {'d_r': 0.6, 'd_r': 0.5, 'duration': 1500}
-        self.traj_param_dict = {'v': 0.5, 'w': 0.1, 'duration': 3000}
+        self.traj_param_dict = {'v': 0.3, 'w': 1.2, 'duration': 5000}
 
         self.parameter_dict = self.get_param_dict()
         self.advertisement = self.get_advertisement()
@@ -468,7 +549,7 @@ class Infinity(BaseExperimentClass):
 
     def generate_trajectory(self, req_parameter_dict):
         traj_sequence = {'v': [], 'w': []}
-        rospy.loginfo("[generate_input] generating trajectory sequence of type {} with parameters {}".format(self.name, str(req_parameter_dict)))
+        rospy.loginfo("[generate_trajectory] generating trajectory sequence of type {} with parameters {}".format(self.name, str(req_parameter_dict)))
 
         # First Quarter
         for t in np.arange(0, req_parameter_dict['duration'] / 4.0, step_duration):
@@ -482,8 +563,11 @@ class Infinity(BaseExperimentClass):
         for t in np.arange(0, req_parameter_dict['duration'] / 4.0, step_duration):
             traj_sequence['v'].append(req_parameter_dict['v'])
             traj_sequence['w'].append(req_parameter_dict['w'])
-
+        # finally send a (v=0, w=0) to stop the motion
+        traj_sequence['v'].append(0)
+        traj_sequence['w'].append(0)
         return traj_sequence
+
 
 class ExperimentUI():
 

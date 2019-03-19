@@ -115,7 +115,7 @@ class DataCollector:
         if self.use_for == 'calibration':
             self.available_experiments = ["ramp_up", "sine", "sweep_sine", "step_salsa", "step"]
         elif self.use_for == 'verification':
-            self.available_experiments = ["circle", "infinity"]
+            self.available_experiments = ["step", "ramp_up", "sine", "circle", "infinity"]
         else:
             pass
 
@@ -176,6 +176,7 @@ class DataCollector:
         # Put the wheel commands in a message and publish
         msg_wheels_cmd = WheelsCmdStamped()
 
+        rospy.loginfo("starting to send commands to motors ... \n")
         for i in range(len(vel_right_array)):
             msg_wheels_cmd.header.stamp = rospy.Time.now()
             msg_wheels_cmd.vel_right = vel_right_array[i]
@@ -184,6 +185,7 @@ class DataCollector:
             rospy.loginfo("sending Left Wheel: {} \t Right Wheel: {}".format(vel_left_array[i], vel_right_array[i]))
             self.pub_wheels_cmd.publish(msg_wheels_cmd)
             self.rate.sleep()
+        rospy.loginfo("completed sending commands to motors \n")
 
     def send_reference_trajectory(self, ref_traj):
         v = ref_traj['v']
@@ -192,6 +194,7 @@ class DataCollector:
         # Put the wheel commands in a message and publish
         msg_car_cmd = Twist2DStamped()
 
+        rospy.loginfo("starting to send reference velocities ... \n")
         for i in range(len(w)):
             msg_car_cmd.header.stamp = rospy.Time.now()
             msg_car_cmd.v = v[i]
@@ -201,6 +204,7 @@ class DataCollector:
 
             self.pub_car_cmd.publish(msg_car_cmd)
             self.rate.sleep()
+        rospy.loginfo("completed sending reference velocities\n")
 
     def is_valid_param(self, param_name=None, param_address=None, valid_params=None):
         param_val = rospy.get_param(param_address)
