@@ -2,7 +2,14 @@
   <arg name="veh" doc="Name of vehicle. ex: megaman"/>
   <arg name="package_namespace" default="calibration" />
   <arg name="node_namespace" default="data_collector" />
+  <arg name="use_for" default="calibration" doc="determines the open loop commands to present, takes values calibration or verification" />
   <arg name="output_rosbag_dir" default="$(env HOME)" doc="folder to save the rosbag" />
+
+  <arg name="local" default="false" doc="true for running on laptop. false for running on vehicle."/>
+  <arg name="config" default="baseline" doc="Specify a config."/>
+  <arg name="param_file_name" default="default" doc="Specify a param file. ex:megaman." />
+  <arg name="joy_mapper_param_file_name" default="$(arg param_file_name)" doc="Specify a joy_mapper param file. ex:high_speed" />
+  <arg name="model" default="gt" doc="Type of the model to be run by the node, ex: gain-trin model (standard one)"/>
 
   <!-- Launch the rosbag_recorder node to start/stop bag file inside a node in this package -->
   <include file="$(find rosbag_recorder)/launch/rosbag_recorder_server.launch">
@@ -16,11 +23,23 @@
   <!-- launch the wheel drive node -->
   <include file="$(find dagu_car)/launch/wheels_driver_node.launch">
     <arg name="veh" value="$(arg veh)"/>
+    <arg name="local" value="$(arg local)"/>
+  </include>
+
+  <!-- run inverse_kinematics_node -->
+  <remap from="inverse_kinematics_node/car_cmd" to="joy_mapper_node/car_cmd"/>
+  <remap from="inverse_kinematics_node/wheels_cmd" to="wheels_driver_node/wheels_cmd" />
+  <include file="$(find dagu_car)/launch/inverse_kinematics_node.launch">
+      <arg name="veh" value="$(arg veh)"/>
+      <arg name="local" value="$(arg local)"/>
+      <arg name="config" value="$(arg config)"/>
+      <arg name="model" value="$(arg model)"/>
   </include>
 
   <!-- Launch the script that publishes open-loop input commands to wheels -->
   <group ns="$(arg veh)/$(arg package_namespace)">
     <node  pkg="calibration" type="$(arg node_namespace).py" name="$(arg node_namespace)" output="screen" clear_params="true" required="true">
+      <param name="use_for" value="$(arg use_for)"/>
       <param name="veh" value="$(arg veh)"/>
       <param name="output_rosbag_dir" value="$(arg output_rosbag_dir)"/>
     </node>

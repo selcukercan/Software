@@ -90,11 +90,4 @@
         <arg name="operation_mode" value="$(arg operation_mode)"/>
         <arg name="save_lane_filter" value="$(arg save_lane_filter)"/>
     </include>
-
-  <!-- start buffer launch -->
-  <include file="$(find calibration)/launch/buffer_node.launch">
-    <arg name="veh" value="$(arg veh)"/>
-    <arg name="input_rosbag" value="$(arg input_rosbag)"/>
-  </include>
-
 </launch>

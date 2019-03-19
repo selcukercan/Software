@@ -112,7 +112,7 @@ class ImgRectFullRatio(object):
         # result_img = cv2.resize(result_img,(int(result_img.shape[1]*ratio), int(result_img.shape[0]*ratio)), interpolation = cv2.INTER_AREA)
 
         img_msg = self.bridge.cv2_to_imgmsg(result_img, "mono8")
-        rospy.loginfo("[{}] Input image resolution [{}]".format(self.node_name, cv_image.shape))
+        #rospy.loginfo("[{}] Input image resolution [{}]".format(self.node_name, cv_image.shape))
 
         img_msg.header.stamp = msg.header.stamp
         img_msg.header.frame_id = msg.header.frame_id
@@ -129,7 +129,7 @@ class ImgRectFullRatio(object):
         #print "new_K, ", new_K
         rect_cam_info.K = new_K
 
-        rospy.loginfo("[{}] Output image resolution [{}]".format(self.node_name, (rect_cam_info.height, rect_cam_info.width)))
+        #rospy.loginfo("[{}] Output image resolution [{}]".format(self.node_name, (rect_cam_info.height, rect_cam_info.width)))
 
         self.pub_rect.publish(img_msg)
         self.pub_cam_info.publish(rect_cam_info)

@@ -5,12 +5,7 @@ import rospy
 from os.path import join
 from numpy import arange, array, cos, sin, pi
 from itertools import izip
-import matplotlib.pyplot as plt
-import matplotlib.cm as cm
-from matplotlib.colors import Normalize
-from matplotlib.pyplot import figure
-from data_adapter_utils import x_polar_to_cart
-from utils import get_param_from_config_file, x_in_np
+from utils import get_param_from_config_file, x_in_np, get_workspace_param
 
 opy.init_notebook_mode(connected=True)
 
@@ -26,6 +21,7 @@ def path_plot(experiment, plot_name=''):
         path_plot_cartesian(experiment, plot_name=plot_name)
     else:
         rospy.loginfo('invalid plot name defined at path_plot function')
+
 
 def multiplot(states_list=None, time_list=None, input_list=None, experiment_name_list=None, plot_title='', save=False, save_dir=""):
     plot_datas = []
@@ -47,17 +43,22 @@ def multiplot(states_list=None, time_list=None, input_list=None, experiment_name
         layout = dict(title=plot_title)
         fig = dict(data=plot_datas, layout=layout)
         if save:
+            save_dir = get_workspace_param("results_dir")
             opy.plot(fig, auto_open=False, filename=join(save_dir, plot_title + ".html"))
         else:
             opy.plot(fig)
     else:
             rospy.loginfo('[plotting_utils] unable to plot as data no data provided')
+    rospy.sleep(SLEEP_DURATION)
+
 
 def single_plot_data(states=None, time=None, input=None, experiment_name=""):
     if measurement_coordinate_frame == "cartesian":
         return single_plot_data_cartesian(states= states, time= time, input = input , experiment_name=experiment_name)
     elif measurement_coordinate_frame == "polar":
         return single_plot_data_polar(states= states, time= time, input = input , experiment_name=experiment_name)
+    else:
+        return single_plot_generic(x=time, y=states, plot_title=experiment_name)
 
 
 # Cartesian
@@ -115,7 +116,10 @@ def single_plot_data_cartesian(states= None, time= None, input = None, experimen
 
     return data
 
+
 def path_plot_cartesian(experiment, plot_name=''):
+    import matplotlib.pyplot as plt
+
     path_data = x_in_np(experiment)
 
     fig, ax = plt.subplots()
@@ -129,7 +133,13 @@ def path_plot_cartesian(experiment, plot_name=''):
     plt.show()
     rospy.sleep(SLEEP_DURATION)
 
+
 def path_plot_cartesian_plotly(data_sets, data_set_names):
+    import matplotlib.pyplot as plt
+    import matplotlib.cm as cm
+    from matplotlib.colors import Normalize
+    from matplotlib.pyplot import figure
+
     fig, ax = plt.subplots()
     colormaps = [cm.Reds, cm.Blues, cm.Greens]
     for i, data in enumerate(data_sets):
@@ -157,7 +167,6 @@ def path_plot_cartesian_plotly(data_sets, data_set_names):
     plt.savefig("new.png")
     rospy.sleep(SLEEP_DURATION)
 
-
 # Polar
 def single_plot_data_polar(states= None, time= None, input = None, experiment_name=""):
     data = []
@@ -175,12 +184,14 @@ def single_plot_data_polar(states= None, time= None, input = None, experiment_na
         p3 = go.Scatter(
             x=t,
             y=rho,
+            mode='markers',
             name='rho ' + experiment_name.split('_')[-1]
         )
 
         p4 = go.Scatter(
             x=t,
             y=yaw,
+            mode='markers',
             name='yaw pos ' + experiment_name.split('_')[-1]
         )
 
@@ -240,7 +251,24 @@ def path_plot_polar(single_experiment, plot_name=''):
 
 
 # General
-def simple_plot(x_val, y_val, plot_name=""):
+def single_plot_generic(x=None,y=None, plot_title=None):
+    data = []
+
+    if x is None:
+        x = arange(states[1,:].shape[0])
+    else:
+        t = x
+
+    data_obj = go.Scatter(
+        x=t,
+        y=y,
+        mode='markers',
+        name=plot_title
+    )
+    data.append(data_obj)
+    return data
+
+def simple_plot(x_val, y_val, plot_name="", save_dir=""):
     data = []
 
     if x_val is None:
@@ -254,13 +282,17 @@ def simple_plot(x_val, y_val, plot_name=""):
     data.extend([p1])
     layout = dict(title=plot_name)
     fig = dict(data=data, layout=layout)
-    opy.plot(fig)
-    rospy.sleep(SLEEP_DURATION)
+    save_plot = get_param_from_config_file("save_experiment_results")
+    if save_plot:
+        opy.plot(fig, auto_open=False, filename=join(save_dir, plot_name + ".html"))
+    else:
+        opy.plot(fig)
+        rospy.sleep(SLEEP_DURATION)
 
-def param_convergence_plot(param_hist):
+def param_convergence_plot(param_hist, plot_name="", save_dir=""):
     for param in param_hist.keys():
         iter = range(len(param_hist[param]))
-        simple_plot(iter, param_hist[param], 'Parameter {}'.format(param))
+        simple_plot(iter, param_hist[param], 'Convergence Plot For Parameter {}'.format(param), save_dir=save_dir)
     rospy.sleep(SLEEP_DURATION)
 
 def param_space_cost_plot(cost, params_space_list):
@@ -339,3 +371,6 @@ def path_plot_plotly(experiment, plot_name=''):
     #fig = dict(data=data, layout=layout)
     opy.plot(fig)
     rospy.sleep(SLEEP_DURATION)
+
+def multiplot_mathplotlib(x,y):
+    pass

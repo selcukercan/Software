@@ -17,19 +17,19 @@
 #     {id: ID, size: SIZE, name: NAME},
 #     ...
 #   ]
-# NOTE: Dimensions of tag with ID 96 has been changed for sysid
+# NOTE: Dimensions of tag with ID 0,1,2,3,96 has been changed for sysid
 standalone_tags:
   [
     {id: 0, size: 0.1735, name: Tag0},
     {id: 1, size: 0.1735, name: Tag1},
     {id: 2, size: 0.1735, name: Tag2},
     {id: 3, size: 0.1735, name: Tag3},
-    {id: 4, size: 0.065, name: Tag4},
-    {id: 5, size: 0.065, name: Tag5},
-    {id: 6, size: 0.065, name: Tag6},
-    {id: 7, size: 0.065, name: Tag7},
-    {id: 8, size: 0.065, name: Tag8},
-    {id: 9, size: 0.065, name: Tag9},
+    {id: 4, size: 0.1735, name: Tag4},
+    {id: 5, size: 0.1735, name: Tag5},
+    {id: 6, size: 0.1735, name: Tag6},
+    {id: 7, size: 0.1735, name: Tag7},
+    {id: 8, size: 0.1735, name: Tag8},
+    {id: 9, size: 0.1735, name: Tag9},
     {id: 10, size: 0.065, name: Tag10},
     {id: 11, size: 0.065, name: Tag11},
     {id: 12, size: 0.065, name: Tag12},

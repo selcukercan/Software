@@ -16,7 +16,7 @@ class DecoderNode(object):
 
         # Parameters
         self.publish_freq = self.setupParam("~publish_freq", 30.0)
-        self.operation_mode = rospy.get_param(param_name= "/operation_mode")
+        self.operation_mode = self.setupParam("/operation_mode", 0)
 
         # Publishers
         self.publish_duration = rospy.Duration.from_sec(1.0/self.publish_freq)
@@ -34,7 +34,7 @@ class DecoderNode(object):
     def setupParam(self,param_name,default_value):
         value = rospy.get_param(param_name,default_value)
         rospy.set_param(param_name,value) #Write to parameter server for transparancy
-        rospy.loginfo("[%s] %s = %s " %(self.node_name,param_name,value))
+        rospy.loginfo("[{}] {} = {} from {}".format(self.node_name,param_name,value, "param_server" if rospy.has_param(param_name) else "script"))
         return value
 
     def cbSwitch(self,switch_msg):
