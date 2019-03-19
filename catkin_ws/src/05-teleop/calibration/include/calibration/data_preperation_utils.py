@@ -285,7 +285,8 @@ class DataPreparation():
             # This case corresponds to offline calibration, distributed AprilTag ID:0.
             return at_detections[1].pose
         else:
-            raise NotImplementedError
+            return fuse_apriltag_detections(at_detections)
+            #raise NotImplementedError
 
 
     def get_robot_pose_lane_filter(self, input_bag, topic_name):
@@ -330,6 +331,10 @@ class DataPreparation():
                       )
         return filtered_signal
 
+
+def fuse_apriltag_detections(at_detections):
+    for at_id in at_detections.keys():
+        print "Detection AprilTag {}\n\n {}".format(at_id, at_detections[at_id].pose)
 
 def smooth(x, window_len=1, window='hanning'):
     """

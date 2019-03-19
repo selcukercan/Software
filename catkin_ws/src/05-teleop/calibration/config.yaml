@@ -4,7 +4,7 @@ debug: True # needs to be set True while debugging through an IDE
 save_experiment_results: True # save the plots under the results
 save_to_pickle: False
 show_plots: True # display the plots
-multitag_pose_estimation: False # not yet implemented
+multitag_pose_estimation: True # not yet implemented
 
 # Optimization
 express_measurements_in: polar # or cartesian. polar coordinates is the recommended option
