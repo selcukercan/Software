@@ -64,6 +64,7 @@ class DataCollector:
 
         self.wait_start_rosbag = 5 # wait for wait_for_rosbag seconds to make sure that the bag has started recording
         self.wait_write_rosbag = 0
+        self.wait_for_parameter_server = 3
 
         self.map = self.exp_name_object_map()
 
@@ -122,6 +123,8 @@ class DataCollector:
         ui = ExperimentUI()
 
         while DO_EXPERIMENT == "yes":
+            rospy.loginfo("waiting for all parameters to be set ... ")
+            rospy.sleep(self.wait_for_parameter_server)
             print("\nType in the name of the experiment to conduct: {}".format(str(self.available_experiments)))
             experiment_type, experiment_object_init = self.get_valid_experiment(use_for=self.use_for)
             experiment_object = experiment_object_init(mode=self.use_for)
