@@ -53,6 +53,9 @@ class MeasurementBuffer:
             self.pub_topic_image_request = "/" + self.veh + "/" + self.node_name + "/" + "image_requested"
             self.pub_image_request = rospy.Publisher(self.pub_topic_image_request, Bool, queue_size=1)
 
+            self.pub_topic_processed_bag = "/" + self.veh + "/" + self.node_name + "/" + "bag_requested"
+            self.pub_bag_request = rospy.Publisher(self.pub_topic_processed_bag, Bool, queue_size=1)
+
             # get the input rosbags, and name of the output bag we wish the create
             input_bag = rospy.get_param(param_name= host_package_node + "/input_rosbag")
             self.output_bag = rospy.get_param(param_name= host_package_node + "/output_rosbag")
@@ -68,32 +71,6 @@ class MeasurementBuffer:
         else:
             rospy.logwarn('[measurement_buffer] operating in asynchronous mode')
 
-        """
-        # ROS Parameters
-        self.pm_send_status = "/" + self.veh + "/buffer_node/process_status"
-        self.send_status = self.setupParam(self.pm_send_status,0)
-        self.pm_message_count = "/" + self.veh + "/buffer_node/message_count"
-        self.message_count = self.setupParam(self.pm_message_count, -1) # set to a non-positive number for ease of debugging
-
-        # Rosbag related parameters
-        path_to_bag = rospy.get_param(param_name= host_package_node + "/input_rosbag")
-        self.cur_image_i = 0
-        self.send_out_all_images = False
-
-        # Read the compressed image topic from the bag
-        topicname = "/" + self.veh + "/camera_node/image/compressed"
-        self.input_rosbag = rosbag.Bag(path_to_bag)
-        self.total_msg_count = self.input_rosbag.get_message_count(topicname)
-        self.view_generator = self.input_rosbag.read_messages(topics=topicname) # create a rosbag generator
-
-        rospy.set_param(self.pm_message_count, self.total_msg_count)
-
-        init_wait = 5
-        rospy.loginfo("[{}] Waiting for {} seconds to ensure all other processes have launched".format(self.node_name, init_wait))
-        rospy.sleep(init_wait)
-
-        self.pub_single_compressed_image() # send the first image
-        """
     def set_active_methods(self, available_methods):
         active_methods = []
 
@@ -137,7 +114,6 @@ class MeasurementBuffer:
             self.pub_messages()
             self.write_bag()
 
-
     def cb_apriltag(self, msg):
         self.method_objects['apriltag']._add(msg)
         if self.check_ready_to_publish():
@@ -161,6 +137,9 @@ class MeasurementBuffer:
             time_sync_lock.acquire()
             time_sync(self.output_bag, self.veh)
             time_sync_lock.release()
+            # request a new bag from "buffer.py"
+            req_bag = Bool(True)
+            self.pub_bag_request.publish(req_bag)
 
     def check_ready_to_publish(self):
         localization_method_dict = self.method_objects
