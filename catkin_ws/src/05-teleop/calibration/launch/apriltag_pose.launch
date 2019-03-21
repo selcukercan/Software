@@ -15,10 +15,6 @@
   <arg name="package_namespace" default="calibration" />
   <arg name="node_namespace" default="data_collector" />
 
-  <!-- directories to read and save the rosbags -->
-  <arg name="input_rosbag" doc="path to the input rosbag containing the compressed image"/>
-  <arg name="output_rosbag" doc="file path to save the processed rosbag."/>
-
   <!-- General -->
   <arg name="operation_mode" default="0"  doc="for asynchronous (the standard ros operation):0 (default),for synchronous (sequential) operation:1." />
   <param name="operation_mode" value="$(arg operation_mode)"/>
@@ -85,8 +81,6 @@
     <!-- start the apriltag to world frame launch -->
     <include file="$(find apriltags2_ros)/launch/detection_to_local_frame.launch">
         <arg name="veh" value="$(arg veh)"/>
-        <arg name="input_rosbag" value="$(arg input_rosbag)"/>
-        <arg name="output_rosbag" value="$(arg output_rosbag)"/>
         <arg name="operation_mode" value="$(arg operation_mode)"/>
         <arg name="save_lane_filter" value="$(arg save_lane_filter)"/>
     </include>
