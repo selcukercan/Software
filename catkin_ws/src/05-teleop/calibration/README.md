@@ -208,3 +208,8 @@ make docker-upload VERSION=![VERSION_NO]
 ```
 
 Note that we also label the image with the commit id.
+
+
+## Record a rosbag from a launch file
+ <!-- Start the rosbag -->
+  <node pkg="rosbag" type="record" args="record -O /media/logs/$(arg veh)_calibration -a" name="record" output="screen"/>
