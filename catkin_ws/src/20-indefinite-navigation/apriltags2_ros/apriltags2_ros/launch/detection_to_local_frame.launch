@@ -2,8 +2,6 @@
   <arg name="veh"/>
   <arg name="package_namespace" default="apriltags2_ros" />
   <arg name="node_namespace" default="publish_detections_in_local_frame" />
-  <arg name="input_rosbag" doc="path to rosbag that is collected during the experiments."/>
-  <arg name="output_rosbag" doc="path to rosbag that will be generated." />
   <arg name="save_lane_filter" default="false" doc="specify if you would like to save the output returned by lane filter. Note that this launch file does not start lane filter."/>
 
   <!-- General -->
@@ -18,9 +16,7 @@
     
     <node if="$(arg operation_mode)" pkg="apriltags2_ros" type="$(arg node_namespace).py" name="$(arg node_namespace)" clear_params="true" required="true" output="screen">
       <param name="veh" value="$(arg veh)"/>
-      <param name="input_rosbag" value="$(arg input_rosbag)"/>
-      <param name="output_rosbag" value="$(arg output_rosbag)"/>
-        <param name="save_lane_filter" value="$(arg save_lane_filter)"/>
+      <param name="save_lane_filter" value="$(arg save_lane_filter)"/>
     </node>
 
   </group>
