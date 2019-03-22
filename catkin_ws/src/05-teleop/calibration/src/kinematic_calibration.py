@@ -36,6 +36,7 @@ class calib():
         self.results_dir = get_workspace_param("results_dir")
         self.tmp_dir = get_workspace_param("tmp_dir")
         self.conf = yaml_load_file(get_workspace_param("path_to_config_file"), plain_yaml=True)
+        self.conf_version = self.conf["config_file_version"]
 
         # flow-control parameters
         DEBUG = self.conf['debug']
@@ -393,7 +394,8 @@ class calib():
 
         # base-report content, entries are valid for both validation and optimization operations
         yaml_dict = {
-            'sysid_protocol_version': 'v1.0',
+            'sysid_code_version': 'v1.0',
+            'config_version': self.conf_version,
             'hostname': self.get_hostname(),
             'platform': self.get_cpu_info(),
             'experiment time': os.path.basename(self.results_dir),
