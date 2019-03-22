@@ -15,11 +15,12 @@ from calibration.cost_function_library import *
 from calibration.data_adapter_utils import *
 from calibration.data_preperation_utils import DataPreparation
 from calibration.data_preperation_utils import load_pickle, save_pickle
-from calibration.model_library import model_generator, simulate
+from calibration.model_library import model_generator, simulate, simulate_horizan
 from calibration.plotting_utils import *
 from calibration.utils import work_space_settings, get_workspace_param, \
     defined_ros_param, input_folder_to_experiment_dict, read_param_from_file, get_file_path,  defaulted_param_load, \
     pack_results
+from calibration.model_assessment import assesment_rule
 
 # duckietown imports
 from duckietown_utils.yaml_wrap import yaml_load_file, yaml_write_to_file, get_duckiefleet_root
@@ -66,6 +67,11 @@ class calib():
         # construct a model by specifying which model to use
         model_object = model_generator(self.model_type, self.measurement_coordinate_frame)
 
+        # define the type of metric to use while constructing the cost
+        train_metric = self.conf['cost_function_type']
+        self.train_metric = metric_selector(train_metric)
+        self.validation_metric = self.train_metric # use the same metric for the validation as well
+
         if self.do_train:
             # load data for use in optimization
             experiments = self.load_dataset("Training", self.path_training_data, localization_type='apriltag')
@@ -87,7 +93,6 @@ class calib():
         self.copy_calibrations_folder()
         pack_results(self.results_dir)
 
-        print 'selcuk'
         """
         #add_x_dot_estimate_to_dataset(experiments, "train")
         """
@@ -104,10 +109,6 @@ class calib():
         # optimization process monitoring
         self.param_hist = self.init_param_hist(model_object.model_params)
         self.cost_fn_val_list = []
-
-        # define the type of metric to use while constructing the cost
-        self.req_metric = self.conf['cost_function_type']
-        self.metric = metric_selector(self.req_metric)
 
         # run the optimization problem
         start_time = time.time()
@@ -177,7 +178,7 @@ class calib():
 
             # simulate the model
             x_sim = simulate(model_object, t, x, u, p)  # states for a particular p set
-            obj_cost = calculate_cost(x, x_sim, self.metric)
+            obj_cost = calculate_cost(x, x_sim, self.train_metric)
 
         self.update_param_hist(model_object.param_ordered_list, p)
         self.cost_fn_val_list.append(obj_cost)
@@ -207,16 +208,27 @@ class calib():
             x = exp_data['robot_pose']
             u = exp_data['wheel_cmd_exec']
 
-            # simulate the model
+            # one-step-ahead simulation of the model
             # states for a particular p set
             x_sim_opt = simulate(model_object, t, x, u, popt)
-
             # calculate the error metric
-            error = calculate_cost(x, x_sim_opt, self.metric)
+            self.osap_error = calculate_cost(x, x_sim_opt, self.validation_metric)
 
-            print('\nModel Performance Evaluation:\nModel Name: {}\nMetric Type: {} Value: {}\n'.format(exp_name,
-                                                                                                        self.metric,
-                                                                                                        error))
+            print('\nModel Performance Evaluation based on One-Step-Ahead-Prediction :\nModel Name: {}\nMetric Type: {} Value: {}\n'.format(exp_name,
+                                                                                                        self.validation_metric,
+                                                                                                        self.osap_error))
+
+            # n-step-ahead simulation of the model, i.e. given an initial position predict the vehicle motion for the
+            # complete experiment horizan.
+            x0 = x[:, 0]
+            x_sim_opt_n_step = simulate_horizan(model_object, t, x0, u, popt)
+            #x_sim_init_osap = simulate_horizan(model_object, t, x0, u, self.p0)
+            self.nsap_error = calculate_cost(x, x_sim_opt_n_step , self.validation_metric)
+
+            print('\nModel Performance Evaluation based on N-Step-Ahead-Prediction :\nModel Name: {}\nMetric Type: {} Value: {}\n'.format(
+                exp_name,
+                self.validation_metric,
+                self.nsap_error))
 
             if self.show_plots:
                 multiplot(states_list=[x, x_sim_opt],
@@ -226,6 +238,18 @@ class calib():
                           plot_title="One Step Ahead Predictions for Model: {} Dataset: {}".format(model_object.name,
                                                                                                    exp_name),
                           save=self.save_experiment_results)
+
+
+                multi_path_plot([x, x_sim_opt],
+                                experiment_name_list =['measurement', 'kinematic_model'],
+                                plot_title="One-Step-Ahead Prediction Trajectory Simulation for {}".format(exp_name),
+                                save=self.save_experiment_results)
+
+                multi_path_plot([x, x_sim_opt_n_step],
+                                experiment_name_list=['measurement', 'kinematic_model'],
+                                plot_title="N-Step Ahead Trajectory Simulation for {}".format(exp_name),
+                                save=self.save_experiment_results)
+
 
             if self.initial_param_vs_optimal_param:
                 x_sim_init = simulate(model_object, t, x, u, self.p0)
@@ -238,23 +262,6 @@ class calib():
                               plot_title="One Step Ahead Predictions for Model: {} Dataset: {}".format(model_object.name,
                                                                                                        exp_name),
                               save=self.save_experiment_results)
-                """
-                x0 = x[:, 0]
-                x_sim_opt_osap = simulate_horizan(model_object, t, x0, u, popt)
-                x_sim_init_osap = simulate_horizan(model_object, t, x0, u, self.p0)
-    
-                if self.show_plots:
-                    multiplot(states_list=[x, x_sim_init_osap, x_sim_opt_osap],
-                          input_list=[u,u,u],
-                          time_list=[t,t,t],
-                          experiment_name_list=[exp_name + '_measurement', exp_name + '_simulated_init', exp_name + '_simulated_optimal'],
-                          plot_title= "N-Horizan " + plot_title,
-                          save=self.save_experiment_results,
-                          save_dir=self.results_dir)
-    
-    
-                multi_path_plot([exp_data, x_sim_init, x_sim_opt], ["measurement", "initial_values", "optimal_values"] )
-                """
 
 
     # Save results
@@ -335,7 +342,10 @@ class calib():
 
     # Report-Related Functions
     def get_verdict(self):
-        return 'NotEvaluated'
+        assesment_fn = assesment_rule()
+        # adjust the parameters of assesment_fn to generate a verdict
+        verdict = assesment_fn(self.nsap_error)
+        return verdict
 
     @staticmethod
     def get_hostname():
@@ -380,20 +390,25 @@ class calib():
         copy_tree(calibrations_folder, dst)
 
     def generate_report(self):
+
+        # base-report content, entries are valid for both validation and optimization operations
         yaml_dict = {
             'sysid_protocol_version': 'v1.0',
             'hostname': self.get_hostname(),
             'platform': self.get_cpu_info(),
             'experiment time': os.path.basename(self.results_dir),
             'used_model': self.model_type,
-            'verdict': self.get_verdict(),
-            'optimization_converged': self.optimization_status,
-            'optimization_solve_time': str(self.total_calculation_time)
+            'verdict': self.get_verdict()
         }
+        if self.do_train:
+            # when optimization is done, also include optimization related entries.
+            yaml_dict['optimization_converged'] = self.optimization_status
+            yaml_dict['optimization_solve_time'] = str(self.total_calculation_time)
 
+        # create the report file
         report = os.path.join(self.results_dir, 'report.yaml')
         os.mknod(report)
-
+        # write the content into the report
         yaml_write_to_file(yaml_dict, report)
 
 if __name__ == '__main__':

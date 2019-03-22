@@ -22,7 +22,6 @@ def path_plot(experiment, plot_name=''):
     else:
         rospy.loginfo('invalid plot name defined at path_plot function')
 
-
 def multiplot(states_list=None, time_list=None, input_list=None, experiment_name_list=None, plot_title='', save=False, save_dir=""):
     plot_datas = []
     # generate arange time data if time is not provided to faciliate debugging
@@ -218,7 +217,7 @@ def single_plot_data_polar(states= None, time= None, input = None, experiment_na
 
     return data
 
-def single_path_data_polar(states=None):
+def single_path_data_polar(states=None, color="#182844", experiment_name=""):
     x_states = x_in_np(states)
     data = [
         go.Scatterpolar(
@@ -226,17 +225,61 @@ def single_path_data_polar(states=None):
             theta=x_states[1,:],
             mode='markers',
             marker=dict(
-                color='peru'
-            )
+                color=color
+            ),
+            name=experiment_name
         )
     ]
     return data
+
+def multi_path_plot(experiment_list, experiment_name_list=[], plot_title="", save=False):
+    plot_data = []
+    upper_rho = -10000 # unreasonably large number
+    lower_rho = 10000  # unreasonably large number
+    upper_theta = -10000 # unreasonably large number
+    lower_theta = 10000  # unreasonably large number
+
+    colorway = ['#8B0000', '#000080', '#006400']
+
+    for i, exp in enumerate(experiment_list):
+        plot_data_exp = x_in_np(exp)
+        plot_data_single = single_path_data_polar(plot_data_exp, color=colorway[i], experiment_name=experiment_name_list[i])
+        plot_data.extend(plot_data_single)
+
+        if max(plot_data_exp[1, :]) > upper_theta:
+            upper_theta = max(plot_data_exp[1, :])
+        if min(plot_data_exp[1, :]) < lower_theta:
+            lower_theta = min(plot_data_exp[1, :])
+        if max(plot_data_exp[0, :]) > upper_rho:
+            upper_rho = max(plot_data_exp[0, :])
+        if min(plot_data_exp[0, :]) < lower_rho:
+            lower_rho = min(plot_data_exp[0, :])
+
+    layout = go.Layout(
+        showlegend=True,
+        polar=dict(
+            sector=[lower_theta - 10, upper_theta + 10],
+            radialaxis=dict(
+                range=[lower_rho - 0.05, upper_rho + 0.05]
+            )
+        ),
+        title=plot_title
+    )
+
+    fig = go.Figure(data=plot_data, layout=layout)
+
+    if save:
+        save_dir = get_workspace_param("results_dir")
+        opy.plot(fig, auto_open=False, filename=join(save_dir, plot_title + ".html"))
+    else:
+        opy.plot(fig)
+    rospy.sleep(SLEEP_DURATION)
 
 def path_plot_polar(single_experiment, plot_name=''):
     data = x_in_np(single_experiment)
     plot_data = single_path_data_polar(data)
     layout = go.Layout(
-        showlegend=False,
+        showlegend=True,
         polar=dict(
             sector=[min(data[1,:]) - 10, max(data[1,:]) + 10],
             radialaxis=dict(
