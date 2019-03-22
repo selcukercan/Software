@@ -1,4 +1,5 @@
 # General
+config_file_version: 1.0
 vehicle_name: mete # only necessary while debugging through an IDE
 debug: True # needs to be set True while debugging through an IDE
 save_experiment_results: True # save the plots under the results
