@@ -28,7 +28,6 @@
 
     <!-- Directories to read and save the rosbags -->
     <arg name="input_path" doc="directory to input rosbags"/>
-    <arg name="output_path" doc="directory to save the processed rosbag."/>
 
     <!-- Operation  specific write to parameter server-->
     <arg name="operation_mode" default="0"  doc="for asynchronous (the standard ros operation):0 (default),for synchronous (sequential) operation:1." />
@@ -89,13 +88,18 @@
       <arg name="input_path" value="$(arg input_path)"/>
     </include>
 
-    <!-- start measurement buffer launch -->
+    <include file="$(find calibration)/launch/measurement_buffer_node.launch">
+      <arg name="veh" value="$(arg veh)"/>
+      <arg name="input_path" value="$(arg input_path)"/>
+      <arg name="operation_mode" value="$(arg operation_mode)"/>
+    </include>
+
+    <!-- start measurement buffer launch
     <group ns="$(arg veh)/$(arg package_namespace)">
       <node pkg="$(arg package_namespace)" type="measurement_buffer.py" name="measurement_buffer" clear_params="true" required="true" output="screen">
         <param name="veh" value="$(arg veh)"/>
         <param name="operation_mode" value="$(arg operation_mode)"/>
-          <param name="output_path" value="$(arg output_path)"/>
       </node>
     </group>
-
+    -->
 </launch>

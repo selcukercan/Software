@@ -79,7 +79,7 @@ add_message_files(
   ObstacleImageDetectionList.msg
   ObstacleProjectedDetection.msg
   ObstacleProjectedDetectionList.msg
-
+  RosbagInfo.msg
 )
 
 ## Generate services in the 'srv' folder

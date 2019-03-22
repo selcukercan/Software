@@ -105,6 +105,9 @@ def safe_create_dir(path):
         mkdir(path)
     return path
 
+def get_files_in_dir(dir_name):
+    """ get files inside a directory """
+    return [f for f in os.listdir(dir_name) if os.path.isfile(os.path.join(dir_name, f))]
 
 def save_gzip(file_name, processed_dataset, dataset_type):
     if dataset_type == "train":
@@ -205,3 +208,7 @@ def defaulted_param_load(model_object, robot_name):
                                         model_object.get_param_initial_guess_dict())  # otherwise use the default initial guesses as defined in the class of our model choice
         rospy.logwarn('using default initial guesses defined in model {} ..'.format(model_object.name))
     return p0
+
+
+if __name__ == '__main__':
+    print get_files_in_dir('/home/selcuk/multi_bag_processing/')

@@ -1,0 +1,2 @@
+int32 message_count
+string rosbag_path
