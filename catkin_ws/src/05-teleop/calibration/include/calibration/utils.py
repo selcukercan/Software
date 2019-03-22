@@ -105,6 +105,9 @@ def safe_create_dir(path):
         mkdir(path)
     return path
 
+def get_files_in_dir(dir_name):
+    """ get files inside a directory """
+    return [f for f in os.listdir(dir_name) if os.path.isfile(os.path.join(dir_name, f))]
 
 def save_gzip(file_name, processed_dataset, dataset_type):
     if dataset_type == "train":
@@ -115,8 +118,9 @@ def save_gzip(file_name, processed_dataset, dataset_type):
 
 
 def get_param_from_config_file(param_name):
-    return yaml_load_file(get_package_root("calibration") + '/config.yaml', plain_yaml=True)[param_name]
-
+    #return yaml_load_file(get_package_root("calibration") + '/config.yaml', plain_yaml=True)[param_name]
+    config_file_path = get_config_file_path()
+    return yaml_load_file(config_file_path, plain_yaml=True)[param_name]
 
 def x_in_np(data):
     if type(data) == dict:
@@ -169,10 +173,17 @@ def work_space_settings():
     package_root = get_package_root("calibration")
     options["results_dir"] = create_results_dir(package_root)
     options["tmp_dir"] = safe_create_dir(os.path.join(package_root, "tmp"))
-    options["path_to_config_file"] = package_root + '/config.yaml'
+    options["path_to_config_file"] = get_config_file_path()
 
 def get_workspace_param(option):
     return options[option]
+
+def get_config_file_path():
+    # use meta config file to decide which configuration file to use.
+    package_root = get_package_root("calibration")
+    meta_config = yaml_load_file(package_root + '/meta_config.yaml', plain_yaml=True)
+    use_config_version = meta_config["config_version"]
+    return package_root + '/configs/config_{}.yaml'.format(use_config_version)
 
 
 def cautious_read_param_from_file(robot_name, model_object):
@@ -205,3 +216,7 @@ def defaulted_param_load(model_object, robot_name):
                                         model_object.get_param_initial_guess_dict())  # otherwise use the default initial guesses as defined in the class of our model choice
         rospy.logwarn('using default initial guesses defined in model {} ..'.format(model_object.name))
     return p0
+
+
+if __name__ == '__main__':
+    print get_files_in_dir('/home/selcuk/multi_bag_processing/')

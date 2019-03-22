@@ -82,10 +82,10 @@ class RampUp(BaseExperimentClass):
         info_msg = """
         Experiment Description:
 
-        Increase the duty cycle value linearly from zero until **d_max** in **n_step**.  
+        Increase the duty cycle value linearly from zero until **d_max** in **n_step**.
 
         Paramaters:
-        
+
         d_max:\t\tpeak duty-cycle value to be reached
         n_step:\t\tnumber of steps (increments) to take till reaching d_max
         """
@@ -152,7 +152,7 @@ class Step(BaseExperimentClass):
         info_msg = """
         Experiment Description:
 
-        Perform a step input with magnitude **d** for **duration** seconds.  
+        Perform a step input with magnitude **d** for **duration** seconds.
 
         Paramaters:
 
@@ -210,7 +210,7 @@ class Sine(BaseExperimentClass):
         self.mode = mode
 
         self.wheel_cmd_parameter_dict = {'k1': 0.2, 'k2': 0.06, 'omega': 0.007, 'duration': 1500}
-        self.traj_param_dict ={'v': 0.4, 'w': 0.5,  'repeats': 2, 'period': 750}
+        self.traj_param_dict ={'v': 0.3, 'w': 1.0,  'period': 2000}
 
         self.parameter_dict = self.get_param_dict()
         self.advertisement = self.get_advertisement()
@@ -221,17 +221,17 @@ class Sine(BaseExperimentClass):
         Experiment Description:
 
         Perform a sine experiment for **duration** seconds, where motor duty-cycles are calculated as:
-        
+
         d_left = k1 - k2 * cos(w * t)
-        d_right = k1 + k2 * cos(w * t)  
+        d_right = k1 + k2 * cos(w * t)
 
         Paramaters:
 
-        k1:\t\tmedian value of the sine 
+        k1:\t\tmedian value of the sine
         k2:\t\tamplitude of the sine
         omega:\t\tangular velocity of the sine [rad/msec]
         duration:\t\tlength of the experiment in miliseconds
-        
+
         """
         print(info_msg)
 
@@ -252,18 +252,14 @@ class Sine(BaseExperimentClass):
         info_msg = """
         Verification Experiment Description:
 
-        Tell your duckiebot to follow a sine-like maneuver characterized by longitudinal  velocity **v** and 
-        angular veloicity **w**. In total **repeats** motion cycles are executed  where each motion cycle lasts 
-        for **period** miliseconds. 
-        
-        Note that this maneuver does not command a real-sine trajectory but rather half circles.
-        
+        Tell your duckiebot to follow a sinemaneuver with longitudinal  velocity **v** and
+        angular veloicity **w** where the period of the sine is determined by **period**.
+
         Paramaters:
 
         v:\t\tlongitudinal velocity [m/sec]
         w:\t\tangular velocity [rad/sec]
         period:\t\tlength of one period [milisecond]
-        repeats:\t\tnumber of periods
         """
         print(info_msg)
 
@@ -271,15 +267,9 @@ class Sine(BaseExperimentClass):
         traj_sequence = {'v': [], 'w': []}
         rospy.loginfo("[generate_trajectory] generating trajectory sequence of type {} with parameters {}".format(self.name, str(req_parameter_dict)))
 
-        for i in range(req_parameter_dict['repeats']):
-            # Heading towards left in the first half of the period
-            for t in np.arange(0, req_parameter_dict['period'] / 2, step_duration):
-                traj_sequence['v'].append(req_parameter_dict['v'])
-                traj_sequence['w'].append(req_parameter_dict['w'])
-            # Heading towards right in the second half of the period
-            for t in np.arange(0, req_parameter_dict['period'] / 2, step_duration):
-                traj_sequence['v'].append(req_parameter_dict['v'])
-                traj_sequence['w'].append(-req_parameter_dict['w'])
+        for t in np.arange(0, req_parameter_dict['period'], step_duration):
+            traj_sequence['v'].append(req_parameter_dict['v'])
+            traj_sequence['w'].append(req_parameter_dict['w'] * cos( (2 * np.pi / req_parameter_dict['period']) * t))
         # finally send a (v=0, w=0) to stop the motion
         traj_sequence['v'].append(0)
         traj_sequence['w'].append(0)
@@ -305,10 +295,10 @@ class SweepSine(BaseExperimentClass):
 
         Perform a sweep sine (aka: chirp signal) experiment for **duration** miliseconds, where omega content is linearly
         increased from **omega_low** to **omega_high**
-        
+
         Paramaters:
 
-        k1:\t\tmedian value of the sine 
+        k1:\t\tmedian value of the sine
         k2:\t\tamplitude of the sine
         omega_low:\t\tminumum angular velocity of the sine [rad/msec]
         omega_low:\t\tangular velocity of the sine [rad/msec]
@@ -361,11 +351,11 @@ class StepSalsa(BaseExperimentClass):
         Experiment Description:
 
         Perform the cyclic motion pattern "right wheel forward, right wheel backward, left wheel forward, left wheel backward"
-        for **repeat** times. Length and speed of the motion is specified by **duration** and **d** respectively. 
+        for **repeat** times. Length and speed of the motion is specified by **duration** and **d** respectively.
 
         WARNING: It is known that the quality of the AprilTag detection decreases significantly due motion blur induced
         by this input pattern.
-        
+
         Paramaters:
 
         d:\t\tduty-cycle command send to motors, takes values between 0 and 1, higher the faster.
@@ -430,9 +420,9 @@ class Circle(BaseExperimentClass):
         info_msg = """
         Experiment Description:
 
-        Command your duckiebot to follow a circular path by specifing the duty cycle for the right and the left motor with 
-        **d_r** and **d_l** respectively. Note that the higer the difference between the duty-cycles smaller the circle 
-        radius will be. 
+        Command your duckiebot to follow a circular path by specifing the duty cycle for the right and the left motor with
+        **d_r** and **d_l** respectively. Note that the higer the difference between the duty-cycles smaller the circle
+        radius will be.
 
         Paramaters:
 
@@ -448,7 +438,7 @@ class Circle(BaseExperimentClass):
         info_msg = """
         Verification Experiment Description:
 
-        Command your duckiebot to follow a circular path by specifing the longitudinal and angular velocities, 
+        Command your duckiebot to follow a circular path by specifing the longitudinal and angular velocities,
         **v** and **w** respectively. Higher **v** means duckiebot will travel faster.
 
         Paramaters:
@@ -504,9 +494,9 @@ class Infinity(BaseExperimentClass):
         info_msg = """
         Experiment Description:
 
-        Command your duckiebot to follow a infinity (eight) pattern by specifing the duty cycle for the right and the left motor with 
-        **d_r** and **d_l** respectively. Note that the higer the difference between the duty-cycles smaller the circles of the eigth 
-        will be. 
+        Command your duckiebot to follow a infinity (eight) pattern by specifing the duty cycle for the right and the left motor with
+        **d_r** and **d_l** respectively. Note that the higer the difference between the duty-cycles smaller the circles of the eigth
+        will be.
 
         Paramaters:
 
@@ -522,7 +512,7 @@ class Infinity(BaseExperimentClass):
         info_msg = """
         Verification Experiment Description:
 
-        Command your duckiebot to follow an infinity pattern by specifing the longitudinal and angular velocities, 
+        Command your duckiebot to follow an infinity pattern by specifing the longitudinal and angular velocities,
         **v** and **w** respectively. Higher **v** means duckiebot will travel faster.
 
         Paramaters:
@@ -538,7 +528,7 @@ class Infinity(BaseExperimentClass):
         input_sequence = {'left_wheel': [], 'right_wheel': []}
         rospy.loginfo("[generate_input] generating input sequence of type {} with parameters {}".format(self.name, str(req_parameter_dict)))
 
-        for t in range(0,int(req_parameter_dict['duration']), step_duration): 
+        for t in range(0,int(req_parameter_dict['duration']), step_duration):
             input_sequence['left_wheel'].append(req_parameter_dict['d_l'])
             input_sequence['right_wheel'].append(req_parameter_dict['d_r'])
         input_sequence['left_wheel'].append(0)
