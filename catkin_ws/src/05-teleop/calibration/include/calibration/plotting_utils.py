@@ -374,16 +374,6 @@ def param_space_cost_plot(cost, params_space_list):
     opy.plot(fig)
     rospy.sleep(SLEEP_DURATION)
 
-def plot_system(states=None, time=None, input=None, experiment_name=""):
-    data = single_plot_data_cartesian(states=states, time=time, input=input, experiment_name=experiment_name)
-    if len(data) is not 0:
-        layout = dict(title=experiment_name)
-        fig = dict(data=data, layout=layout)
-        opy.plot(fig)
-    else:
-        rospy.loginfo('[plotting_utils] unable to plot as data no data provided')
-
-# Void?
 
 def path_plot_plotly(experiment, plot_name=''):
 

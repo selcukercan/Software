@@ -80,39 +80,52 @@ class KinematicDrive(BaseModelClass):
             return [rho_dot, theta_dot]
 
 
-class DynamicsDrive(BaseModelClass):
+class DynamicDrive(BaseModelClass):
 
     def __init__(self, measurement_coordinate_system):
         self.name = "dynamic_drive"
-        self.param_ordered_list = ['q1', 'q2', 'q3', 'q4', 'q5', 'q6'] # it is used to enforce an order (to avoid possible confusions) while importing params from YAML as bounds are imported from model always.
-        self.model_params = {'q1': {'param_init_guess': 1, 'param_bounds': (None, None), 'search': (2.0, 0.4)},
-                             'q2': {'param_init_guess': 1, 'param_bounds': (None, None), 'search': (2.0, 0.4)},
-                             'q3' : {'param_init_guess': 1, 'param_bounds': (None, None), 'search': (0.050, 0.010)},
-                             'q4': {'param_init_guess': 1, 'param_bounds': (None, None), 'search': (2.0, 0.4)},
-                             'q5': {'param_init_guess': 1, 'param_bounds': (None, None), 'search': (2.0, 0.4)},
-                             'q6': {'param_init_guess': 1, 'param_bounds': (None, None), 'search': (0.050, 0.010)}
-                             }
-        # "search" is used for for brute-force cost function value evaluatiom: (magnitude of variation in both directions, decimation)
+        self.param_ordered_list = ['u1', 'u2', 'u3', 'w1', 'w2', 'w3', 'u_alpha_r', 'u_alpha_l', 'w_alpha_r', 'w_alpha_l']
+        self.model_params = {'u1': {'param_init_guess': 1, 'param_bounds': (None, None), 'search': (None, None)},
+                             'u2': {'param_init_guess': 1, 'param_bounds': (None, None), 'search': (None, None)},
+                             'u3' : {'param_init_guess': 1, 'param_bounds': (None, None), 'search': (None, None)},
+                             'w1': {'param_init_guess': 1, 'param_bounds': (None, None), 'search': (None, None)},
+                             'w2': {'param_init_guess': 1, 'param_bounds': (None, None), 'search': (None, None)},
+                             'w3': {'param_init_guess': 1, 'param_bounds': (None, None), 'search': (None, None)},
+                             'u_alpha_r': {'param_init_guess': 1, 'param_bounds': (None, None), 'search': (None, None)},
+                             'u_alpha_l': {'param_init_guess': 1, 'param_bounds': (None, None), 'search': (None, None)},
+                             'w_alpha_r': {'param_init_guess': 1, 'param_bounds': (None, None), 'search': (None, None)},
+                             'w_alpha_l': {'param_init_guess': 1, 'param_bounds': (None, None), 'search': (None, None)}}
         self.measurement_coordinate_system = measurement_coordinate_system
         rospy.loginfo("\nusing model type: [{}]".format(self.name))
 
-    def model(self, t, x, u, p):
-        # input commands + model params
-        (cmd_right, cmd_left) = u
-        (dr, dl, L) = p
+    def model(self, t, x_dot, u, p):
+        V = col(np.array(u)) # input array
+        (u, w) = x_dot
+        (u1, u2, u3, w1, w2, w3, u_alpha_r, u_alpha_l, w_alpha_r, w_alpha_l) = p
 
-        # kinetic states through actuation
-        vx = (dr * cmd_right + dl * cmd_left) # m/s
-        omega = (dr * cmd_right - dl * cmd_left) / L # rad/s
+        # Nonlinear Dynamics - autonomous response
+        f_dynamic = np.array([
+        [-u1 * u - u2 * w + u3 * w ** 2],
+        [-w1 * u - w2 * w - w3 * u * w]
+        ])
+
+        # Input Matrix - forced response
+        B = np.array([
+            [u_alpha_r, u_alpha_l],
+            [w_alpha_r, -w_alpha_l]
+        ])
+        f_forced = np.matmul(B, V)
+
+        # acceleration
+        x_dot_dot = f_dynamic + f_forced
 
         if self.measurement_coordinate_system == 'cartesian':
             raise NotImplementedError
         elif self.measurement_coordinate_system == 'polar':
             # position states in relation to kinetic states
-            rho_dot = vx # m/s
-            theta_dot = omega * 180 / np.pi # deg/s
-
-            return [rho_dot, theta_dot]
+            rho_dot_dot = np.asscalar(x_dot_dot[0]) # m/s
+            theta_dot_dot = np.asscalar(x_dot_dot[1] * 180 / np.pi) # deg/s
+            return [rho_dot_dot, theta_dot_dot]
 
 
 # Include basic utility functions here
@@ -124,6 +137,8 @@ def model_generator(model_name = None, measurement_coordinate_system = 'cartesia
         rospy.logwarn('[model_library] model is not initialized'.format(model_name))
     elif model_name == 'kinematic_drive':
         return KinematicDrive(measurement_coordinate_system)
+    elif model_name == 'dynamic_drive':
+        return DynamicDrive(measurement_coordinate_system)
     else:
         rospy.logwarn('[model_library] model name {} is not valid!'.format(model_name))
 
@@ -225,14 +240,15 @@ def forwardEuler(model_object, dt, x_cur, u_cur, p_cur):
 
 
 if __name__ == '__main__':
-    from plotting_utils import plot_system
+    from plotting_utils import multiplot
     # Testing model and simulate functions
-    kd =model_generator('kinematic_drive')
+    dd =model_generator('dynamic_drive', 'polar')
 
-    t = np.arange(0,1000,0.1)
-    x0 = [0, 0, 0]
-    u = np.vstack([np.ones(np.size(t)) * 1.0, np.ones(np.size(t)) * 0])
-    p = [1, 1, 1]
+    t = np.arange(0,10,1)
+    x0 = [0, 0]
+    u = np.vstack([np.ones(np.size(t)) * 1.0, np.ones(np.size(t)) * 1.0])
+    p = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
 
-    x_sim = simulate(kd, t, x0, u, p)
-    plot_system(states=x_sim, time=t)
+    x_sim = simulate_horizan(dd, t, x0, u, p)
+    multiplot(states_list=[x_sim], time_list=[t], experiment_name_list=["simulation"], plot_title='dynamics', save=False)
+    print("selcuk")

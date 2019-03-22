@@ -326,8 +326,7 @@ class DataPreparation():
             multiplot(states_list=[original_signal, filtered_signal],
                       experiment_name_list=['Original Signal', 'Filtered Signal'],
                       plot_title="Original and Filtered Signal for " + self.exp_name,
-                      save=save_plot
-                      )
+                      save=save_plot)
         return filtered_signal
 
 
