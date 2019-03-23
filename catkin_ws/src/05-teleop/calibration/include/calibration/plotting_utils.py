@@ -5,7 +5,7 @@ import rospy
 from os.path import join
 from numpy import arange, array, cos, sin, pi
 from itertools import izip
-from utils import get_param_from_config_file, x_in_np, get_workspace_param
+from utils import get_param_from_config_file, x_in_np, get_workspace_param, deg
 
 opy.init_notebook_mode(connected=True)
 
@@ -222,7 +222,7 @@ def single_path_data_polar(states=None, color="#182844", experiment_name=""):
     data = [
         go.Scatterpolar(
             r=x_states[0,:],
-            theta=x_states[1,:],
+            theta=deg(x_states[1,:]),
             mode='markers',
             marker=dict(
                 color=color
@@ -258,7 +258,7 @@ def multi_path_plot(experiment_list, experiment_name_list=[], plot_title="", sav
     layout = go.Layout(
         showlegend=True,
         polar=dict(
-            sector=[lower_theta - 10, upper_theta + 10],
+            sector=[deg(lower_theta) - 10, deg(upper_theta) + 10],
             radialaxis=dict(
                 range=[lower_rho - 0.05, upper_rho + 0.05]
             )
