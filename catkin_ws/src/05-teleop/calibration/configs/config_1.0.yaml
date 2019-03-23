@@ -1,4 +1,5 @@
 # General
+config_file_version: 1.0
 vehicle_name: mete # only necessary while debugging through an IDE
 debug: True # needs to be set True while debugging through an IDE
 save_experiment_results: True # save the plots under the results
@@ -23,3 +24,7 @@ lsq_spline_order: 3
 lsq_spline_knot_every: 20
 lsq_discard_n_at_boundary: 1
 densification_factor: 3
+
+# Model assessment logic - see include/calibration/model_assessment.py for more details.
+assessment_rule: nsap_threshold
+nsap_threshold: 1.7

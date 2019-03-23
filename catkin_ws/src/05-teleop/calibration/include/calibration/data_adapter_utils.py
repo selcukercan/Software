@@ -1,11 +1,10 @@
 import numpy as np
-import time
 import rospy
+from calibration.utils import get_param_from_config_file
+from plotting_utils import multiplot
 from scipy.interpolate import splrep, splev
 from utils import rad, save_gzip
 
-from plotting_utils import simple_plot, multiplot
-from calibration.utils import get_param_from_config_file
 
 express_measurements_in = get_param_from_config_file("express_measurements_in")
 
@@ -102,7 +101,7 @@ def add_x_dot_estimate_to_dataset(dataset, dataset_type):
         exp_data = dataset[exp_name].data
         x = np.array(exp_data["robot_pose"])
         t = np.array(exp_data["timestamp"])
-        t_eval = densify(t, densification_factor) # create a denser array for evaluation
+        t_eval = densify(t, densification_factor)  # create a denser array for evaluation
 
         x_spline = fit_spline_x(x, t, t_eval, spline_type='spline', spline_smoothing_factor=spline_smoothing_factor)
         x_dot_spline, t_calc_spline = get_x_dot(x, t, mode="spline", spline_smoothing_factor=spline_smoothing_factor)
@@ -135,6 +134,7 @@ def add_x_dot_estimate_to_dataset(dataset, dataset_type):
                       experiment_name_list=['_spline-fitted', '_lsq-spline-fitted'])
     return dataset
 
+
 def estimate_x_dot_eql(dataset, dataset_type):
     # generate a random index array
     random_index_array = np.random.permutation(all_t.size)
@@ -160,7 +160,7 @@ def fit_spline_x(x, t, t_eval, spline_type='spline', **kwargs):
         discard = kwargs["discard_n_at_boundary"]
 
         x_lsq_spline = create_lsq_spline_object(t, x, order, knot_every, discard)
-        x_eval= evaluate_lsq_spline(t_eval, x_lsq_spline, mode='evaluate')
+        x_eval = evaluate_lsq_spline(t_eval, x_lsq_spline, mode='evaluate')
     else:
         rospy.logfatal('[data_adapter_utils] [{}] is not a valid spline type'.format(spline_type))
     return x_eval
@@ -188,7 +188,7 @@ def get_x_dot(x, t, mode=None, get_x_fit=True, **kwargs):
         # https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.splrep.html
         spline_smoothing_factor = kwargs["spline_smoothing_factor"]
         x_spline = create_spline_representation(t, x, spline_smoothing_factor=spline_smoothing_factor)
-        #x_val = evaluate_spline(t, x_spline, mode="eval")
+        # x_val = evaluate_spline(t, x_spline, mode="eval")
         x_dot = evaluate_spline(t, x_spline, mode="derivative")
         t_xdot = t
     elif mode == "lsq_spline":
@@ -198,15 +198,15 @@ def get_x_dot(x, t, mode=None, get_x_fit=True, **kwargs):
         discard = kwargs["discard_n_at_boundary"]
 
         x_lsq_spline = create_lsq_spline_object(t, x, order, knot_every, discard)
-        x_dot = evaluate_lsq_spline(t,x_lsq_spline,mode='derivative')
+        x_dot = evaluate_lsq_spline(t, x_lsq_spline, mode='derivative')
         t_xdot = t
     elif mode == "dense":
         from scipy import interpolate
-        f = interpolate.interp1d(t, x) # create interpolation function
+        f = interpolate.interp1d(t, x)  # create interpolation function
         n_int = kwargs["n_int"]
-        t_xdot = t_dense = densify(t, n=n_int) # create a denser t array by linear interpolation
-        #simple_plot(None, t_dense)
-        x_dense = f(t_dense) # evaluate the function at the denser interval
+        t_xdot = t_dense = densify(t, n=n_int)  # create a denser t array by linear interpolation
+        # simple_plot(None, t_dense)
+        x_dense = f(t_dense)  # evaluate the function at the denser interval
         x_dot = np.gradient(x_dense, t_dense, axis=1, edge_order=1)
 
     calc_duration = time.time() - time_beg
@@ -214,7 +214,7 @@ def get_x_dot(x, t, mode=None, get_x_fit=True, **kwargs):
     return x_dot, calc_duration
 
 
-def create_lsq_spline_object(t,x, order, knot_every, discard):
+def create_lsq_spline_object(t, x, order, knot_every, discard):
     """ returns a list containing spline object for each x entry"""
     from scipy.interpolate import make_lsq_spline
     x_spline = []
@@ -231,10 +231,10 @@ def evaluate_lsq_spline(t_eval, x_spline, mode="eval"):
     for i in range(len(x_spline)):
         x_lsq_spline_i = x_spline[i]
         if mode == "evaluate":
-            x_eval_i = x_lsq_spline_i(t_eval) # evaluates the spline at query points
+            x_eval_i = x_lsq_spline_i(t_eval)  # evaluates the spline at query points
         elif mode == "derivative":
-            spl_lsq_der = x_lsq_spline_i.derivative() # creates another spline object representing the derivative
-            x_eval_i = spl_lsq_der(t_eval) # evaluates the derivative of spline at query points
+            spl_lsq_der = x_lsq_spline_i.derivative()  # creates another spline object representing the derivative
+            x_eval_i = spl_lsq_der(t_eval)  # evaluates the derivative of spline at query points
 
         if first:
             x_int = np.zeros((len(x_spline), t_eval.size))
@@ -289,10 +289,10 @@ if __name__ == "__main__":
     import time
     from scipy.interpolate import make_lsq_spline
 
-    mu, sigma = 0, 0.2 # mean and standard deviation
+    mu, sigma = 0, 0.2  # mean and standard deviation
     t_beg = 0
     t_end = 4 * np.pi
-    t = np.arange(t_beg, t_end, 0.05) # sampling frequency of 20 Hz
+    t = np.arange(t_beg, t_end, 0.05)  # sampling frequency of 20 Hz
     noise = np.random.normal(mu, sigma, t.size)
     # Position Information
     x_original = np.sin(t)
@@ -301,31 +301,34 @@ if __name__ == "__main__":
     t_eval = np.arange(t_beg, t_end, 0.01)
 
     time_regular_spline_beg = time.time()
-    x_spline_rep =  splrep(t, x_corr, s=10)
+    x_spline_rep = splrep(t, x_corr, s=10)
     x_spline = splev(t_eval, x_spline_rep)
     duration_standart = time.time() - time_regular_spline_beg
 
-    #t_n = [-1, 0, 1]
+    # t_n = [-1, 0, 1]
     k = 3
     # Open question: what is the optimal value for knots in terms of time-seperation?
-    t_n = np.r_[(t[0],)*(k+1),
-          t[k:-k:20],
-          (t[-1],)*(k+1)]
+    t_n = np.r_[(t[0],) * (k + 1),
+                t[k:-k:20],
+                (t[-1],) * (k + 1)]
 
     time_lsq_spline_beg = time.time()
     spl_lsq = make_lsq_spline(t, x_corr, t_n, k)
     x_lsq_spline = spl_lsq(t_eval)
     duration_lsq_spline = time.time() - time_lsq_spline_beg
 
-    print('regular spline: {} lsq_spline: {} ration: {}'.format(duration_standart, duration_lsq_spline, duration_lsq_spline/duration_standart))
+    print('regular spline: {} lsq_spline: {} ration: {}'.format(duration_standart, duration_lsq_spline,
+                                                                duration_lsq_spline / duration_standart))
 
     spl_lsq_der = spl_lsq.derivative()
     x_dot_lsq_spline = spl_lsq_der(t_eval)
-    multiplot(states_list=[x_original, x_corr, x_spline, x_lsq_spline], time_list=[t, t, t_eval, t_eval], experiment_name_list=['original', 'corrupted',  'spline_fitted', 'lsq_spline_fitted'])
+    multiplot(states_list=[x_original, x_corr, x_spline, x_lsq_spline], time_list=[t, t, t_eval, t_eval],
+              experiment_name_list=['original', 'corrupted', 'spline_fitted', 'lsq_spline_fitted'])
 
     time.sleep(1)
     # Velocity Information
     x_dot_simple = np.gradient(x_original, t, edge_order=1)
     x_dot_spline = splev(t_eval, x_spline_rep, der=1)
 
-    multiplot(states_list=[x_dot_simple, x_dot_spline, x_dot_lsq_spline], time_list=[t, t_eval, t_eval], experiment_name_list=['original_dot', 'spline_fitted', 'lsq_spline'])
+    multiplot(states_list=[x_dot_simple, x_dot_spline, x_dot_lsq_spline], time_list=[t, t_eval, t_eval],
+              experiment_name_list=['original_dot', 'spline_fitted', 'lsq_spline'])
