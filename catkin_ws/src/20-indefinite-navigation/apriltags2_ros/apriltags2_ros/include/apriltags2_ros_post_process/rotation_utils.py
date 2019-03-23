@@ -171,11 +171,12 @@ def vehTworld(q_at,t_at):
 
     A3_inv_feaXYZ = rotation_matrix_to_euler(A3_inv_R)
     A3_inv_feaXYZ = A3_inv_feaXYZ.tolist()
-    rospy.loginfo('uncompensated posx: {} posy: {} rotz: {}'.format(A3_inv_t[0], A3_inv_t[1], A3_inv_feaXYZ[2]))
+    rospy.loginfo('uncompensated posx: {} posy: {} rotz: {} ({} deg)'.format(A3_inv_t[0], A3_inv_t[1],
+                                                                             A3_inv_feaXYZ[2], A3_inv_feaXYZ[2] * 180 / np.pi))
 
     A4 = A3_inv
-    A4[0,3] = A3_inv[0,3] - tOvehOcamx[0] * np.cos(A3_inv_feaXYZ[2] * np.pi/180)
-    A4[1,3] = A3_inv[1,3] - tOvehOcamx[0] * np.sin(A3_inv_feaXYZ[2] * np.pi/180)
+    A4[0,3] = A3_inv[0,3] - tOvehOcamx[0] * np.cos(A3_inv_feaXYZ[2])
+    A4[1,3] = A3_inv[1,3] - tOvehOcamx[0] * np.sin(A3_inv_feaXYZ[2])
     #print("\nAfter A4\n{}\n".format(A4))
     A4_R = A4[0:3, 0:3]
     A4_t = A4[0:3, 3]
@@ -183,7 +184,8 @@ def vehTworld(q_at,t_at):
     A4_feaXYZ = rotation_matrix_to_euler(A4_R)
     A4_feaXYZ = A4_feaXYZ.tolist()
 
-    rospy.loginfo('compansated posx: {} posy: {} rotz: {}'.format(A4_t[0], A4_t[1], A4_feaXYZ[2]))
+    rospy.loginfo('compansated posx: {} posy: {} rotz: {} ({} deg)'.format(A4_t[0], A4_t[1],
+                                                                           A4_feaXYZ[2], A4_feaXYZ[2] * 180 / np.pi))
 
     veh_R_world = A4[0:3, 0:3]
     veh_t_world = A4[0:3, 3]
@@ -208,12 +210,11 @@ def rotation_matrix_to_euler(veh_R_world):
         t_at (numpy.array): translation vector from cameras cf to tags cf expressed in camera cf.
 
     Returns:
-        veh_R_world (numpy.array): rotation matrix orientation that expresses world_p in robot cf.
+        veh_R_world (numpy.array): rotation matrix orientation that expresses world_p in robot cf in radians.
         veh_t_world (numpy.array): translation vector from robots cf to apriltag's cf expressed in robot cf.
     """
     euler_angles_w = tr.euler_from_matrix(veh_R_world, 'sxyz')
     euler_angles_w_np = np.asarray(euler_angles_w)
-    euler_angles_w_np *= 180/math.pi
 
     return euler_angles_w_np
 
