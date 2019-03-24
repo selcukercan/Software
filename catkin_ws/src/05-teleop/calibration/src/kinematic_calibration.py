@@ -15,7 +15,7 @@ from calibration.cost_function_library import *
 from calibration.data_adapter_utils import *
 from calibration.data_preperation_utils import DataPreparation
 from calibration.data_preperation_utils import load_pickle, save_pickle
-from calibration.model_library import model_generator, simulate, simulate_horizan
+from calibration.model_library import model_generator
 from calibration.plotting_utils import *
 from calibration.utils import work_space_settings, get_workspace_param, \
     defined_ros_param, input_folder_to_experiment_dict, read_param_from_file, get_file_path,  defaulted_param_load, \
@@ -178,7 +178,7 @@ class calib():
             # x0 = x[:,0]
 
             # simulate the model
-            x_sim = simulate(model_object, t, x, u, p)  # states for a particular p set
+            x_sim = model_object.simulate(t, x, u, p)  # states for a particular p set
             obj_cost = calculate_cost(x, x_sim, self.train_metric)
 
         self.update_param_hist(model_object.param_ordered_list, p)
@@ -211,7 +211,7 @@ class calib():
 
             # one-step-ahead simulation of the model
             # states for a particular p set
-            x_sim_opt = simulate(model_object, t, x, u, popt)
+            x_sim_opt = model_object.simulate(t, x, u, popt)
             # calculate the error metric
             self.osap_error = calculate_cost(x, x_sim_opt, self.validation_metric)
 
@@ -222,7 +222,7 @@ class calib():
             # n-step-ahead simulation of the model, i.e. given an initial position predict the vehicle motion for the
             # complete experiment horizan.
             x0 = x[:, 0]
-            x_sim_opt_n_step = simulate_horizan(model_object, t, x0, u, popt)
+            x_sim_opt_n_step = model_object.simulate_horizan(t, x0, u, popt)
             #x_sim_init_osap = simulate_horizan(model_object, t, x0, u, self.p0)
             self.nsap_error = calculate_cost(x, x_sim_opt_n_step , self.validation_metric)
 

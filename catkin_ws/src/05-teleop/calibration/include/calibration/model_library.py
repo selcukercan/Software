@@ -4,7 +4,10 @@ import numpy as np
 from abc import ABCMeta, abstractmethod
 from scipy.integrate import solve_ivp
 from calibration.data_adapter_utils import *
-from calibration.utils import reshape_x
+from calibration.utils import reshape_x, get_param_from_config_file
+
+
+used_model = get_param_from_config_file("model")
 
 class BaseModelClass(object):
     __metaclass__ = ABCMeta
@@ -79,6 +82,53 @@ class KinematicDrive(BaseModelClass):
 
             return [rho_dot, theta_dot]
 
+    def simulate(self, t, x, u, p):
+        """
+        Note that this function performs N step ahead propagation of the initial state
+        for in one step ahead manner
+        Args:
+            model_object: a model object as defined by model library.
+            t (list) : time array for which the predictions will be made.
+            x (list) : measured states; x, y, yaw
+            u (numpy.ndarray): 2*n array, whose first row is wheel_right_exec, and second row is wheel_left_exec. n is the number of time-steps.
+            p (list): model parameters.
+        Returns:
+            x_sim (numpy.ndarray): 3*n array, containing history of state evolution.
+        """
+        x0 = x[:, 0]
+        x_sim = reshape_x(x0)
+
+        for i in range(len(t) - 1):
+            t_cur, t_next = t[i:i + 2] # prediction will be made in between two consecutive time steps, note that this does not require fixed time step.
+            x0 = x[:,i]
+            # one-step-ahead prediction
+            sol = forward_euler_vel_to_pos(self.model, (t_next - t_cur), x0, u[:,i], p)
+            a = np.hstack([x_sim, reshape_x(sol)])
+            x_sim = a.copy()
+        return x_sim
+
+    def simulate_horizan(self, t, x0, u, p):
+        """
+        Note that this function performs N step ahead propagation of the initial state
+        for given input sequence u.
+        Args:
+            model_object: a model object as defined by model library.
+            t (list) : time array for which the predictions will be made.
+            x0 (list) : initial values of the states; x, y, yaw
+            u (numpy.ndarray): 2*n array, whose first row is wheel_right_exec, and second row is wheel_left_exec. n is the number of time-steps.
+            p (list): model parameters.
+        Returns:
+            x_sim (numpy.ndarray): 3*n array, containing history of state evolution.
+        """
+        x_sim = reshape_x(x0)
+        for i in range(len(t) - 1):
+            t_cur, t_next = t[i:i + 2] # prediction will be made in between two consecutive time steps, note that this does not require fixed time step.
+            sol = forward_euler_vel_to_pos(self.model, (t_next - t_cur), x0, u[:,i], p)
+            a = np.hstack([x_sim, reshape_x(sol)])
+            x_sim = a.copy()
+            x0 = sol
+        return x_sim
+
 
 class DynamicDrive(BaseModelClass):
 
@@ -98,7 +148,7 @@ class DynamicDrive(BaseModelClass):
         self.measurement_coordinate_system = measurement_coordinate_system
         rospy.loginfo("\nusing model type: [{}]".format(self.name))
 
-    def dynamics(self, t, x_dot, U, p):
+    def model(self, t, x_dot, U, p):
         V = col(np.array(U)) # input array
         (u, w) = x_dot
         (u1, u2, u3, w1, w2, w3, u_alpha_r, u_alpha_l, w_alpha_r, w_alpha_l) = p
@@ -129,7 +179,7 @@ class DynamicDrive(BaseModelClass):
 
             return [rho_dot_dot, theta_dot_dot]
 
-    def model(self, t, s, u, p):
+    def ode(self, t, s, u, p):
         """
         dynamic model of the vehicle.
 
@@ -152,6 +202,31 @@ class DynamicDrive(BaseModelClass):
 
         return s_dot
 
+    def simulate(self, t, x, u, p):
+        """
+        Note that this function performs N step ahead propagation of the initial state
+        for in one step ahead manner
+        Args:
+            model_object: a model object as defined by model library.
+            t (list) : time array for which the predictions will be made.
+            x (list) : measured states; x, y, yaw
+            u (numpy.ndarray): 2*n array, whose first row is wheel_right_exec, and second row is wheel_left_exec. n is the number of time-steps.
+            p (list): model parameters.
+        Returns:
+            x_sim (numpy.ndarray): 3*n array, containing history of state evolution.
+        """
+        x0 = x[:, 0]
+        x_sim = reshape_x(x0)
+
+        for i in range(len(t) - 1):
+            t_cur, t_next = t[i:i + 2] # prediction will be made in between two consecutive time steps, note that this does not require fixed time step.
+            x0 = x[:,i]
+            # one-step-ahead prediction
+            sol = forward_euler_vel_to_pos(self.model, (t_next - t_cur), x0, u[:,i], p)
+            a = np.hstack([x_sim, reshape_x(sol)])
+            x_sim = a.copy()
+        return x_sim
+
 # Include basic utility functions here
 
 # Motivation for introducing this fn:
@@ -167,33 +242,46 @@ def model_generator(model_name = None, measurement_coordinate_system = 'cartesia
         rospy.logwarn('[model_library] model name {} is not valid!'.format(model_name))
 
 
-def simulate_horizan(model_object, t, x0, u, p):
-    """
-    Note that this function performs N step ahead propagation of the initial state
-    for given input sequence u.
-    Args:
-        model_object: a model object as defined by model library.
-        t (list) : time array for which the predictions will be made.
-        x0 (list) : initial values of the states; x, y, yaw
-        u (numpy.ndarray): 2*n array, whose first row is wheel_right_exec, and second row is wheel_left_exec. n is the number of time-steps.
-        p (list): model parameters.
+def forward_euler_vel_to_pos(model, dt, x_cur, u_cur, p_cur):
+    x_next = [0, 0]
 
-    Returns:
-        x_sim (numpy.ndarray): 3*n array, containing history of state evolution.
-    """
-    x_sim = reshape_x(x0)
-
-    for i in range(len(t) - 1):
-        t_cur, t_next = t[i:i + 2] # prediction will be made in between two consecutive time steps, note that this does not require fixed time step.
-        # one-step-ahead prediction
-        sol = solve_ivp(fun=lambda t, x: model_object.model(t, x0, u[:,i], p), t_span=(t_cur, t_next), y0=x0, t_eval=[t_next])
-        y = reshape_x(sol.y)
-        x_sim = np.hstack([x_sim, y]) # add the output to the x history
-        x0 = row(y).tolist()[0] # current solution will be used as the initial step for the next step
-    return x_sim
+    ds = model(dt, x_cur, u_cur, p_cur)
+    for i, s in enumerate(ds):
+        x_next[i] = x_cur[i] + ds[i] * dt
+    return x_next
 
 
-def simulate(model_object, t, x, u, p):
+def forward_euler_acc_to_pos(model_object, dt, x_cur, x_dot_prev, u_prev, p_prev):
+    """ forward euler only for dynamic case only supports polar coordinate"""
+    x_next = [0, 0]
+    x_dot_cur = [0, 0]
+
+    ds_prev = model_object.model(dt, x_dot_prev, u_prev, p_prev)
+    for i, s in enumerate(ds_prev):
+        x_next[i] = x_cur[i] + ds[i] * dt
+        x_next[i] = x_cur[i] + x_dot_prev[i] * dt + ds_prev[i] * dt ** 2
+    return x_next
+
+if __name__ == '__main__':
+    from plotting_utils import multiplot
+    # Testing model and simulate functions
+    dd =model_generator('dynamic_drive', 'polar')
+
+    t_beg = 0
+    t_end = 10
+    t_step = 1
+    t = np.arange(t_beg, t_end, t_step)
+    x0 = [0, 0, 0, 0]
+    u = np.vstack([np.ones(np.size(t)) * 1.0, np.ones(np.size(t)) * 1.0])
+    p = [1, 0, 0, 1, 0, 0, 1, 1, 1, 1]
+    
+    x_sim = simulate(dd, t, x0, u, p)
+    multiplot(states_list=[x_sim], time_list=[t], experiment_name_list=["simulation"], plot_title='dynamics', save=False)
+    print("selcuk")
+
+'''
+
+def simulate_ivp(model_object, t, x, u, p):
     """
     Note that this function performs 1 step ahead prediction
     for in one step ahead manner
@@ -219,32 +307,4 @@ def simulate(model_object, t, x, u, p):
         x_sim = np.hstack([x_sim, y])  # add the output to the x history
     return x_sim
 
-if __name__ == '__main__':
-    from plotting_utils import multiplot
-    # Testing model and simulate functions
-    dd =model_generator('dynamic_drive', 'polar')
-
-    t_beg = 0
-    t_end = 10
-    t_step = 1
-    t = np.arange(t_beg, t_end, t_step)
-    x0 = [0, 0, 0, 0]
-    u = np.vstack([np.ones(np.size(t)) * 1.0, np.ones(np.size(t)) * 1.0])
-    p = [1, 0, 0, 1, 0, 0, 1, 1, 1, 1]
-    
-    x_sim = simulate(dd, t, x0, u, p)
-    multiplot(states_list=[x_sim], time_list=[t], experiment_name_list=["simulation"], plot_title='dynamics', save=False)
-    print("selcuk")
-
-"""
-def forwardEuler(model_object, dt, x_cur, u_cur, p_cur):
-    if model_object.measurement_coordinate_system == 'cartesian':
-        x_next = [0, 0, 0]
-    elif model_object.measurement_coordinate_system == 'polar':
-        x_next = [0, 0]
-
-    ds = model_object.model(dt, x_cur, u_cur, p_cur)
-    for i, s in enumerate(ds):
-        x_next[i] = x_cur[i] + ds[i] * dt
-    return x_next
-"""
+'''
