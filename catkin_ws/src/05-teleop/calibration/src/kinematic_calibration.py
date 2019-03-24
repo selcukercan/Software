@@ -63,9 +63,9 @@ class calib():
 
         self.initial_param_vs_optimal_param = False
 
-
         self.measurement_coordinate_frame = self.conf['express_measurements_in']
         # construct a model by specifying which model to use
+        self.model_type = self.conf['model']
         model_object = model_generator(self.model_type, self.measurement_coordinate_frame)
 
         # define the type of metric to use while constructing the cost
@@ -307,13 +307,11 @@ class calib():
         param_veh = self.host_package_node + '/' + "veh"
         param_train_path = self.host_package_node + '/' + "train_path"
         param_validation_path = self.host_package_node + '/' + "validation_path"
-        param_model_type = self.host_package_node + '/' + "model"
 
         # rosparam values
         self.robot_name = defined_ros_param(param_veh)
         self.path_training_data = defined_ros_param(param_train_path)
         self.path_validation_data = defined_ros_param(param_validation_path)
-        self.model_type = defined_ros_param(param_model_type)
 
         self.do_train = True
         self.do_validate = True

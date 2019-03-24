@@ -217,6 +217,21 @@ def defaulted_param_load(model_object, robot_name):
         rospy.logwarn('using default initial guesses defined in model {} ..'.format(model_object.name))
     return p0
 
+def reshape_x(x):
+    model = get_param_from_config_file("model")
+    coordinate_frame = get_param_from_config_file("express_measurements_in")
+
+    if model == 'kinematic_drive':
+        if coordinate_frame == 'cartesian':
+            x_reshaped = np.array(x).reshape(3, 1)
+        elif coordinate_frame == 'polar':
+            x_reshaped = np.array(x).reshape(2, 1)
+    elif model == 'dynamic_drive':
+        if coordinate_frame == 'cartesian':
+            raise NotImplementedError
+        elif coordinate_frame == 'polar':
+            x_reshaped = np.array(x).reshape(4, 1)
+    return x_reshaped
 
 if __name__ == '__main__':
     print get_files_in_dir('/home/selcuk/multi_bag_processing/')

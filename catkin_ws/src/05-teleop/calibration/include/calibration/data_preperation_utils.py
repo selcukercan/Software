@@ -29,6 +29,7 @@ class DataPreparation():
         self.data = self.filter(data_selected)
 
 
+
     def select_interval_and_resample_numpify(self, localization_type=None):
         """
         choose a subsection of data, resample and cast the data into numpy format after selecting singals of interest,
