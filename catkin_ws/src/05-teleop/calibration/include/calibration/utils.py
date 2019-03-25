@@ -18,6 +18,11 @@ options = {
     "path_to_config_file": None
 }
 
+config={}
+
+def update_local_config_dict():
+    global config
+    config = yaml_load_file(get_workspace_param("path_to_config_file"), plain_yaml=True)
 
 def defined_ros_param(ros_param_name):
     try:
@@ -122,6 +127,7 @@ def get_param_from_config_file(param_name):
     config_file_path = get_config_file_path()
     return yaml_load_file(config_file_path, plain_yaml=True)[param_name]
 
+
 def x_in_np(data):
     if type(data) == dict:
         data = data['robot_pose']
@@ -175,6 +181,9 @@ def work_space_settings():
     options["tmp_dir"] = safe_create_dir(os.path.join(package_root, "tmp"))
     options["path_to_config_file"] = get_config_file_path()
 
+    # strecthing the function a bit, called here kinematic calls it.
+    update_local_config_dict()
+
 def get_workspace_param(option):
     return options[option]
 
@@ -218,8 +227,8 @@ def defaulted_param_load(model_object, robot_name):
     return p0
 
 def reshape_x(x):
-    model = get_param_from_config_file("model")
-    coordinate_frame = get_param_from_config_file("express_measurements_in")
+    model = config["model"]
+    coordinate_frame = config["express_measurements_in"]
 
     if model == 'kinematic_drive':
         if coordinate_frame == 'cartesian':
