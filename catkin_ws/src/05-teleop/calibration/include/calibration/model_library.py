@@ -134,6 +134,7 @@ class DynamicDrive(BaseModelClass):
 
     def __init__(self, measurement_coordinate_system):
         self.name = "dynamic_drive"
+        """
         self.param_ordered_list = ['u1', 'u2', 'u3', 'w1', 'w2', 'w3', 'u_alpha_r', 'u_alpha_l', 'w_alpha_r', 'w_alpha_l']
         self.model_params = {'u1': {'param_init_guess': 1, 'param_bounds': (None, None), 'search': (None, None)},
                              'u2': {'param_init_guess': 1, 'param_bounds': (None, None), 'search': (None, None)},
@@ -145,13 +146,25 @@ class DynamicDrive(BaseModelClass):
                              'u_alpha_l': {'param_init_guess': 1, 'param_bounds': (None, None), 'search': (None, None)},
                              'w_alpha_r': {'param_init_guess': 1, 'param_bounds': (None, None), 'search': (None, None)},
                              'w_alpha_l': {'param_init_guess': 1, 'param_bounds': (None, None), 'search': (None, None)}}
+        """
+        self.param_ordered_list = ['u1', 'w1', 'u_alpha_r', 'u_alpha_l', 'w_alpha_r', 'w_alpha_l']
+
+        self.model_params = {'u1': {'param_init_guess': 0, 'param_bounds': (None, None), 'search': (None, None)},
+                             'w1': {'param_init_guess': 0, 'param_bounds': (None, None), 'search': (None, None)},
+                             'u_alpha_r': {'param_init_guess': 0.5, 'param_bounds': (None, None), 'search': (None, None)},
+                             'u_alpha_l': {'param_init_guess': 0.5, 'param_bounds': (None, None), 'search': (None, None)},
+                             'w_alpha_r': {'param_init_guess': 0.5, 'param_bounds': (None, None), 'search': (None, None)},
+                             'w_alpha_l': {'param_init_guess': 0.5, 'param_bounds': (None, None), 'search': (None, None)}}
+
         self.measurement_coordinate_system = measurement_coordinate_system
         rospy.loginfo("\nusing model type: [{}]".format(self.name))
 
     def model(self, t, x_dot, U, p):
         V = col(np.array(U)) # input array
         (u, w) = x_dot
-        (u1, u2, u3, w1, w2, w3, u_alpha_r, u_alpha_l, w_alpha_r, w_alpha_l) = p
+        #(u1, u2, u3, w1, w2, w3, u_alpha_r, u_alpha_l, w_alpha_r, w_alpha_l) = p
+        (u1, w1, u_alpha_r, u_alpha_l, w_alpha_r, w_alpha_l) = p
+        u2 = u3 = w2 = w3 = 0
 
         # Nonlinear Dynamics - autonomous response
         f_dynamic = np.array([
@@ -202,31 +215,76 @@ class DynamicDrive(BaseModelClass):
 
         return s_dot
 
-    def simulate(self, t, x, u, p):
+    def simulate(self, t, x, x_dot, u, p):
         """
         Note that this function performs N step ahead propagation of the initial state
         for in one step ahead manner
         Args:
             model_object: a model object as defined by model library.
             t (list) : time array for which the predictions will be made.
-            x (list) : measured states; x, y, yaw
+            x_init (float) : initial position of the vehicle
+            x_dot (list) : velocity of the vehicle
             u (numpy.ndarray): 2*n array, whose first row is wheel_right_exec, and second row is wheel_left_exec. n is the number of time-steps.
             p (list): model parameters.
         Returns:
             x_sim (numpy.ndarray): 3*n array, containing history of state evolution.
         """
-        x0 = x[:, 0]
-        x_sim = reshape_x(x0)
+        # create arrays to store simulation results
+        x_sim = np.zeros(x.shape)
+        x_dot_sim = np.zeros(x_dot.shape)
 
-        for i in range(len(t) - 1):
-            t_cur, t_next = t[i:i + 2] # prediction will be made in between two consecutive time steps, note that this does not require fixed time step.
-            x0 = x[:,i]
+        # position initial condition is taken from the measurement
+        x_sim[:, 0] = x[:, 0]
+
+        for i in np.arange(1, len(t)-1):
+            # prediction will be made in between two consecutive time steps, note that this does not require fixed time step.
+            t_cur, t_next = t[i:i+2]
+            x_cur = x[:, i]
+            x_dot_prev = x_dot[:, i-1]
+            u_prev = u[:, i-1]
             # one-step-ahead prediction
-            sol = forward_euler_vel_to_pos(self.model, (t_next - t_cur), x0, u[:,i], p)
-            a = np.hstack([x_sim, reshape_x(sol)])
-            x_sim = a.copy()
+            x_next, x_dot_cur = forward_euler_acc_to_pos(self.model, (t_next - t_cur), x_cur, x_dot_prev, u_prev, p)
+            # store the results
+            x_sim[:, i+1] = x_next
+            x_dot_sim[:, i] = x_dot_cur
+
         return x_sim
 
+
+    def simulate_horizan(self, t, x, x_dot, u, p):
+        """
+        Note that this function performs N step ahead propagation of the initial state
+        for in one step ahead manner
+        Args:
+            model_object: a model object as defined by model library.
+            t (list) : time array for which the predictions will be made.
+            x_init (float) : initial position of the vehicle
+            x_dot (list) : velocity of the vehicle
+            u (numpy.ndarray): 2*n array, whose first row is wheel_right_exec, and second row is wheel_left_exec. n is the number of time-steps.
+            p (list): model parameters.
+        Returns:
+            x_sim (numpy.ndarray): 3*n array, containing history of state evolution.
+        """
+        # create arrays to store simulation results
+        x_sim = np.zeros(x.shape)
+        x_dot_sim = np.zeros(x_dot.shape)
+
+        # position initial condition is taken from the measurement
+        x_sim[:, 0] = x[:, 0]
+        x_cur = x[:, 1]
+
+        for i in np.arange(1, len(t)-1):
+            # prediction will be made in between two consecutive time steps, note that this does not require fixed time step.
+            t_cur, t_next = t[i:i+2]
+            x_dot_prev = x_dot[:, i-1]
+            u_prev = u[:, i-1]
+            # one-step-ahead prediction
+            x_next, x_dot_cur = forward_euler_acc_to_pos(self.model, (t_next - t_cur), x_cur, x_dot_prev, u_prev, p)
+            # store the results
+            x_cur = x_next
+            x_sim[:, i+1] = x_next
+            x_dot_sim[:, i] = x_dot_cur
+        return x_sim
 # Include basic utility functions here
 
 # Motivation for introducing this fn:
@@ -242,24 +300,23 @@ def model_generator(model_name = None, measurement_coordinate_system = 'cartesia
         rospy.logwarn('[model_library] model name {} is not valid!'.format(model_name))
 
 
+def forward_euler_acc_to_pos(model, dt, x_cur, x_dot_prev, u_prev, p):
+    """ forward euler only for dynamic case only supports polar coordinate"""
+    x_next = [0, 0]
+    x_dot_cur = [0, 0]
+
+    ds_prev = model(dt, x_dot_prev, u_prev, p)
+    for i, s in enumerate(ds_prev):
+        x_dot_cur[i] = x_dot_prev[i] + ds_prev[i] * dt
+        x_next[i] = x_cur[i] + dt * x_dot_cur[i]
+    return x_next, x_dot_cur
+
 def forward_euler_vel_to_pos(model, dt, x_cur, u_cur, p_cur):
     x_next = [0, 0]
 
     ds = model(dt, x_cur, u_cur, p_cur)
     for i, s in enumerate(ds):
         x_next[i] = x_cur[i] + ds[i] * dt
-    return x_next
-
-
-def forward_euler_acc_to_pos(model_object, dt, x_cur, x_dot_prev, u_prev, p_prev):
-    """ forward euler only for dynamic case only supports polar coordinate"""
-    x_next = [0, 0]
-    x_dot_cur = [0, 0]
-
-    ds_prev = model_object.model(dt, x_dot_prev, u_prev, p_prev)
-    for i, s in enumerate(ds_prev):
-        x_next[i] = x_cur[i] + ds[i] * dt
-        x_next[i] = x_cur[i] + x_dot_prev[i] * dt + ds_prev[i] * dt ** 2
     return x_next
 
 if __name__ == '__main__':

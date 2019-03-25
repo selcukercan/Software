@@ -239,7 +239,7 @@ def reshape_x(x):
         if coordinate_frame == 'cartesian':
             raise NotImplementedError
         elif coordinate_frame == 'polar':
-            x_reshaped = np.array(x).reshape(4, 1)
+            x_reshaped = np.array(x).reshape(2, 1)
     return x_reshaped
 
 def window(x, discard_n):

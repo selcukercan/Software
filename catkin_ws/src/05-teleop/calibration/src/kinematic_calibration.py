@@ -176,12 +176,15 @@ class calib():
         for exp_name in experiments.keys():
             exp_data = experiments[exp_name].data
             t = exp_data['timestamp']
-            x = exp_data['robot_pose']
             u = exp_data['wheel_cmd_exec']
-            # x0 = x[:,0]
-
+            x = exp_data['robot_pose']
             # simulate the model
-            x_sim = model_object.simulate(t, x, u, p)  # states for a particular p set
+            if self.model_type == "kinematic_drive":
+                x_sim = model_object.simulate(t, x, u, p)  # states for a particular p set
+            elif self.model_type == "dynamic_drive":
+                x_dot = exp_data['robot_velocity']
+                x_sim = model_object.simulate(t, x, x_dot, u, p)  # states for a particular p set
+
             obj_cost = calculate_cost(x, x_sim, self.train_metric)
 
         self.update_param_hist(model_object.param_ordered_list, p)
@@ -210,11 +213,15 @@ class calib():
             exp_data = experiments[exp_name].data
             t = exp_data['timestamp']
             x = exp_data['robot_pose']
+            x_dot = exp_data['robot_velocity']
             u = exp_data['wheel_cmd_exec']
 
             # one-step-ahead simulation of the model
             # states for a particular p set
-            x_sim_opt = model_object.simulate(t, x, u, popt)
+            if self.model_type == "kinematic_drive":
+                x_sim_opt = model_object.simulate(t, x, u, popt)
+            elif self.model_type == "dynamic_drive":
+                x_sim_opt = model_object.simulate(t, x, x_dot, u, popt)  # states for a particular p set
             # calculate the error metric
             self.osap_error = calculate_cost(x, x_sim_opt, self.validation_metric)
 
@@ -225,8 +232,11 @@ class calib():
             # n-step-ahead simulation of the model, i.e. given an initial position predict the vehicle motion for the
             # complete experiment horizan.
             x0 = x[:, 0]
-            x_sim_opt_n_step = model_object.simulate_horizan(t, x0, u, popt)
-            #x_sim_init_osap = simulate_horizan(model_object, t, x0, u, self.p0)
+            if self.model_type == "kinematic_drive":
+                x_sim_opt_n_step = model_object.simulate_horizan(t, x0, u, popt)
+            else:
+                x_sim_opt_n_step = model_object.simulate_horizan(t, x, x_dot, u, popt)
+
             self.nsap_error = calculate_cost(x, x_sim_opt_n_step , self.validation_metric)
 
             print('\nModel Performance Evaluation based on N-Step-Ahead-Prediction :\nModel Name: {}\nMetric Type: {} Value: {}\n'.format(

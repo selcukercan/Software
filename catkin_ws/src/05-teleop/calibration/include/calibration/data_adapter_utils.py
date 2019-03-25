@@ -163,16 +163,16 @@ def add_x_dot_estimate_to_dataset(dataset, dataset_type=None):
                       save=save_plots
                       )
 
-    # Update the dataset
-    dataset[exp_name].data["robot_pose"] = x_window
-    dataset[exp_name].data["timestamp"] = t_window
+        # Update the dataset
+        dataset[exp_name].data["robot_pose"] = x_window
+        dataset[exp_name].data["timestamp"] = t_window
 
-    if spline_type == 'b_spline':
-        dataset[exp_name].data["robot_velocity"] = x_dot_spline
-    elif spline_type == 'lsq_spline':
-        dataset[exp_name].data["robot_velocity"] = x_lsq_dot_spline
-    else:
-        rospy.logfatal('[data_adapter_utils] [{}] is not a valid spline type'.format(spline_type))
+        if spline_type == 'b_spline':
+            dataset[exp_name].data["robot_velocity"] = x_dot_spline_window
+        elif spline_type == 'lsq_spline':
+            dataset[exp_name].data["robot_velocity"] = x_lsq_dot_spline_window
+        else:
+            rospy.logfatal('[data_adapter_utils] [{}] is not a valid spline type'.format(spline_type))
 
     return dataset
 
