@@ -22,7 +22,7 @@ def path_plot(experiment, plot_name=''):
     else:
         rospy.loginfo('invalid plot name defined at path_plot function')
 
-def multiplot(states_list=None, time_list=None, input_list=None, experiment_name_list=None, plot_title='', save=False, save_dir=""):
+def multiplot(states_list=None, time_list=None, input_list=None, experiment_name_list=None, plot_title='', save=False, save_dir=None):
     plot_datas = []
     # generate arange time data if time is not provided to faciliate debugging
     if time_list is None:
@@ -42,7 +42,8 @@ def multiplot(states_list=None, time_list=None, input_list=None, experiment_name
         layout = dict(title=plot_title)
         fig = dict(data=plot_datas, layout=layout)
         if save:
-            save_dir = get_workspace_param("results_dir")
+            if save_dir == None: # default save location
+                save_dir = get_workspace_param("results_dir")
             opy.plot(fig, auto_open=False, filename=join(save_dir, plot_title + ".html"))
         else:
             opy.plot(fig)

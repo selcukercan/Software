@@ -270,7 +270,7 @@ class DynamicDrive(BaseModelClass):
         x_dot_sim = np.zeros(x_dot.shape)
 
         # position initial condition is taken from the measurement
-        x_sim[:, 0] = x[:, 0]
+        x_sim[:, 0:2] = x[:, 0:2] # first two points
         x_cur = x[:, 1]
 
         for i in np.arange(1, len(t)-1):

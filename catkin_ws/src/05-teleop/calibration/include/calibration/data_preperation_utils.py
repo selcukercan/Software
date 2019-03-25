@@ -5,7 +5,7 @@ import numpy as np
 import copy
 import pickle
 from calibration.data_adapter_utils import *
-from calibration.utils import get_param_from_config_file
+from calibration.utils import get_param_from_config_file, get_workspace_param
 
 save_plot = get_param_from_config_file("save_experiment_results")
 
@@ -324,7 +324,8 @@ class DataPreparation():
             multiplot(states_list=[original_signal, filtered_signal],
                       experiment_name_list=['Original Signal', 'Filtered Signal'],
                       plot_title="Original and Filtered Signal for " + self.exp_name,
-                      save=save_plot)
+                      save=save_plot,
+                      save_dir=get_workspace_param("results_preprocessing_dir"))
         return filtered_signal
 
 

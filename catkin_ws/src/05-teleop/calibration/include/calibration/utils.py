@@ -15,7 +15,9 @@ from duckietown_utils.yaml_wrap import yaml_load_file
 options = {
     "results_dir": None,
     "tmp_dir": None,
-    "path_to_config_file": None
+    "path_to_config_file": None,
+    "results_optimization_dir": None,
+    "results_preprocessing_dir": None
 }
 
 config={}
@@ -178,6 +180,8 @@ def cost_function_over_param_space(self, model_object, experiments):
 def work_space_settings():
     package_root = get_package_root("calibration")
     options["results_dir"] = create_results_dir(package_root)
+    options["results_optimization_dir"] = safe_create_dir(os.path.join(options["results_dir"], "optimization"))
+    options["results_preprocessing_dir"] = safe_create_dir(os.path.join(options["results_dir"], "preprocessing"))
     options["tmp_dir"] = safe_create_dir(os.path.join(package_root, "tmp"))
     options["path_to_config_file"] = get_config_file_path()
 

@@ -8,7 +8,7 @@ show_plots: True # display the plots
 multitag_pose_estimation: False # not yet implemented
 
 # Optimization
-model: kinematic_drive
+model: dynamic_drive
 express_measurements_in: polar # or cartesian. polar coordinates is the recommended option
 cost_function_type: AsRMSE # see include/calibration/cost_function_library.py for available options
 

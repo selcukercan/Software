@@ -118,9 +118,9 @@ class calib():
         popt = self.nonlinear_model_fit(model_object, experiments)
         self.total_calculation_time = time.time() - start_time
         # parameter converge plots and cost fn
-        if self.show_plots: param_convergence_plot(self.param_hist, save_dir=self.results_dir)
+        if self.show_plots: param_convergence_plot(self.param_hist, save_dir=get_workspace_param("results_optimization_dir"))
         if self.show_plots: simple_plot(range(len(self.cost_fn_val_list)), self.cost_fn_val_list,
-                                        plot_name='Cost Function', save_dir=self.results_dir)
+                                        plot_name='Cost Function', save_dir=get_workspace_param("results_optimization_dir"))
 
         # write to the kinematic calibration file
         self.write_calibration(model_object, popt)
@@ -249,19 +249,26 @@ class calib():
                           input_list=[u, u],
                           time_list=[t, t],
                           experiment_name_list=[exp_name + '_measurement', exp_name + '_simulated_optimal'],
-                          plot_title="One Step Ahead Predictions for Model: {} Dataset: {}".format(model_object.name,
+                          plot_title="One-Step-Ahead Predictions for Model: {} Dataset: {}".format(model_object.name,
                                                                                                    exp_name),
                           save=self.save_experiment_results)
 
+                multiplot(states_list=[x, x_sim_opt_n_step],
+                          input_list=[u, u],
+                          time_list=[t, t],
+                          experiment_name_list=[exp_name + '_measurement', exp_name + '_simulated_optimal'],
+                          plot_title="N-Step-Ahead Predictions for Model: {} Dataset: {}".format(model_object.name,
+                                                                                                   exp_name),
+                          save=self.save_experiment_results)
 
                 multi_path_plot([x, x_sim_opt],
-                                experiment_name_list =['measurement', 'kinematic_model'],
-                                plot_title="One-Step-Ahead Prediction Trajectory Simulation for {}".format(exp_name),
+                                experiment_name_list =['measurement', self.model_type],
+                                plot_title="Trajectory Simulation using One-Step-Ahead Prediction {}".format(exp_name),
                                 save=self.save_experiment_results)
 
                 multi_path_plot([x, x_sim_opt_n_step],
-                                experiment_name_list=['measurement', 'kinematic_model'],
-                                plot_title="N-Step Ahead Trajectory Simulation for {}".format(exp_name),
+                                experiment_name_list=['measurement', self.model_type],
+                                plot_title="Trajectory Simulation using N-Step Ahead Prediction {}".format(exp_name),
                                 save=self.save_experiment_results)
 
 
@@ -411,6 +418,8 @@ class calib():
             'platform': self.get_cpu_info(),
             'experiment time': os.path.basename(self.results_dir),
             'used_model': self.model_type,
+            'osap_error': self.osap_error,
+            'nsap_error': self.nsap_error,
             'verdict': self.get_verdict()
         }
         if self.do_train:

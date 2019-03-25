@@ -1,7 +1,7 @@
 import numpy as np
 import rospy
 import time
-from calibration.utils import get_param_from_config_file, window
+from calibration.utils import get_param_from_config_file, window, get_workspace_param
 from plotting_utils import multiplot
 from scipy.interpolate import splrep, splev
 from utils import rad, save_gzip
@@ -136,7 +136,8 @@ def add_x_dot_estimate_to_dataset(dataset, dataset_type=None):
                       experiment_name_list=['_experiment-data', '_spline-fitted', '_lsq-spline-fitted'],
                       plot_title='Position Measurements <br>' +
                                  dataset_type + ' Dataset: {}'.format(exp_name),
-                      save=save_plots
+                      save=save_plots,
+                      save_dir=get_workspace_param("results_preprocessing_dir")
                       )
             # Velocity Estimations from position
             multiplot(states_list=[x_dot_spline, x_lsq_dot_spline],
@@ -144,7 +145,8 @@ def add_x_dot_estimate_to_dataset(dataset, dataset_type=None):
                       experiment_name_list=['_spline-fitted', '_lsq-spline-fitted'],
                       plot_title='Velocity Estimations With Spline Fitting <br>' +
                                  dataset_type + ' Dataset: {}'.format(exp_name),
-                      save=save_plots
+                      save=save_plots,
+                      save_dir=get_workspace_param("results_preprocessing_dir")
                       )
             # Position Measurement Fitting
             multiplot(states_list=[x_window, x_spline_window, x_lsq_spline_window],
@@ -152,7 +154,8 @@ def add_x_dot_estimate_to_dataset(dataset, dataset_type=None):
                       experiment_name_list=['_experiment-data', '_spline-fitted', '_lsq-spline-fitted'],
                       plot_title='Position Measurements After Discarding n Boundary Points<br>' +
                                  dataset_type + ' Dataset: {}'.format(exp_name),
-                      save=save_plots
+                      save=save_plots,
+                      save_dir=get_workspace_param("results_preprocessing_dir")
                       )
             # Velocity Estimations from position
             multiplot(states_list=[x_dot_spline_window, x_lsq_dot_spline_window],
@@ -160,7 +163,8 @@ def add_x_dot_estimate_to_dataset(dataset, dataset_type=None):
                       experiment_name_list=['_spline-fitted', '_lsq-spline-fitted'],
                       plot_title='Velocity Estimations With Spline Fitting After Discarding n Boundary Points<br>' +
                                  dataset_type + ' Dataset: {}'.format(exp_name),
-                      save=save_plots
+                      save=save_plots,
+                      save_dir=get_workspace_param("results_preprocessing_dir")
                       )
 
         # Update the dataset
