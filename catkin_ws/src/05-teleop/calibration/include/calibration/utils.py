@@ -231,20 +231,7 @@ def defaulted_param_load(model_object, robot_name):
     return p0
 
 def reshape_x(x):
-    model = config["model"]
-    coordinate_frame = config["express_measurements_in"]
-
-    if model == 'kinematic_drive':
-        if coordinate_frame == 'cartesian':
-            x_reshaped = np.array(x).reshape(3, 1)
-        elif coordinate_frame == 'polar':
-            x_reshaped = np.array(x).reshape(2, 1)
-    elif model == 'dynamic_drive':
-        if coordinate_frame == 'cartesian':
-            raise NotImplementedError
-        elif coordinate_frame == 'polar':
-            x_reshaped = np.array(x).reshape(2, 1)
-    return x_reshaped
+    return np.array(x).reshape(2, 1)
 
 def window(x, discard_n):
     """ discard n points at the boundaries"""

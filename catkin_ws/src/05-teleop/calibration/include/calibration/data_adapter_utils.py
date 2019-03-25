@@ -6,7 +6,6 @@ from plotting_utils import multiplot
 from scipy.interpolate import splrep, splev
 from utils import rad, save_gzip
 
-express_measurements_in = get_param_from_config_file("express_measurements_in")
 save_plots = get_param_from_config_file("save_experiment_results")
 
 def col(a):
@@ -45,6 +44,7 @@ def x_adapter_apriltag(x_dict):
 
     return np.vstack([px, py, rz])
 
+
 def x_adapter_lane_filter(x_dict):
     """ converts lane filter measurements from dict to numpy array """
     d = row(np.array(x_dict['d']))
@@ -56,12 +56,10 @@ def x_adapter_lane_filter(x_dict):
 def x_adapter(x_dict, localization_type=None):
     """ from load bag format to optimization format also takig into account the requested coordiate frame representation"""
     if localization_type == 'apriltag':
-        if express_measurements_in == 'cartesian':
-            return x_adapter_apriltag(x_dict)
-        elif express_measurements_in == 'polar':
-            return x_cart_to_polar(x_adapter_apriltag(x_dict))
+        return x_cart_to_polar(x_adapter_apriltag(x_dict))
     elif localization_type == 'lane_filter':
         return x_adapter_lane_filter(x_dict)
+
 
 def x_cart_to_polar(x_cart):
     # initialize the array for storing measurements represented in polar coordinates
