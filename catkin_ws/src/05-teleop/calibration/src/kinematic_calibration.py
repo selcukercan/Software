@@ -64,6 +64,7 @@ class calib():
         self.initial_param_vs_optimal_param = False
 
         self.measurement_coordinate_frame = self.conf['express_measurements_in']
+
         # construct a model by specifying which model to use
         self.model_type = self.conf['model']
         model_object = model_generator(self.model_type, self.measurement_coordinate_frame)
@@ -76,6 +77,8 @@ class calib():
         if self.do_train:
             # load data for use in optimization
             experiments = self.load_dataset("Training", self.path_training_data, localization_type='apriltag')
+            # calculate/add the velocity estimates to the dateset
+            experiments = add_x_dot_estimate_to_dataset(experiments, dataset_type="Training")
             self.training_routine(model_object, experiments)
         else:
             rospy.logwarn('[{}] not training the model'.format(self.node_name))
@@ -83,6 +86,8 @@ class calib():
         if self.do_validate:
             # load and process the experiment data to be used for testing the model
             validation_dataset = self.load_dataset("Validation", self.path_validation_data, localization_type='apriltag')
+            # calculate/add the velocity estimates to the dateset
+            validation_dataset = add_x_dot_estimate_to_dataset(validation_dataset, dataset_type="Validation")
             self.validation_routine(model_object, validation_dataset)
         else:
             rospy.logwarn('[{}] not validating the model'.format(self.node_name))
@@ -94,9 +99,6 @@ class calib():
         self.copy_calibrations_folder()
         pack_results(self.results_dir)
 
-        """
-        #add_x_dot_estimate_to_dataset(experiments, "train")
-        """
 
     # train
     def training_routine(self, model_object, experiments):
@@ -154,6 +156,7 @@ class calib():
                                                    top_robot_pose=pose_topic,
                                                    exp_name=dataset_name + ' Data {}: {}'.format(i + 1, exp),
                                                    measurement_coordinate_frame=self.measurement_coordinate_frame,
+                                                   dataset_name=dataset_name,
                                                    localization_method=localization_type)
             if save_to_pickle:
                 set_name = 'test_run'

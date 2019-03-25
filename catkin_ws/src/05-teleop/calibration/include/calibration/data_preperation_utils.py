@@ -19,16 +19,13 @@ class DataPreparation():
     multitag_pose_estimation = get_param_from_config_file("multitag_pose_estimation")
 
     def __init__(self, input_bag = None, top_wheel_cmd_exec = None, top_robot_pose = None,
-                 save_as = None, dump = False, exp_name='', mode='train', measurement_coordinate_frame='cartesian', localization_method=None):
+                 save_as = None, dump = False, exp_name='', dataset_name=None, measurement_coordinate_frame='cartesian', localization_method=None):
         self.input_bag = input_bag
         self.exp_name = exp_name
-        self.operation_mode = mode
         self.measurement_coordinate_frame = measurement_coordinate_frame
         self.wheel_cmd, self.robot_pose = self.load_bag(input_bag, top_wheel_cmd_exec, top_robot_pose, localization_type=localization_method)
         data_selected = self.select_interval_and_resample_numpify(localization_type=localization_method)
         self.data = self.filter(data_selected)
-
-
 
     def select_interval_and_resample_numpify(self, localization_type=None):
         """

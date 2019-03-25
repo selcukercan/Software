@@ -242,5 +242,12 @@ def reshape_x(x):
             x_reshaped = np.array(x).reshape(4, 1)
     return x_reshaped
 
+def window(x, discard_n):
+    """ discard n points at the boundaries"""
+    if x.ndim is 1:
+        return x[discard_n:-discard_n]
+    else:
+        return x[:,discard_n:-discard_n]
+
 if __name__ == '__main__':
     print get_files_in_dir('/home/selcuk/multi_bag_processing/')

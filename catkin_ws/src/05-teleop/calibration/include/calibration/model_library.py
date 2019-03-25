@@ -264,18 +264,24 @@ def forward_euler_acc_to_pos(model_object, dt, x_cur, x_dot_prev, u_prev, p_prev
 
 if __name__ == '__main__':
     from plotting_utils import multiplot
+    from calibration.utils import work_space_settings
+
+    work_space_settings()
     # Testing model and simulate functions
     dd =model_generator('dynamic_drive', 'polar')
 
     t_beg = 0
-    t_end = 10
+    t_end = 4
     t_step = 1
+
     t = np.arange(t_beg, t_end, t_step)
-    x0 = [0, 0, 0, 0]
+
+    x_dot = np.array([[0, 1, 1, 1], [0, 0, 0, 1]])
     u = np.vstack([np.ones(np.size(t)) * 1.0, np.ones(np.size(t)) * 1.0])
-    p = [1, 0, 0, 1, 0, 0, 1, 1, 1, 1]
+    p = [0.5, 0, 0, 0.5, 0, 0, 1, 1, 1, 1]
     
-    x_sim = simulate(dd, t, x0, u, p)
+    x_sim = dd.simulate(t, x_dot, u, p)
+
     multiplot(states_list=[x_sim], time_list=[t], experiment_name_list=["simulation"], plot_title='dynamics', save=False)
     print("selcuk")
 
