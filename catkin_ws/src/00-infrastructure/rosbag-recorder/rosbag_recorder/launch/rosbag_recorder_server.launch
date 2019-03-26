@@ -8,5 +8,4 @@
         <param name="veh" value="$(arg veh)"/>
         <param name="output_rosbag_dir" value="$(arg output_rosbag_dir)"/>
     </node>
-
 </launch>

@@ -78,7 +78,7 @@
     <arg name="veh" value="$(arg veh)"/>
   </include>
 
-    <!-- start the apriltag to world frame launch -->
+    <!-- start the apriltag to local frame launch -->
     <include file="$(find apriltags2_ros)/launch/detection_to_local_frame.launch">
         <arg name="veh" value="$(arg veh)"/>
         <arg name="operation_mode" value="$(arg operation_mode)"/>
