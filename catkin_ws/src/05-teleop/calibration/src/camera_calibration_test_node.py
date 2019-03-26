@@ -1,18 +1,21 @@
 #!/usr/bin/env python
 # system imports
 import rospy
-from os.path import expanduser
-from os import remove, mknod
+
+from os import remove
 # package utilities import
 from std_msgs.msg import String #Imports msg
 from duckietown_msgs.msg import WheelsCmdStamped, Twist2DStamped, AprilTagDetectionArray, VehiclePoseEulerArray
 from calibration.wheel_cmd_utils import *
+from calibration.utils import get_package_root
+from duckietown_utils.yaml_wrap import yaml_load_file
 # Service types to be imported from rosbag_recorder package
 from rosbag_recorder.srv import *
 
 ground_truth = {
-    "test1": {"posx": 0.010, "posy": 0.0, "rotz": 0.0}
+    "c3_00": {"posx": -0.329, "posy": 0.012, "rotz": 0.0}
 }
+
 class CameraCalibrationTest:
     def __init__(self):
         # namespace variables
@@ -70,6 +73,7 @@ class CameraCalibrationTest:
             # record positions until reciving enough messages
             if self.at_local_i <= self.number_of_images_to_process:
                 self.recieved_at_position_estimates.append(msg)
+
                 rospy.loginfo("[{}] recieved at local pose {}".format(self.node_name, self.at_local_i))
             else:
                 self.continue_experiment = False
@@ -88,7 +92,7 @@ class CameraCalibrationTest:
 
     def perform_experiments(self):
         DO_EXPERIMENT = "yes"
-        self.available_experiments = ["test1"]
+        self.available_experiments = ["c3_00"]
 
         ui = ExperimentUI()
 
@@ -125,6 +129,7 @@ class CameraCalibrationTest:
             else:
                 rospy.loginfo('keeping the bag file {}'.format(rosbag_path))
 
+            self.evaluate_measurements(experiment_name)
             rospy.loginfo("\n\nDo you want to run another camera verification experiment? (respond with yes or no)\n\n")
             user_wish = raw_input()
 
@@ -133,8 +138,60 @@ class CameraCalibrationTest:
         else:
             rospy.loginfo("farewell, no more experiments for now.")
 
-    def send_commands(self, wheel_cmds_dict):
-        pass
+    def evaluate_measurements(self, experiment_name):
+        verdict = {
+        "posx": None,
+        "posy": None,
+        "rotz": None
+        }
+
+        trans_prec, rot_prec, at_id = self.load_test_config()
+        avg_posx, avg_posy, avg_rotz = self.calculate_averages(at_id)
+
+        posx_res = self.passes(avg_posx, ground_truth[experiment_name]["posx"], trans_prec)
+        posy_res = self.passes(avg_posy, ground_truth[experiment_name]["posy"], trans_prec)
+        rotz_res = self.passes(avg_rotz, ground_truth[experiment_name]["rotz"], rot_prec)
+
+        rospy.loginfo("posx: {} posy: {} rotz: {}".format(posx_res, posy_res, rotz_res))
+        rospy.loginfo("avg_posx: {} avg_posy: {} avg_rotz: {}".format(avg_posx, avg_posy, avg_rotz))
+
+    @staticmethod
+    def passes(x_meas, x_ground_truth, x_threshold):
+        if abs(x_meas - x_ground_truth) < x_threshold:
+            return True
+        return False
+
+    def calculate_averages(self, at_id):
+        posx = 0
+        posy = 0
+        rotz = 0
+        numb_meas = len(self.recieved_at_position_estimates)
+
+        for i, at_array in enumerate(self.recieved_at_position_estimates):
+            # allocate an AprilTag 65 for the camera_calibration test
+            # this avoids possible breaking in case multiple apriltags are in the field of view.
+            at = [at_cand for at_cand in at_array.local_pose_list if at_cand.id == at_id]
+            posx += at[0].posx
+            posy += at[0].posy
+            rotz += at[0].rotz
+        avg_posx = posx / numb_meas
+        avg_posy = posy / numb_meas
+        avg_rotz = rotz / numb_meas
+
+        return avg_posx, avg_posy, avg_rotz
+
+    def load_test_config(self):
+        from os.path import join
+        package_root = get_package_root("calibration")
+        meta_conf = yaml_load_file(join(package_root,"meta_config.yaml"))
+        cam_cal_test_ver = meta_conf["camera_calibration_test_config_version"]
+        cam_cal_test_conf = yaml_load_file(join(package_root,"configs", "camera_calibration", "camera_calibration_test_" + str(cam_cal_test_ver) + ".yaml"))
+
+        translational_precision = cam_cal_test_conf["translational_precision"]
+        rotational_precision = cam_cal_test_conf["rotational_precision"]
+        apriltags_id = cam_cal_test_conf["use_apriltag_id"]
+
+        return translational_precision, rotational_precision, apriltags_id
 
     def generate_experiment_label(self, exp_name):
         import datetime

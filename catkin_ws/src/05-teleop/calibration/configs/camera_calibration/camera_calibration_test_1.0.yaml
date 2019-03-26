@@ -1,0 +1,8 @@
+# General
+config_file_name: camera_calibration_test
+config_file_version: 1.0
+
+# Test Parameters
+use_apriltag_id: 65
+rotational_precision: 1 # degrees
+translational_precision: 0.015 # meters
