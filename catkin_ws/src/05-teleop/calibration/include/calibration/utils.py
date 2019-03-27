@@ -1,5 +1,3 @@
-import datetime
-import gzip
 import os
 import pickle
 import shutil
@@ -83,9 +81,20 @@ def get_package_root(package_name):
     return rospack.get_path(package_name)
 
 
+def get_software_version():
+    import subprocess
+    try:
+        return subprocess.check_output(["git", "rev-parse", "HEAD"]).strip()
+    except:
+        return False
+
+def create_time_label():
+    import datetime
+    return datetime.datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
+
 def create_results_dir(package_root):
     """ create a results directory under the package root with the date and time information """
-    time_label = datetime.datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
+    time_label = create_time_label()
     result_dir = join(str(time_label), package_root, "results", time_label)
     mkdir(result_dir)
     return result_dir
@@ -99,6 +108,16 @@ def input_folder_to_experiment_dict(folder_path):
         experiments[bag_name] = {'wheel_cmd_exec': None, 'robot_pose': None, 'path': join(folder_path, bag)}
     return experiments
 
+def copy_calibrations_folder(results_dir):
+    from distutils.dir_util import copy_tree
+    calibrations_folder = os.path.join(get_duckiefleet_root(), 'calibrations')
+    dst = os.path.join(results_dir, 'calibrations')
+    os.mkdir(dst)
+    copy_tree(calibrations_folder, dst)
+
+def copy_folder(src_folder, dst_dir):
+    from distutils.dir_util import copy_tree
+    copy_tree(src_folder, dst_dir)
 
 def safe_create_dir(path):
     if not os.path.isdir(path):
@@ -110,6 +129,7 @@ def get_files_in_dir(dir_name):
     return [f for f in os.listdir(dir_name) if os.path.isfile(os.path.join(dir_name, f))]
 
 def save_gzip(file_name, processed_dataset, dataset_type):
+    import gzip
     if dataset_type == "train":
         data_file = os.path.join(file_name + '_train_val')
     elif dataset_type == "test":
@@ -217,6 +237,14 @@ def defaulted_param_load(model_object, robot_name):
         rospy.logwarn('using default initial guesses defined in model {} ..'.format(model_object.name))
     return p0
 
+def get_hostname():
+    import socket
+    hostname = socket.gethostname()
+    return hostname
+
+def get_cpu_info():
+    import platform
+    return platform.processor()
 
 if __name__ == '__main__':
     print get_files_in_dir('/home/selcuk/multi_bag_processing/')

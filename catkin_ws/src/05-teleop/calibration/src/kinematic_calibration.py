@@ -19,7 +19,7 @@ from calibration.model_library import model_generator, simulate, simulate_horiza
 from calibration.plotting_utils import *
 from calibration.utils import work_space_settings, get_workspace_param, \
     defined_ros_param, input_folder_to_experiment_dict, read_param_from_file, get_file_path,  defaulted_param_load, \
-    pack_results
+    pack_results, get_hostname, get_cpu_info, copy_calibrations_folder
 from calibration.model_assessment import assesment_rule
 
 # duckietown imports
@@ -91,7 +91,7 @@ class calib():
         self.copy_experiment_data()
         self.generate_report()
         self.copy_config_file()
-        self.copy_calibrations_folder()
+        copy_calibrations_folder(self.results_dir)
         pack_results(self.results_dir)
 
         """
@@ -348,17 +348,6 @@ class calib():
         verdict = assesment_fn(self.nsap_error)
         return verdict
 
-    @staticmethod
-    def get_hostname():
-        import socket
-        hostname = socket.gethostname()
-        return hostname
-
-    @staticmethod
-    def get_cpu_info():
-        import platform
-        return platform.processor()
-
     def copy_experiment_data(self):
         # create the data directory to store experiment data
         data_folder = os.path.join(self.results_dir,'data')
@@ -382,13 +371,6 @@ class calib():
 
     def copy_config_file(self):
         copy(get_workspace_param("path_to_config_file"), self.results_dir)
-
-    def copy_calibrations_folder(self):
-        from distutils.dir_util import copy_tree
-        calibrations_folder = os.path.join(get_duckiefleet_root(), 'calibrations')
-        dst = os.path.join(self.results_dir, 'calibrations')
-        os.mkdir(dst)
-        copy_tree(calibrations_folder, dst)
 
     def generate_report(self):
 
