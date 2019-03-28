@@ -2,6 +2,7 @@
 # system imports
 import rospy
 import os
+from shutil import move
 # package utilities import
 from std_msgs.msg import String #Imports msg
 from duckietown_msgs.msg import WheelsCmdStamped, Twist2DStamped, AprilTagDetectionArray, VehiclePoseEulerArray
@@ -20,6 +21,7 @@ TODO:
 
 """
 ground_truth = {
+    "c3_00": {"posx": -0.329, "posy": 0.012, "rotz": 0.0},
     "c3_00": {"posx": -0.329, "posy": 0.012, "rotz": 0.0}
 }
 
@@ -31,6 +33,7 @@ class CameraCalibrationTest:
     def __init__(self):
         # namespace variables
         host_package = rospy.get_namespace()  # as defined by <group> in launch file
+        self.package_name = "calibration"
         self.node_name = 'camera_calibration_test_node'  # node name , as defined in launch file
         host_package_node = host_package + self.node_name
         #self.veh = host_package.split('/')[1]
@@ -45,10 +48,10 @@ class CameraCalibrationTest:
         param_results_dir = "/" + self.veh + "/calibration/camera_calibration_test_node/output_rosbag_dir"
         self.output_dir = rospy.get_param(param_results_dir)
         self.results_dir = os.path.join(self.output_dir, self.time_label)
-        self.rosbag_dir =  os.path.join(self.results_dir, "data")
+        self.data_dir = os.path.join(self.results_dir, "data")
         # create necessary folders to store the results
         safe_create_dir(self.results_dir)
-        safe_create_dir(self.rosbag_dir)
+        safe_create_dir(self.data_dir)
 
         # Topics to save into rosbag
         # Output End
@@ -123,9 +126,9 @@ class CameraCalibrationTest:
             experiment_name = self.get_valid_experiment()
             experiment_conf = ground_truth[experiment_name]
 
-            # rosbag
+            # rosbag-related operations
             rosbag_name = self.generate_experiment_label(experiment_name)
-            rosbag_path = self.rosbag_dir + "/" + rosbag_name + ".bag"
+            rosbag_path = self.output_dir + "/" + rosbag_name + ".bag"
 
             # start recording
             ready_to_start = self.start_recording(rosbag_name)
@@ -138,7 +141,7 @@ class CameraCalibrationTest:
             # experiment will be executed until enough measurements are received
             while self.continue_experiment:rospy.sleep(1)
 
-            # finaly stop the recording
+            # finally stop the recording
             self.stop_recording(rosbag_name)
 
             # ask whether user wants to keep the current measurements
@@ -149,7 +152,7 @@ class CameraCalibrationTest:
                 os.remove(rosbag_path)
             else:
                 rospy.loginfo('keeping the bag file {}'.format(rosbag_path))
-
+                move(rosbag_path, self.data_dir)
             self.measurements = self.process_at_array()
             self.evaluate_measurements(self.measurements, ground_truth)
             rospy.loginfo("\n\nDo you want to run another camera verification experiment? (respond with yes or no)\n\n")
@@ -226,7 +229,10 @@ class CameraCalibrationTest:
         return err
 
     def copy_and_update_config(self):
-        self.conf["config_file_version"] = get_software_version()
+        """ update the config file with the latest commit id, see get_software_version for further info"""
+        commit_id = get_software_version(get_package_root(self.package_name))
+        if commit_id is not False:
+            self.conf["config_file_version"] = commit_id
         yaml_write_to_file(self.conf, os.path.join(self.results_dir, "config.yaml"))
 
     def process_at_array(self):
@@ -249,7 +255,7 @@ class CameraCalibrationTest:
 
     def load_test_config(self):
         from os.path import join
-        package_root = get_package_root("calibration")
+        package_root = get_package_root(self.package_name)
         meta_conf = yaml_load_file(join(package_root,"meta_config.yaml"))
         cam_cal_test_ver = meta_conf["camera_calibration_test_config_version"]
         cam_cal_test_conf = yaml_load_file(join(package_root,"configs", "camera_calibration", "camera_calibration_test_" + str(cam_cal_test_ver) + ".yaml"))
@@ -286,7 +292,7 @@ class CameraCalibrationTest:
 
     def prepare_to_leave(self):
         # copy bags
-        copy_folder(self.rosbag_dir, self.results_dir)
+        copy_folder(self.data_dir, self.results_dir)
         # copy camera calibration files
         copy_calibrations_folder(self.results_dir)
         # copy updated config file

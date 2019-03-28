@@ -81,10 +81,16 @@ def get_package_root(package_name):
     return rospack.get_path(package_name)
 
 
-def get_software_version():
-    import subprocess
+def get_software_version(path_to_repo):
+    """
+    recursively search for a git repo given a candidate path:
+    return False if an exception is raised indicating no git repo is found which is the case on deployment to the duckiebot
+    """
+    from git import Repo
     try:
-        return subprocess.check_output(["git", "rev-parse", "HEAD"]).strip()
+        repo = Repo(path_to_repo, search_parent_directories=True)
+        last_commit_id = repo.head.commit.hexsha
+        return last_commit_id
     except:
         return False
 
@@ -207,7 +213,7 @@ def get_config_file_path():
 
 
 def cautious_read_param_from_file(robot_name, model_object):
-    """ attempt to read the parameter values from config file, fallback model defaults if ccnfig file does not exist"""
+    """ attempt to read the parameter values from config file, fallback model defaults if config file does not exist"""
     # see if there already is a yaml file for the model we can use
     model_param_dict = read_param_from_file(robot_name, model_object)
     if model_param_dict is not None:

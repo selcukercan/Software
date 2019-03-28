@@ -10,3 +10,4 @@
 
 plotly==3.5.0
 numpy==1.15.2
+GitPython==2.1.11
