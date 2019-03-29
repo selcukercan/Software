@@ -8,7 +8,7 @@ from std_msgs.msg import String #Imports msg
 from duckietown_msgs.msg import WheelsCmdStamped, Twist2DStamped, AprilTagDetectionArray, VehiclePoseEulerArray
 from calibration.wheel_cmd_utils import *
 from calibration.utils import get_package_root, get_hostname, get_cpu_info, create_time_label, get_software_version, safe_create_dir,\
-    copy_calibrations_folder, copy_folder, pack_results
+    copy_calibrations_folder, copy_folder, pack_results, rad
 from duckietown_utils.yaml_wrap import yaml_load_file, yaml_write_to_file
 # Service types to be imported from rosbag_recorder package
 from rosbag_recorder.srv import *
@@ -21,14 +21,22 @@ TODO:
 
 """
 ground_truth = {
-    "c3_00": {"posx": -0.329, "posy": 0.012, "rotz": 0.0},
-    "c3_00": {"posx": -0.329, "posy": 0.012, "rotz": 0.0}
+    "d1_p40": {"posx": 0.40, "posy": 0.10, "rotz": rad(40.0)},
+    "d3_00": {"posx": 0.40, "posy": 0.00, "rotz": 0.0},
+    "d5_n40": {"posx": 0.40, "posy": -0.10, "rotz": rad(40.0)}
 }
 
-map = {
-    65: "c3_00"
+map_default = {
+    83: "d5_n40",
+    84: "d3_00",
+    85: "d1_p40"
 }
 
+experiment_map_dict = {
+    "default": {
+        "map": map_default
+    }
+}
 class CameraCalibrationTest:
     def __init__(self):
         # namespace variables
@@ -112,17 +120,17 @@ class CameraCalibrationTest:
 
     def perform_experiments(self):
         DO_EXPERIMENT = "yes"
-        self.available_experiments = ["c3_00"]
+        self.available_experiments = experiment_map_dict.keys()
 
         ui = ExperimentUI()
 
         while DO_EXPERIMENT == "yes":
             # welcoming
             print("\nType in the name of the camera verification experiment to conduct: {}".format(str(self.available_experiments)))
-            experiment_name = self.get_valid_experiment()
+            self.experiment_name = self.get_valid_experiment()
 
             # rosbag-related operations
-            rosbag_name = self.generate_experiment_label(experiment_name)
+            rosbag_name = self.generate_experiment_label(self.experiment_name)
             rosbag_path = self.output_dir + "/" + rosbag_name + ".bag"
 
             # start recording
@@ -152,7 +160,8 @@ class CameraCalibrationTest:
                 move(rosbag_path, self.data_dir) # move the bag to data folder in which we store experiment data
 
             self.measurements = self.process_at_array()
-            self.evaluate_measurements(self.measurements, ground_truth)
+            at_id_ground_truth_dict = self.get_at_locations(self.experiment_name)
+            self.evaluate_measurements(self.measurements, at_id_ground_truth_dict)
             rospy.loginfo("\n\nDo you want to run another camera verification experiment? (respond with yes or no)\n\n")
             user_wish = raw_input()
 
@@ -162,9 +171,20 @@ class CameraCalibrationTest:
             rospy.logwarn("[{}] packing up, find the results at: {}".format(self.node_name, self.results_dir))
             self.prepare_to_leave()
 
-    def evaluate_measurements(self, measurements, ground_truth):
-        """ for each apriltag decide if the measurements conform to the design requirements  """
+    def get_at_locations(self, experiment_name):
+        """
+        return a dict where
+            key: apriltag_id
+            value: dict specifing metric tag location on the map
+        """
+        map_for_experiment = experiment_map_dict[experiment_name]["map"]
+        at_locations = {}
+        for at_id in map_for_experiment.keys():
+            at_locations[at_id] = ground_truth[map_for_experiment[at_id]]
+        return at_locations
 
+    def evaluate_measurements(self, measurements, at_id_ground_truth_dict):
+        """ for each apriltag decide if the measurements conform to the design requirements  """
         for at_i in measurements.keys():
             at_verdict = {}
             # calculate the mean and the standard-deviation of the error
@@ -172,30 +192,43 @@ class CameraCalibrationTest:
             med_posy, std_posy = measurements[at_i].stat("py")
             med_rotz, std_rotz = measurements[at_i].stat("rz")
 
+            at_i_posx = at_id_ground_truth_dict[at_i]["posx"]
+            at_i_posy = at_id_ground_truth_dict[at_i]["posy"]
+            at_i_rotz = at_id_ground_truth_dict[at_i]["rotz"]
+
             # store the results inside the member dict (verdict) of each ApriltagDetection object
-            measurements[at_i].verdict["posx_med"] = self.thresholding(med_posx, ground_truth[map[at_i]]["posx"], self.conf["translational_error_tolerance"])
-            measurements[at_i].verdict["posy_med"] = self.thresholding(med_posy, ground_truth[map[at_i]]["posy"], self.conf["translational_error_tolerance"])
-            measurements[at_i].verdict["rotz_med"] = self.thresholding(med_rotz, ground_truth[map[at_i]]["rotz"], self.conf["rotational_error_tolerance"])
-            measurements[at_i].verdict["posx_std"] = self.thresholding(std_posx, 0, self.conf["translational_std_tolerance"])
-            measurements[at_i].verdict["posy_std"] = self.thresholding(std_posy, 0, self.conf["translational_std_tolerance"])
-            measurements[at_i].verdict["rotz_std"] = self.thresholding(std_rotz, 0, self.conf["rotational_std_tolerance"])
+            # Mean Values
+            (measurements[at_i].evaluation["posx_med"]["err"], measurements[at_i].evaluation["posx_med"]["pass"]) = \
+                self.thresholding(med_posx, at_i_posx, self.conf["translational_error_tolerance"])
+            (measurements[at_i].evaluation["posy_med"]["err"], measurements[at_i].evaluation["posy_med"]["pass"]) = \
+                self.thresholding(med_posy, at_i_posy, self.conf["translational_error_tolerance"])
+            (measurements[at_i].evaluation["rotz_med"]["err"], measurements[at_i].evaluation["rotz_med"]["pass"]) = \
+                self.thresholding(med_rotz, at_i_rotz, self.conf["rotational_error_tolerance"])
+            # Standart Deviation
+            (measurements[at_i].evaluation["posx_std"]["err"], measurements[at_i].evaluation["posx_std"]["pass"]) = \
+                self.thresholding(std_posx, 0, self.conf["translational_std_tolerance"])
+            (measurements[at_i].evaluation["posy_std"]["err"], measurements[at_i].evaluation["posy_std"]["pass"]) = \
+                self.thresholding(std_posy, 0, self.conf["translational_std_tolerance"])
+            (measurements[at_i].evaluation["rotz_std"]["err"], measurements[at_i].evaluation["rotz_std"]["pass"]) = \
+                self.thresholding(std_rotz, 0, self.conf["rotational_std_tolerance"])
+
+    def get_error_stat(self):
+        error_stat = {}
+        for at_i in self.measurements:
+            at_i_eval_dict = self.measurements[at_i].evaluation
+            error_stat[at_i] = at_i_eval_dict
+        return error_stat
 
     def get_verdict(self):
-        violations = {}
-        success = True
-
         for at_i in self.measurements.keys():
-            at_i_verdict = self.measurements[at_i].verdict
-
-            for err_id, pose in enumerate(at_i_verdict.keys()):
-                if type(at_i_verdict[pose]) != bool:
-                    success = False
-                    at_i_name = self.measurements[at_i].id
-                    at_i_key = pose
-                    at_i_val = at_i_verdict[pose]
-                    label = "apriltag_" + str(at_i_name) + "_" + at_i_key + "_" + str(at_i_val)
-                    violations[err_id] = label
-        return success, violations
+            at_i_eval_dict = self.measurements[at_i].evaluation
+            #print(at_i_eval_dict)
+            for at_pose in at_i_eval_dict.keys():
+                #rospy.logwarn("at pose: {}\ndict: {}".format(at_pose, at_i_eval_dict[at_pose]))
+                verdict = at_i_eval_dict[at_pose]["pass"]
+                if verdict == False:
+                    return False
+        return True
 
     def generate_report(self):
         # base-report content, entries are valid for both validation and optimization operations
@@ -203,15 +236,11 @@ class CameraCalibrationTest:
             'config_version': self.conf["config_file_version"],
             'hostname': get_hostname(),
             'platform': get_cpu_info(),
-            'experiment_time': self.time_label
+            'experiment_time': self.time_label,
+            'verdict': self.get_verdict(),
+            'measurements': self.get_error_stat(),
+            'experiment_name': self.experiment_name
         }
-        success, violations = self.get_verdict()
-
-        if success:
-            yaml_dict["verdict"] = "PASS"
-        else:
-            yaml_dict["verdict"] = "FAIL"
-            yaml_dict.update(violations)
 
         # create the report file
         report = os.path.join(self.results_dir, 'camera_test_report.yaml')
@@ -223,8 +252,8 @@ class CameraCalibrationTest:
     def thresholding(x_meas, x_ground_truth, x_threshold):
         err = abs(x_meas - x_ground_truth)
         if err < x_threshold:
-            return True
-        return err
+            return err.item(), True
+        return err.item(), False
 
     def copy_and_update_config(self):
         """ update the config file with the latest commit id, see get_software_version for further info"""
@@ -306,13 +335,13 @@ class AprilTagDetection():
         }
 
         # whether at is within the allowed tolerance
-        self.verdict = {
-        "posx_med": False,
-        "posy_med": False,
-        "rotz_med": False,
-        "posx_std": False,
-        "posy_std": False,
-        "rotz_std": False
+        self.evaluation = {
+        "posx_med": {"pass": False, "err": None},
+        "posy_med": {"pass": False, "err": None},
+        "rotz_med": {"pass": False, "err": None},
+        "posx_std": {"pass": False, "err": None},
+        "posy_std": {"pass": False, "err": None},
+        "rotz_std": {"pass": False, "err": None}
         }
 
         self.id = id

@@ -4,7 +4,9 @@ config_file_version: undetermined
 
 # Test Parameters
 at_list:
-  - 65
+  - 83
+  - 84
+  - 85
 rotational_error_tolerance: 2 # degrees
 translational_error_tolerance: 0.02 # meters
 rotational_std_tolerance: 1 # degrees
