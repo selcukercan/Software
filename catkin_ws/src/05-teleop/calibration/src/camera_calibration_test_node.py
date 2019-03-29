@@ -8,7 +8,7 @@ from std_msgs.msg import String #Imports msg
 from duckietown_msgs.msg import WheelsCmdStamped, Twist2DStamped, AprilTagDetectionArray, VehiclePoseEulerArray
 from calibration.wheel_cmd_utils import *
 from calibration.utils import get_package_root, get_hostname, get_cpu_info, create_time_label, get_software_version, safe_create_dir,\
-    copy_calibrations_folder, copy_folder
+    copy_calibrations_folder, copy_folder, pack_results
 from duckietown_utils.yaml_wrap import yaml_load_file, yaml_write_to_file
 # Service types to be imported from rosbag_recorder package
 from rosbag_recorder.srv import *
@@ -45,7 +45,7 @@ class CameraCalibrationTest:
         self.time_label = create_time_label()
 
         # Parameters
-        param_results_dir = "/" + self.veh + "/calibration/camera_calibration_test_node/output_rosbag_dir"
+        param_results_dir = "/" + self.veh + "/calibration/camera_calibration_test_node/output_dir"
         self.output_dir = rospy.get_param(param_results_dir)
         self.results_dir = os.path.join(self.output_dir, self.time_label)
         self.data_dir = os.path.join(self.results_dir, "data")
@@ -88,16 +88,12 @@ class CameraCalibrationTest:
         self.recieved_at_position_estimates = []
         self.allowed_at_id = self.conf["at_list"]
         self.number_of_images_to_process = self.conf["number_of_images_to_process"]
-        self.at_local_i = 0
-        self.continue_experiment = True
 
     def cb_at_local_pose(self, msg):
         if self.started_recording:
             self.at_local_i += 1
-            # record positions until receiving enough messages
-            if self.at_local_i <= self.number_of_images_to_process:
+            if self.at_local_i <= self.number_of_images_to_process: # record positions until receiving enough messages
                 self.recieved_at_position_estimates.append(msg)
-
                 rospy.loginfo("[{}] recieved at local pose {}".format(self.node_name, self.at_local_i))
             else:
                 self.continue_experiment = False
@@ -124,7 +120,6 @@ class CameraCalibrationTest:
             # welcoming
             print("\nType in the name of the camera verification experiment to conduct: {}".format(str(self.available_experiments)))
             experiment_name = self.get_valid_experiment()
-            experiment_conf = ground_truth[experiment_name]
 
             # rosbag-related operations
             rosbag_name = self.generate_experiment_label(experiment_name)
@@ -138,8 +133,10 @@ class CameraCalibrationTest:
             else:
                 rospy.logfatal('Failed to start recording the topics, needs handling!')
 
-            # experiment will be executed until enough measurements are received
-            while self.continue_experiment:rospy.sleep(1)
+            # experiment will be executed until **enough** measurements are received
+            self.at_local_i = 0
+            self.continue_experiment = True
+            while self.continue_experiment: rospy.sleep(1)
 
             # finally stop the recording
             self.stop_recording(rosbag_name)
@@ -152,7 +149,8 @@ class CameraCalibrationTest:
                 os.remove(rosbag_path)
             else:
                 rospy.loginfo('keeping the bag file {}'.format(rosbag_path))
-                move(rosbag_path, self.data_dir)
+                move(rosbag_path, self.data_dir) # move the bag to data folder in which we store experiment data
+
             self.measurements = self.process_at_array()
             self.evaluate_measurements(self.measurements, ground_truth)
             rospy.loginfo("\n\nDo you want to run another camera verification experiment? (respond with yes or no)\n\n")
@@ -205,7 +203,7 @@ class CameraCalibrationTest:
             'config_version': self.conf["config_file_version"],
             'hostname': get_hostname(),
             'platform': get_cpu_info(),
-            'experiment time': self.time_label
+            'experiment_time': self.time_label
         }
         success, violations = self.get_verdict()
 
@@ -242,9 +240,8 @@ class CameraCalibrationTest:
         """
         seen_at = {}
         for i, at_array_i in enumerate(self.recieved_at_position_estimates):
-            # this avoids possible breaking in case multiple apriltags are in the field of view.
-            for at in at_array_i.local_pose_list:
-                if at.id in self.allowed_at_id:
+            for at in at_array_i.local_pose_list: #detections in the field of view
+                if at.id in self.allowed_at_id: #disregard unexpected tags
                     if at.id not in seen_at:
                         at_i = AprilTagDetection(id=at.id)
                         seen_at[at.id] = at_i
@@ -291,14 +288,14 @@ class CameraCalibrationTest:
         self.stoped_recording = False
 
     def prepare_to_leave(self):
-        # copy bags
-        copy_folder(self.data_dir, self.results_dir)
         # copy camera calibration files
         copy_calibrations_folder(self.results_dir)
         # copy updated config file
         self.copy_and_update_config()
         # generate report
         self.generate_report()
+        # create a zip from the resulting folder
+        pack_results(self.results_dir)
 
 class AprilTagDetection():
     def __init__(self, id=None, size=None):

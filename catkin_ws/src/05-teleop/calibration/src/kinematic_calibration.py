@@ -380,7 +380,7 @@ class calib():
             'config_version': self.conf_version,
             'hostname': self.get_hostname(),
             'platform': self.get_cpu_info(),
-            'experiment time': os.path.basename(self.results_dir),
+            'experiment_time': os.path.basename(self.results_dir),
             'used_model': self.model_type,
             'verdict': self.get_verdict()
         }

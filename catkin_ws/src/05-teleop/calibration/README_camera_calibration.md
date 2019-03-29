@@ -61,6 +61,7 @@ Having the experimental setup ready, we can start testing, enter into the runnin
     laptop $ docker exec -it sysid-pi /bin/bash
 
     duckiebot $ roslaunch calibration camera_calibration_test.launch veh:=![HOST_NAME] output_rosbag_dir:=/logs
+    
 
 Note that, if `output_rosbag_dir` is not specified the program attempts to save the results to user´s home folder. This will fail it you don't have enough space in your device.
 
@@ -101,10 +102,13 @@ Symptom: My problem is not listed here. How do I get help?
 
 Resolution: Though we tested the system identification procedure multiple times on different duckiebots, it is possible that something did not work for you. Please file an issue on GitHub, [here](https://github.com/selcukercan/Software/issues).
 
-## Demo failure demonstration {#demo-camcaltest-failure}
+## Development Notes
 
-<div figure-id="fig:demo_failed-sysidII">
-    <figcaption>Before SysId
-    </figcaption>
-    <dtvideo src='vimeo:322489800'/>
-</div>
+If you would like to develop locally on your computer you should record a rosbag and use it to emulate real operation. 
+
+After taking a rosbag containing the topics necessary for your application, on your computer start a roscore, start playing the rosbag you recorded in the background and then execute
+
+
+    laptop $ roslaunch calibration camera_calibration_test_node.launch veh:=![HOST_NAME] output_dir:=![OUTPUT_DIR]
+    
+   

@@ -252,5 +252,6 @@ def get_cpu_info():
     import platform
     return platform.processor()
 
+
 if __name__ == '__main__':
     print get_files_in_dir('/home/selcuk/multi_bag_processing/')
