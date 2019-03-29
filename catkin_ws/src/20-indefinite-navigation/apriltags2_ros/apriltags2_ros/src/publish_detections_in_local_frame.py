@@ -57,6 +57,7 @@ class ToLocalPose:
         if (len(msg.detections) > 0):  # non-emtpy detection message
             veh_pose_euler_array_msg.local_pose_list = []
 
+            rospy.loginfo("\n\n\nXXXXX   AprilTag Detections   XXXXX")
             for i in range(len(msg.detections)):
                 # unpack the position and orientation returned by apriltags2 ros
                 t_msg = msg.detections[i].pose.pose.pose.position
@@ -70,24 +71,28 @@ class ToLocalPose:
                 q = np.array([q_msg.x, q_msg.y, q_msg.z, q_msg.w])
 
                 # express relative rotation of the robot wrt the global frame.
-                world_R_veh, world_t_veh = vehTworld(q, t)
-                veh_feaXYZ_world = rotation_matrix_to_euler(world_R_veh)
+                veh_R_world, veh_t_world = vehTworld(q, t)
+                world_feaXYZ_veh = rotation_matrix_to_euler(veh_R_world)
 
                 # convert from numpy float to standart python float to be written into the message
-                world_t_veh = world_t_veh.tolist()
-                veh_feaXYZ_world = veh_feaXYZ_world.tolist()
+                veh_t_world = veh_t_world.tolist()
+                world_feaXYZ_veh = world_feaXYZ_veh.tolist()
 
+                rospy.loginfo('AprilTag ID: {} posx: {} posy: {} rotz: {} ({} deg)'.format(tag_id_msg,
+                                                                                           veh_t_world[0], veh_t_world[1],
+                                                                                           world_feaXYZ_veh[2],
+                                                                                           world_feaXYZ_veh[2] * 180 / np.pi))
                 # form message to publish
                 veh_pose_euler_msg = VehiclePoseEuler()
                 veh_pose_euler_msg.header.stamp = rospy.Time.now()
                 # position
-                veh_pose_euler_msg.posx = world_t_veh[0]
-                veh_pose_euler_msg.posy = world_t_veh[1]
-                veh_pose_euler_msg.posz = world_t_veh[2]
+                veh_pose_euler_msg.posx = veh_t_world[0]
+                veh_pose_euler_msg.posy = veh_t_world[1]
+                veh_pose_euler_msg.posz = veh_t_world[2]
                 # orientation
-                veh_pose_euler_msg.rotx = veh_feaXYZ_world[0]
-                veh_pose_euler_msg.roty = veh_feaXYZ_world[1]
-                veh_pose_euler_msg.rotz = veh_feaXYZ_world[2]
+                veh_pose_euler_msg.rotx = world_feaXYZ_veh[0]
+                veh_pose_euler_msg.roty = world_feaXYZ_veh[1]
+                veh_pose_euler_msg.rotz = world_feaXYZ_veh[2]
                 # size of the Apriltag
                 veh_pose_euler_msg.size = tag_size_msg
                 # id of the Apriltag

@@ -3,7 +3,7 @@ import numpy as np
 import math
 import rospy
 
-TILT_ANGLE = 10 * math.pi / 180.0
+TILT_ANGLE = 12 * math.pi / 180.0
 
 
 def camztiltedTtag(q,t):
@@ -158,34 +158,56 @@ def vehTworld(q_at,t_at):
     #print("\nA2\n{}\n".format(A2))
     A3 = np.matmul(camx_T_camz, A2)
     #print("\nA3\n{}\n".format(A3))
-    A3_R = A3[0:3, 0:3]
-    A3_t = A3[0:3, 3]
 
-    A3_feaXYZ = rotation_matrix_to_euler(A3_R)
-    A3_feaXYZ = A3_feaXYZ.tolist()
-    #rospy.loginfo('rotx: {} roty: {} rotz: {}'.format(A3_feaXYZ[0],A3_feaXYZ[1],A3_feaXYZ[2]))
+    proper = True
+    if proper == True:
+        A4 = np.matmul(veh_T_camx, A3)
+        """
+        #print("\nA4\n{}\n".format(A4))
+        veh_R_world = A4[0:3, 0:3]
+        veh_t_world = A4[0:3, 3]
 
-    A3_inv = inverse_homogeneous_transform(A3)
-    A3_inv_R = A3_inv[0:3, 0:3]
-    A3_inv_t = A3_inv[0:3, 3]
+        R = rotation_matrix_to_euler(veh_R_world)
+        euler = R.tolist()
+        #rospy.loginfo('veh_T_world posx: {} posy: {} rotz: {} ({} deg)'.format(veh_t_world[0], veh_t_world[1], euler[2], euler[2] * 180 / np.pi))
+        
+        world_T_veh = inverse_homogeneous_transform(A4)
+        world_R_veh = world_T_veh[0:3, 0:3]
+        world_t_veh = world_T_veh[0:3, 3]
 
-    A3_inv_feaXYZ = rotation_matrix_to_euler(A3_inv_R)
-    A3_inv_feaXYZ = A3_inv_feaXYZ.tolist()
-    rospy.loginfo('uncompensated posx: {} posy: {} rotz: {} ({} deg)'.format(A3_inv_t[0], A3_inv_t[1],
-                                                                             A3_inv_feaXYZ[2], A3_inv_feaXYZ[2] * 180 / np.pi))
+        world_euler_veh = rotation_matrix_to_euler(world_R_veh)
+        world_euler_veh = world_euler_veh.tolist()
+        rospy.loginfo('world_T_veh posx: {} posy: {} rotz: {} ({} deg)'.format(world_t_veh[0], world_t_veh[1],
+                                                                        world_euler_veh[2], world_euler_veh[2] * 180 / np.pi))
+        """
+    else:
+        A3_R = A3[0:3, 0:3]
+        A3_t = A3[0:3, 3]
 
-    A4 = A3_inv
-    A4[0,3] = A3_inv[0,3] - tOvehOcamx[0] * np.cos(A3_inv_feaXYZ[2])
-    A4[1,3] = A3_inv[1,3] - tOvehOcamx[0] * np.sin(A3_inv_feaXYZ[2])
-    #print("\nAfter A4\n{}\n".format(A4))
-    A4_R = A4[0:3, 0:3]
-    A4_t = A4[0:3, 3]
+        A3_feaXYZ = rotation_matrix_to_euler(A3_R)
+        A3_feaXYZ = A3_feaXYZ.tolist()
+        #rospy.loginfo('rotx: {} roty: {} rotz: {}'.format(A3_feaXYZ[0],A3_feaXYZ[1],A3_feaXYZ[2]))
 
-    A4_feaXYZ = rotation_matrix_to_euler(A4_R)
-    A4_feaXYZ = A4_feaXYZ.tolist()
+        A3_inv = inverse_homogeneous_transform(A3)
+        A3_inv_R = A3_inv[0:3, 0:3]
+        A3_inv_t = A3_inv[0:3, 3]
 
-    rospy.loginfo('compansated posx: {} posy: {} rotz: {} ({} deg)'.format(A4_t[0], A4_t[1],
-                                                                           A4_feaXYZ[2], A4_feaXYZ[2] * 180 / np.pi))
+        A3_inv_feaXYZ = rotation_matrix_to_euler(A3_inv_R)
+        A3_inv_feaXYZ = A3_inv_feaXYZ.tolist()
+        rospy.loginfo('uncompensated posx: {} posy: {} rotz: {} ({} deg)'.format(A3_inv_t[0], A3_inv_t[1],
+                                                                                 A3_inv_feaXYZ[2], A3_inv_feaXYZ[2] * 180 / np.pi))
+
+        A4 = A3_inv
+        A4[0,3] = A3_inv[0,3] - tOvehOcamx[0] * np.cos(A3_inv_feaXYZ[2])
+        A4[1,3] = A3_inv[1,3] - tOvehOcamx[0] * np.sin(A3_inv_feaXYZ[2])
+        #print("\nAfter A4\n{}\n".format(A4))
+        A4_R = A4[0:3, 0:3]
+        A4_t = A4[0:3, 3]
+
+        A4_feaXYZ = rotation_matrix_to_euler(A4_R)
+        A4_feaXYZ = A4_feaXYZ.tolist()
+        rospy.loginfo('compansated posx: {} posy: {} rotz: {} ({} deg)'.format(A4_t[0], A4_t[1],
+                                                                               A4_feaXYZ[2], A4_feaXYZ[2] * 180 / np.pi))
 
     veh_R_world = A4[0:3, 0:3]
     veh_t_world = A4[0:3, 3]
