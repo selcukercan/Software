@@ -17,4 +17,10 @@
       <arg name="veh" value="$(arg veh)"/>
   </include>
 
+  <!-- start the camera calibration verification test launch -->
+  <include file="$(find calibration)/launch/camera_calibration_test_node.launch">
+      <arg name="veh" value="$(arg veh)"/>
+      <arg name="output_dir" value="$(arg output_dir)" />
+  </include>
+
 </launch>
