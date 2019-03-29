@@ -8,7 +8,7 @@ at_list:
   - 84
   - 85
 rotational_error_tolerance: 2 # degrees
-translational_error_tolerance: 0.02 # meters
-rotational_std_tolerance: 1 # degrees
+translational_error_tolerance: 0.01 # meters
+rotational_std_tolerance: 0.05 # degrees
 translational_std_tolerance: 0.001 # meters
-number_of_images_to_process: 2
+number_of_images_to_process: 10
