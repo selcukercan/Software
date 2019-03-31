@@ -26,8 +26,20 @@ class DataPreparation():
         self.measurement_coordinate_frame = measurement_coordinate_frame
         self.wheel_cmd, self.robot_pose = self.load_bag(input_bag, top_wheel_cmd_exec, top_robot_pose, localization_type=localization_method)
         data_selected = self.select_interval_and_resample_numpify(localization_type=localization_method)
+        #data_opt = self.represent_data_for_optimization(data_selected)
         self.data = self.filter(data_selected)
 
+    """
+    def represent_data_for_optimization(self, data_selected):
+        from calibration.plotting_utils import multiplot
+        x_sel = data_selected['robot_pose']
+        # plot original and filtered signals on the same pot
+        # save + if show plow
+        multiplot(states_list=[x_sel],
+                  experiment_name_list=['Original Signal'],
+                  plot_title="Represent AT Measurement for Optimization")
+        print('selc')
+    """
 
     def select_interval_and_resample_numpify(self, localization_type=None):
         """

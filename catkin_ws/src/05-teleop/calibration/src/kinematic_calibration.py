@@ -19,7 +19,7 @@ from calibration.model_library import model_generator, simulate, simulate_horiza
 from calibration.plotting_utils import *
 from calibration.utils import work_space_settings, get_workspace_param, \
     defined_ros_param, input_folder_to_experiment_dict, read_param_from_file, get_file_path,  defaulted_param_load, \
-    pack_results, get_hostname, get_cpu_info, copy_calibrations_folder
+    pack_results, get_hostname, get_cpu_info, copy_calibrations_folder, get_cpu_info, get_hostname
 from calibration.model_assessment import assesment_rule
 
 # duckietown imports
@@ -378,8 +378,8 @@ class calib():
         yaml_dict = {
             'sysid_code_version': 'v1.0',
             'config_version': self.conf_version,
-            'hostname': self.get_hostname(),
-            'platform': self.get_cpu_info(),
+            'hostname': get_hostname(),
+            'platform': get_cpu_info(),
             'experiment_time': os.path.basename(self.results_dir),
             'used_model': self.model_type,
             'verdict': self.get_verdict()

@@ -69,7 +69,14 @@ def x_cart_to_polar(x_cart):
     # note the negation of rho values, this is to conform the model definition where positive wheel cmds
     # leading to increase in rho.
     x_polar[0, :] = -1 * np.sqrt(x_cart[0, :] ** 2 + x_cart[1, :] ** 2)
-    x_polar[1, :] = x_cart[2, :]
+    # note the negation of theta values, this is to conform the model definition where;
+    # if wheel_cmd_right > wheel_cmd_left the vehicle in increasing theta direction
+    # remark: this is not a hackish fix:
+    # 1) We do need to have measurements represented in vehicle coordinate frame vehicle_T_world
+    # (see roscd apriltags2_ros/include/rotation_utils.py)
+    # 2) Attempting to take the inverse of vehicle_T_world is an errenous attempt as then the displacement
+    # vector will be represented in AT coordinate frame.
+    x_polar[1, :] = -1 *x_cart[2, :]
     return x_polar
 
 

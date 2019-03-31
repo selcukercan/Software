@@ -208,9 +208,8 @@ def get_config_file_path():
     # use meta config file to decide which configuration file to use.
     package_root = get_package_root("calibration")
     meta_config = yaml_load_file(package_root + '/meta_config.yaml', plain_yaml=True)
-    use_config_version = meta_config["config_version"]
-    return package_root + '/configs/config_{}.yaml'.format(use_config_version)
-
+    use_config_version = meta_config["system_identification_config_version"]
+    return package_root + '/configs/system_identification/config_{}.yaml'.format(use_config_version)
 
 def cautious_read_param_from_file(robot_name, model_object):
     """ attempt to read the parameter values from config file, fallback model defaults if config file does not exist"""
