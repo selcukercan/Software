@@ -10,6 +10,7 @@ from utils import get_param_from_config_file, x_in_np, get_workspace_param, deg
 
 opy.init_notebook_mode(connected=True)
 
+save_results = get_param_from_config_file('save_experiment_results')
 SLEEP_DURATION = 1
 
 
@@ -42,7 +43,7 @@ def multiplot(states_list=None, time_list=None, input_list=None, experiment_name
             opy.plot(fig)
     else:
         rospy.loginfo('[plotting_utils] unable to plot as data no data provided')
-    rospy.sleep(SLEEP_DURATION)
+    shall_i_sleep()
 
 
 def path_plot(single_experiment, plot_name=''):
@@ -60,7 +61,7 @@ def path_plot(single_experiment, plot_name=''):
     )
     fig = go.Figure(data=plot_data, layout=layout)
     opy.plot(fig)
-    rospy.sleep(SLEEP_DURATION)
+    shall_i_sleep()
 
 
 def single_plot_data(states=None, time=None, input=None, experiment_name=""):
@@ -177,7 +178,7 @@ def multi_path_plot(experiment_list, experiment_name_list=[], plot_title="", sav
         opy.plot(fig, auto_open=False, filename=join(save_dir, plot_title + ".html"))
     else:
         opy.plot(fig)
-    rospy.sleep(SLEEP_DURATION)
+    shall_i_sleep()
 
 
 # General
@@ -218,14 +219,14 @@ def simple_plot(x_val, y_val, plot_name="", save_dir=""):
         opy.plot(fig, auto_open=False, filename=join(save_dir, plot_name + ".html"))
     else:
         opy.plot(fig)
-        rospy.sleep(SLEEP_DURATION)
+        shall_i_sleep()
 
 
 def param_convergence_plot(param_hist, plot_name="", save_dir=""):
     for param in param_hist.keys():
         iter = range(len(param_hist[param]))
         simple_plot(iter, param_hist[param], 'Convergence Plot For Parameter {}'.format(param), save_dir=save_dir)
-    rospy.sleep(SLEEP_DURATION)
+    shall_i_sleep()
 
 
 def param_space_cost_plot(cost, params_space_list):
@@ -262,7 +263,7 @@ def param_space_cost_plot(cost, params_space_list):
     )
     fig = go.Figure(data=data, layout=layout)
     opy.plot(fig)
-    rospy.sleep(SLEEP_DURATION)
+    shall_i_sleep()
 
 
 def path_plot_plotly(experiment, plot_name=''):
@@ -293,4 +294,10 @@ def path_plot_plotly(experiment, plot_name=''):
     fig['layout'] = layout
     # fig = dict(data=data, layout=layout)
     opy.plot(fig)
-    rospy.sleep(SLEEP_DURATION)
+    shall_i_sleep()
+
+def shall_i_sleep():
+    if not save_results:
+        rospy.sleep(SLEEP_DURATION)
+    else:
+        pass

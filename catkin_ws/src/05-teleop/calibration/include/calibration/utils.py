@@ -242,7 +242,7 @@ def cautious_read_param_from_file(robot_name, model_object):
 def pack_results(results_dir):
     result_name = os.path.basename(results_dir)
     results_root = os.path.dirname(results_dir)
-    shutil.make_archive(results_dir, 'zip', results_root, result_name)
+    shutil.make_archive(results_dir, 'tar', results_root, result_name)
 
 def defaulted_param_load(model_object, robot_name):
     """ check if there already exists a previous calibration, if none use default values defined by the model """

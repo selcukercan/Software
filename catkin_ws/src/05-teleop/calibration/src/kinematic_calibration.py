@@ -6,7 +6,7 @@ import datetime
 import time
 import os
 import os.path
-from shutil import copy,copyfile
+from shutil import copy, copyfile
 import rospy
 # ros-package-level imports
 from calibration.cost_function_library import *
@@ -92,8 +92,9 @@ class calib():
         # get ready to leave
         self.copy_experiment_data()
         self.generate_report()
-        self.copy_config_file()
         self.copy_calibrations_folder()
+        copy(get_workspace_param("path_to_config_file"), self.results_dir)
+        copy(self.output_yaml_file, self.results_dir)
         pack_results(self.results_dir)
 
     # train
@@ -121,7 +122,7 @@ class calib():
                                         save_dir=get_workspace_param("results_optimization_dir"))
 
         # write to the kinematic calibration file
-        self.write_calibration(model_object, popt)
+        self.output_yaml_file = self.write_calibration(model_object, popt)
 
     # Data Operations
     def load_dataset(self, dataset_name, path_to_dataset, localization_type=None):
@@ -239,10 +240,10 @@ class calib():
             self.nsap_error = calculate_cost(x, x_sim_opt_n_step, self.validation_metric)
 
             print(
-            '\nModel Performance Evaluation based on N-Step-Ahead-Prediction :\nModel Name: {}\nMetric Type: {} Value: {}\n'.format(
-                exp_name,
-                self.validation_metric,
-                self.nsap_error))
+                '\nModel Performance Evaluation based on N-Step-Ahead-Prediction :\nModel Name: {}\nMetric Type: {} Value: {}\n'.format(
+                    exp_name,
+                    self.validation_metric,
+                    self.nsap_error))
 
             if self.show_plots:
                 multiplot(states_list=[x, x_sim_opt],
@@ -316,6 +317,7 @@ class calib():
             copyfile(filename, os.path.join(file_dir, new_file_name))
         rospy.loginfo('writing the YAML file to: [{}]'.format(filename))
         yaml_write_to_file(yaml_dict, filename)
+        return filename
 
     # Utility Functions
     def rosparam_to_program(self):
@@ -385,9 +387,6 @@ class calib():
             validation_files = os.listdir(self.path_validation_data)
             for file in validation_files:
                 copy(os.path.join(self.path_validation_data, file), validation_path)
-
-    def copy_config_file(self):
-        copy(get_workspace_param("path_to_config_file"), self.results_dir)
 
     def copy_calibrations_folder(self):
         from distutils.dir_util import copy_tree

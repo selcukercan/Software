@@ -99,10 +99,10 @@ Also note that image processing pipeline requires the calibration files to work 
 On your local PC, start the optimization
 
 ```shell
-roslaunch calibration calibration.launch veh:=![ROBOT_NAME] folder_path:=![INPUT_FOLDER_PATH] model:=![MODEL_NAME]
+roslaunch calibration calibration.launch veh:=![ROBOT_NAME] folder_path:=![INPUT_FOLDER_PATH]
 ```
 
-Note that the optimization script automatically loads and feeds all the bag files that are located inside ![INPUT_FOLDER_PATH]. To see all available models and their definition, refer to `PACKAGE_ROOT/include/calibration/model_library.py`.
+Note that the optimization script automatically loads and feeds all the bag files that are located inside ![INPUT_FOLDER_PATH].
 
 ## Transfer the calibration YAML files
 
