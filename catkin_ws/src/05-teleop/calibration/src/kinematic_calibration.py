@@ -13,16 +13,13 @@ from calibration.cost_function_library import *
 from calibration.data_adapter_utils import *
 from calibration.data_preperation_utils import DataPreparation
 from calibration.data_preperation_utils import load_pickle, save_pickle
-from calibration.model_assessment import assesment_rule
 from calibration.model_library import model_generator
 from calibration.plotting_utils import *
 from calibration.utils import work_space_settings, get_workspace_param, \
     defined_ros_param, input_folder_to_experiment_dict, get_file_path, defaulted_param_load, \
-    pack_results
-    defined_ros_param, input_folder_to_experiment_dict, read_param_from_file, get_file_path,  defaulted_param_load, \
-    pack_results, get_hostname, get_cpu_info, copy_calibrations_folder, get_cpu_info, get_hostname
+    pack_results, get_hostname, get_cpu_info
 from calibration.model_assessment import assesment_rule
-
+from scipy.optimize import minimize
 # duckietown imports
 from duckietown_utils.yaml_wrap import yaml_load_file, yaml_write_to_file, get_duckiefleet_root
 
@@ -368,17 +365,6 @@ class calib():
         verdict = assesment_fn(self.nsap_error)
         return verdict
 
-    @staticmethod
-    def get_hostname():
-        import socket
-        hostname = socket.gethostname()
-        return hostname
-
-    @staticmethod
-    def get_cpu_info():
-        import platform
-        return platform.processor()
-
     def copy_experiment_data(self):
         # create the data directory to store experiment data
         data_folder = os.path.join(self.results_dir, 'data')
@@ -416,9 +402,9 @@ class calib():
         yaml_dict = {
             'sysid_code_version': 'v1.0',
             'config_version': self.conf_version,
-            'hostname': self.get_hostname(),
-            'platform': self.get_cpu_info(),
-            'experiment time': os.path.basename(self.results_dir),
+            'hostname': get_hostname(),
+            'platform': get_cpu_info(),
+            'experiment_time': os.path.basename(self.results_dir),
             'used_model': self.model_type,
             'osap_error': self.osap_error.item(),
             'nsap_error': self.nsap_error.item(),
