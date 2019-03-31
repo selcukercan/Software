@@ -12,7 +12,6 @@
             <param name="veh" value="$(arg veh)"/>
             <param name="train_path" value="$(arg train_path)"/>
             <param name="validation_path" value="$(arg validation_path)"/>
-            <param name="model" value="$(arg model)"/>
         </node>
     </group>
 </launch>

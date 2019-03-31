@@ -8,16 +8,17 @@ import os
 import os.path
 from shutil import copy,copyfile
 import rospy
-from scipy.optimize import minimize
-
 # ros-package-level imports
 from calibration.cost_function_library import *
 from calibration.data_adapter_utils import *
 from calibration.data_preperation_utils import DataPreparation
 from calibration.data_preperation_utils import load_pickle, save_pickle
-from calibration.model_library import model_generator, simulate, simulate_horizan
+from calibration.model_assessment import assesment_rule
+from calibration.model_library import model_generator
 from calibration.plotting_utils import *
 from calibration.utils import work_space_settings, get_workspace_param, \
+    defined_ros_param, input_folder_to_experiment_dict, get_file_path, defaulted_param_load, \
+    pack_results
     defined_ros_param, input_folder_to_experiment_dict, read_param_from_file, get_file_path,  defaulted_param_load, \
     pack_results, get_hostname, get_cpu_info, copy_calibrations_folder, get_cpu_info, get_hostname
 from calibration.model_assessment import assesment_rule
@@ -63,26 +64,30 @@ class calib():
 
         self.initial_param_vs_optimal_param = False
 
-
-        self.measurement_coordinate_frame = self.conf['express_measurements_in']
         # construct a model by specifying which model to use
-        model_object = model_generator(self.model_type, self.measurement_coordinate_frame)
+        self.model_type = self.conf['model']
+        model_object = model_generator(self.model_type)
 
         # define the type of metric to use while constructing the cost
         train_metric = self.conf['cost_function_type']
         self.train_metric = metric_selector(train_metric)
-        self.validation_metric = self.train_metric # use the same metric for the validation as well
+        self.validation_metric = self.train_metric  # use the same metric for the validation as well
 
         if self.do_train:
             # load data for use in optimization
             experiments = self.load_dataset("Training", self.path_training_data, localization_type='apriltag')
+            # calculate/add the velocity estimates to the dateset
+            experiments = add_x_dot_estimate_to_dataset(experiments, dataset_type="Training")
             self.training_routine(model_object, experiments)
         else:
             rospy.logwarn('[{}] not training the model'.format(self.node_name))
 
         if self.do_validate:
             # load and process the experiment data to be used for testing the model
-            validation_dataset = self.load_dataset("Validation", self.path_validation_data, localization_type='apriltag')
+            validation_dataset = self.load_dataset("Validation", self.path_validation_data,
+                                                   localization_type='apriltag')
+            # calculate/add the velocity estimates to the dateset
+            validation_dataset = add_x_dot_estimate_to_dataset(validation_dataset, dataset_type="Validation")
             self.validation_routine(model_object, validation_dataset)
         else:
             rospy.logwarn('[{}] not validating the model'.format(self.node_name))
@@ -91,12 +96,8 @@ class calib():
         self.copy_experiment_data()
         self.generate_report()
         self.copy_config_file()
-        copy_calibrations_folder(self.results_dir)
+        self.copy_calibrations_folder()
         pack_results(self.results_dir)
-
-        """
-        #add_x_dot_estimate_to_dataset(experiments, "train")
-        """
 
     # train
     def training_routine(self, model_object, experiments):
@@ -116,9 +117,11 @@ class calib():
         popt = self.nonlinear_model_fit(model_object, experiments)
         self.total_calculation_time = time.time() - start_time
         # parameter converge plots and cost fn
-        if self.show_plots: param_convergence_plot(self.param_hist, save_dir=self.results_dir)
+        if self.show_plots: param_convergence_plot(self.param_hist,
+                                                   save_dir=get_workspace_param("results_optimization_dir"))
         if self.show_plots: simple_plot(range(len(self.cost_fn_val_list)), self.cost_fn_val_list,
-                                        plot_name='Cost Function', save_dir=self.results_dir)
+                                        plot_name='Cost Function',
+                                        save_dir=get_workspace_param("results_optimization_dir"))
 
         # write to the kinematic calibration file
         self.write_calibration(model_object, popt)
@@ -153,7 +156,7 @@ class calib():
                                                    top_wheel_cmd_exec=self.top_wheel_cmd_exec,
                                                    top_robot_pose=pose_topic,
                                                    exp_name=dataset_name + ' Data {}: {}'.format(i + 1, exp),
-                                                   measurement_coordinate_frame=self.measurement_coordinate_frame,
+                                                   dataset_name=dataset_name,
                                                    localization_method=localization_type)
             if save_to_pickle:
                 set_name = 'test_run'
@@ -173,12 +176,15 @@ class calib():
         for exp_name in experiments.keys():
             exp_data = experiments[exp_name].data
             t = exp_data['timestamp']
-            x = exp_data['robot_pose']
             u = exp_data['wheel_cmd_exec']
-            # x0 = x[:,0]
-
+            x = exp_data['robot_pose']
             # simulate the model
-            x_sim = simulate(model_object, t, x, u, p)  # states for a particular p set
+            if self.model_type == "kinematic_drive":
+                x_sim = model_object.simulate(t, x, u, p)  # states for a particular p set
+            elif self.model_type == "dynamic_drive":
+                x_dot = exp_data['robot_velocity']
+                x_sim = model_object.simulate(t, x, x_dot, u, p)  # states for a particular p set
+
             obj_cost = calculate_cost(x, x_sim, self.train_metric)
 
         self.update_param_hist(model_object.param_ordered_list, p)
@@ -207,26 +213,36 @@ class calib():
             exp_data = experiments[exp_name].data
             t = exp_data['timestamp']
             x = exp_data['robot_pose']
+            x_dot = exp_data['robot_velocity']
             u = exp_data['wheel_cmd_exec']
 
             # one-step-ahead simulation of the model
             # states for a particular p set
-            x_sim_opt = simulate(model_object, t, x, u, popt)
+            if self.model_type == "kinematic_drive":
+                x_sim_opt = model_object.simulate(t, x, u, popt)
+            elif self.model_type == "dynamic_drive":
+                x_sim_opt = model_object.simulate(t, x, x_dot, u, popt)  # states for a particular p set
             # calculate the error metric
             self.osap_error = calculate_cost(x, x_sim_opt, self.validation_metric)
 
-            print('\nModel Performance Evaluation based on One-Step-Ahead-Prediction :\nModel Name: {}\nMetric Type: {} Value: {}\n'.format(exp_name,
-                                                                                                        self.validation_metric,
-                                                                                                        self.osap_error))
+            print(
+                '\nModel Performance Evaluation based on One-Step-Ahead-Prediction :\nModel Name: {}\nMetric Type: {} Value: {}\n'.format(
+                    exp_name,
+                    self.validation_metric,
+                    self.osap_error))
 
             # n-step-ahead simulation of the model, i.e. given an initial position predict the vehicle motion for the
             # complete experiment horizan.
             x0 = x[:, 0]
-            x_sim_opt_n_step = simulate_horizan(model_object, t, x0, u, popt)
-            #x_sim_init_osap = simulate_horizan(model_object, t, x0, u, self.p0)
-            self.nsap_error = calculate_cost(x, x_sim_opt_n_step , self.validation_metric)
+            if self.model_type == "kinematic_drive":
+                x_sim_opt_n_step = model_object.simulate_horizan(t, x0, u, popt)
+            else:
+                x_sim_opt_n_step = model_object.simulate_horizan(t, x, x_dot, u, popt)
 
-            print('\nModel Performance Evaluation based on N-Step-Ahead-Prediction :\nModel Name: {}\nMetric Type: {} Value: {}\n'.format(
+            self.nsap_error = calculate_cost(x, x_sim_opt_n_step, self.validation_metric)
+
+            print(
+            '\nModel Performance Evaluation based on N-Step-Ahead-Prediction :\nModel Name: {}\nMetric Type: {} Value: {}\n'.format(
                 exp_name,
                 self.validation_metric,
                 self.nsap_error))
@@ -236,21 +252,27 @@ class calib():
                           input_list=[u, u],
                           time_list=[t, t],
                           experiment_name_list=[exp_name + '_measurement', exp_name + '_simulated_optimal'],
-                          plot_title="One Step Ahead Predictions for Model: {} Dataset: {}".format(model_object.name,
+                          plot_title="One-Step-Ahead Predictions for Model: {} Dataset: {}".format(model_object.name,
                                                                                                    exp_name),
                           save=self.save_experiment_results)
 
+                multiplot(states_list=[x, x_sim_opt_n_step],
+                          input_list=[u, u],
+                          time_list=[t, t],
+                          experiment_name_list=[exp_name + '_measurement', exp_name + '_simulated_optimal'],
+                          plot_title="N-Step-Ahead Predictions for Model: {} Dataset: {}".format(model_object.name,
+                                                                                                 exp_name),
+                          save=self.save_experiment_results)
 
                 multi_path_plot([x, x_sim_opt],
-                                experiment_name_list =['measurement', 'kinematic_model'],
-                                plot_title="One-Step-Ahead Prediction Trajectory Simulation for {}".format(exp_name),
+                                experiment_name_list=['measurement', self.model_type],
+                                plot_title="Trajectory Simulation using One-Step-Ahead Prediction {}".format(exp_name),
                                 save=self.save_experiment_results)
 
                 multi_path_plot([x, x_sim_opt_n_step],
-                                experiment_name_list=['measurement', 'kinematic_model'],
-                                plot_title="N-Step Ahead Trajectory Simulation for {}".format(exp_name),
+                                experiment_name_list=['measurement', self.model_type],
+                                plot_title="Trajectory Simulation using N-Step Ahead Prediction {}".format(exp_name),
                                 save=self.save_experiment_results)
-
 
             if self.initial_param_vs_optimal_param:
                 x_sim_init = simulate(model_object, t, x, u, self.p0)
@@ -260,10 +282,10 @@ class calib():
                               time_list=[t, t, t],
                               experiment_name_list=[exp_name + '_measurement', exp_name + '_simulated_init',
                                                     exp_name + '_simulated_optimal'],
-                              plot_title="One Step Ahead Predictions for Model: {} Dataset: {}".format(model_object.name,
-                                                                                                       exp_name),
+                              plot_title="One Step Ahead Predictions for Model: {} Dataset: {}".format(
+                                  model_object.name,
+                                  exp_name),
                               save=self.save_experiment_results)
-
 
     # Save results
     def write_calibration(self, model_object, popt):
@@ -307,13 +329,11 @@ class calib():
         param_veh = self.host_package_node + '/' + "veh"
         param_train_path = self.host_package_node + '/' + "train_path"
         param_validation_path = self.host_package_node + '/' + "validation_path"
-        param_model_type = self.host_package_node + '/' + "model"
 
         # rosparam values
         self.robot_name = defined_ros_param(param_veh)
         self.path_training_data = defined_ros_param(param_train_path)
         self.path_validation_data = defined_ros_param(param_validation_path)
-        self.model_type = defined_ros_param(param_model_type)
 
         self.do_train = True
         self.do_validate = True
@@ -333,7 +353,7 @@ class calib():
         for i, param_name in enumerate(model_ordered_param_list):
             self.param_hist[param_name].append(p[i])
 
-    def select_pose_topic(self,localization_type):
+    def select_pose_topic(self, localization_type):
         if localization_type == 'apriltag':
             return self.top_robot_pose_apriltag
         elif localization_type == 'lane_filter':
@@ -348,9 +368,20 @@ class calib():
         verdict = assesment_fn(self.nsap_error)
         return verdict
 
+    @staticmethod
+    def get_hostname():
+        import socket
+        hostname = socket.gethostname()
+        return hostname
+
+    @staticmethod
+    def get_cpu_info():
+        import platform
+        return platform.processor()
+
     def copy_experiment_data(self):
         # create the data directory to store experiment data
-        data_folder = os.path.join(self.results_dir,'data')
+        data_folder = os.path.join(self.results_dir, 'data')
         os.mkdir(data_folder)
 
         # copy the training files under data/training_data
@@ -372,16 +403,25 @@ class calib():
     def copy_config_file(self):
         copy(get_workspace_param("path_to_config_file"), self.results_dir)
 
+    def copy_calibrations_folder(self):
+        from distutils.dir_util import copy_tree
+        calibrations_folder = os.path.join(get_duckiefleet_root(), 'calibrations')
+        dst = os.path.join(self.results_dir, 'calibrations')
+        os.mkdir(dst)
+        copy_tree(calibrations_folder, dst)
+
     def generate_report(self):
 
         # base-report content, entries are valid for both validation and optimization operations
         yaml_dict = {
             'sysid_code_version': 'v1.0',
             'config_version': self.conf_version,
-            'hostname': get_hostname(),
-            'platform': get_cpu_info(),
-            'experiment_time': os.path.basename(self.results_dir),
+            'hostname': self.get_hostname(),
+            'platform': self.get_cpu_info(),
+            'experiment time': os.path.basename(self.results_dir),
             'used_model': self.model_type,
+            'osap_error': self.osap_error.item(),
+            'nsap_error': self.nsap_error.item(),
             'verdict': self.get_verdict()
         }
         if self.do_train:
@@ -394,6 +434,7 @@ class calib():
         os.mknod(report)
         # write the content into the report
         yaml_write_to_file(yaml_dict, report)
+
 
 if __name__ == '__main__':
     calib = calib()

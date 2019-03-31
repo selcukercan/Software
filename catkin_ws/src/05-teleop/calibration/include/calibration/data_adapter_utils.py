@@ -1,12 +1,12 @@
 import numpy as np
 import rospy
-from calibration.utils import get_param_from_config_file
+import time
+from calibration.utils import get_param_from_config_file, window, get_workspace_param
 from plotting_utils import multiplot
 from scipy.interpolate import splrep, splev
 from utils import rad, save_gzip
 
-
-express_measurements_in = get_param_from_config_file("express_measurements_in")
+save_plots = get_param_from_config_file("save_experiment_results")
 
 def col(a):
     """
@@ -44,6 +44,7 @@ def x_adapter_apriltag(x_dict):
 
     return np.vstack([px, py, rz])
 
+
 def x_adapter_lane_filter(x_dict):
     """ converts lane filter measurements from dict to numpy array """
     d = row(np.array(x_dict['d']))
@@ -55,12 +56,10 @@ def x_adapter_lane_filter(x_dict):
 def x_adapter(x_dict, localization_type=None):
     """ from load bag format to optimization format also takig into account the requested coordiate frame representation"""
     if localization_type == 'apriltag':
-        if express_measurements_in == 'cartesian':
-            return x_adapter_apriltag(x_dict)
-        elif express_measurements_in == 'polar':
-            return x_cart_to_polar(x_adapter_apriltag(x_dict))
+        return x_cart_to_polar(x_adapter_apriltag(x_dict))
     elif localization_type == 'lane_filter':
         return x_adapter_lane_filter(x_dict)
+
 
 def x_cart_to_polar(x_cart):
     # initialize the array for storing measurements represented in polar coordinates
@@ -91,8 +90,9 @@ def x_polar_to_cart(x_polar):
     return x_cart
 
 
-def add_x_dot_estimate_to_dataset(dataset, dataset_type):
+def add_x_dot_estimate_to_dataset(dataset, dataset_type=None):
     """ estimates the velocity form position data and adds it to dataset dictionary """
+
     # load spline-fitting related settings from the config file
     spline_smoothing_factor = get_param_from_config_file("spline_smoothing_factor")
     lsq_spline_order = get_param_from_config_file("lsq_spline_order")
@@ -100,6 +100,7 @@ def add_x_dot_estimate_to_dataset(dataset, dataset_type):
     lsq_discard_n_at_boundary = get_param_from_config_file("lsq_discard_n_at_boundary")
     spline_type = get_param_from_config_file("spline_type")
     densification_factor = get_param_from_config_file("densification_factor")
+    discard_n_point_at_boundaries = get_param_from_config_file("discard_n_after_spline_fitting")
 
     show_plots = get_param_from_config_file("show_plots")
 
@@ -123,22 +124,65 @@ def add_x_dot_estimate_to_dataset(dataset, dataset_type):
                                                         knot_every=lsq_spline_knot_every,
                                                         discard_n_at_boundary=lsq_discard_n_at_boundary)
 
-        if spline_type == 'b_spline':
-            dataset[exp_name].data["robot_velocity"] = x_dot_spline
-        elif spline_type == 'lsq_spline':
-            dataset[exp_name].data["robot_velocity"] = x_lsq_dot_spline
-        else:
-            rospy.logfatal('[data_adapter_utils] [{}] is not a valid spline type'.format(spline_type))
+        # select an inner region to avoid the boundary effects
+        x_window = window(x, discard_n_point_at_boundaries)
+        t_window = window(t, discard_n_point_at_boundaries)
+        t_eval_window = densify(t_window, densification_factor)  # create a denser array for evaluation
+
+        x_spline_window = window(x_spline, discard_n_point_at_boundaries)
+        x_dot_spline_window = window(x_dot_spline, discard_n_point_at_boundaries)
+        x_lsq_spline_window = window(x_lsq_spline, discard_n_point_at_boundaries)
+        x_lsq_dot_spline_window = window(x_lsq_dot_spline, discard_n_point_at_boundaries)
 
         if show_plots:
             # Position Measurement Fitting
             multiplot(states_list=[x, x_spline, x_lsq_spline],
                       time_list=[t, t_eval, t_eval],
-                      experiment_name_list=['_experiment-data', '_spline-fitted', '_lsq-spline-fitted'])
+                      experiment_name_list=['_experiment-data', '_spline-fitted', '_lsq-spline-fitted'],
+                      plot_title='Position Measurements <br>' +
+                                 dataset_type + ' Dataset: {}'.format(exp_name),
+                      save=save_plots,
+                      save_dir=get_workspace_param("results_preprocessing_dir")
+                      )
             # Velocity Estimations from position
             multiplot(states_list=[x_dot_spline, x_lsq_dot_spline],
                       time_list=[t, t],
-                      experiment_name_list=['_spline-fitted', '_lsq-spline-fitted'])
+                      experiment_name_list=['_spline-fitted', '_lsq-spline-fitted'],
+                      plot_title='Velocity Estimations With Spline Fitting <br>' +
+                                 dataset_type + ' Dataset: {}'.format(exp_name),
+                      save=save_plots,
+                      save_dir=get_workspace_param("results_preprocessing_dir")
+                      )
+            # Position Measurement Fitting
+            multiplot(states_list=[x_window, x_spline_window, x_lsq_spline_window],
+                      time_list=[t_window, t_eval_window, t_eval_window],
+                      experiment_name_list=['_experiment-data', '_spline-fitted', '_lsq-spline-fitted'],
+                      plot_title='Position Measurements After Discarding n Boundary Points<br>' +
+                                 dataset_type + ' Dataset: {}'.format(exp_name),
+                      save=save_plots,
+                      save_dir=get_workspace_param("results_preprocessing_dir")
+                      )
+            # Velocity Estimations from position
+            multiplot(states_list=[x_dot_spline_window, x_lsq_dot_spline_window],
+                      time_list=[t_window, t_window],
+                      experiment_name_list=['_spline-fitted', '_lsq-spline-fitted'],
+                      plot_title='Velocity Estimations With Spline Fitting After Discarding n Boundary Points<br>' +
+                                 dataset_type + ' Dataset: {}'.format(exp_name),
+                      save=save_plots,
+                      save_dir=get_workspace_param("results_preprocessing_dir")
+                      )
+
+        # Update the dataset
+        dataset[exp_name].data["robot_pose"] = x_window
+        dataset[exp_name].data["timestamp"] = t_window
+
+        if spline_type == 'b_spline':
+            dataset[exp_name].data["robot_velocity"] = x_dot_spline_window
+        elif spline_type == 'lsq_spline':
+            dataset[exp_name].data["robot_velocity"] = x_lsq_dot_spline_window
+        else:
+            rospy.logfatal('[data_adapter_utils] [{}] is not a valid spline type'.format(spline_type))
+
     return dataset
 
 

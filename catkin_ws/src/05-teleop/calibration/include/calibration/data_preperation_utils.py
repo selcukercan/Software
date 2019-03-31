@@ -1,16 +1,18 @@
-import rospy, rosbag
-import numpy as np
-#import plotly.graph_objs as go
-#import plotly.offline as opy
 import copy
 import pickle
+
+import numpy as np
+import rosbag
+import rospy
 from calibration.data_adapter_utils import *
-from calibration.utils import get_param_from_config_file
+from calibration.data_adapter_utils import *
+from calibration.utils import get_param_from_config_file, get_workspace_param
 
 save_plot = get_param_from_config_file("save_experiment_results")
 
+
 class DataPreparation():
-    DEBUG_MODE = True # convenience flag
+    DEBUG_MODE = True  # convenience flag
     show_plots = get_param_from_config_file("show_plots")
     filter_type = get_param_from_config_file("filter_type")
     filter_length = get_param_from_config_file("filter_length")
@@ -18,28 +20,14 @@ class DataPreparation():
     discard_last = get_param_from_config_file("discard_last_n_data")
     multitag_pose_estimation = get_param_from_config_file("multitag_pose_estimation")
 
-    def __init__(self, input_bag = None, top_wheel_cmd_exec = None, top_robot_pose = None,
-                 save_as = None, dump = False, exp_name='', mode='train', measurement_coordinate_frame='cartesian', localization_method=None):
+    def __init__(self, input_bag=None, top_wheel_cmd_exec=None, top_robot_pose=None,
+                 save_as=None, dump=False, exp_name='', dataset_name=None, localization_method=None):
         self.input_bag = input_bag
         self.exp_name = exp_name
-        self.operation_mode = mode
-        self.measurement_coordinate_frame = measurement_coordinate_frame
-        self.wheel_cmd, self.robot_pose = self.load_bag(input_bag, top_wheel_cmd_exec, top_robot_pose, localization_type=localization_method)
+        self.wheel_cmd, self.robot_pose = self.load_bag(input_bag, top_wheel_cmd_exec, top_robot_pose,
+                                                        localization_type=localization_method)
         data_selected = self.select_interval_and_resample_numpify(localization_type=localization_method)
-        #data_opt = self.represent_data_for_optimization(data_selected)
         self.data = self.filter(data_selected)
-
-    """
-    def represent_data_for_optimization(self, data_selected):
-        from calibration.plotting_utils import multiplot
-        x_sel = data_selected['robot_pose']
-        # plot original and filtered signals on the same pot
-        # save + if show plow
-        multiplot(states_list=[x_sel],
-                  experiment_name_list=['Original Signal'],
-                  plot_title="Represent AT Measurement for Optimization")
-        print('selc')
-    """
 
     def select_interval_and_resample_numpify(self, localization_type=None):
         """
@@ -56,19 +44,20 @@ class DataPreparation():
         data = {'wheel_cmd_exec': None, 'robot_pose': None, 'timestamp': None}
 
         start_time, end_time, duration = self.experiment_duration()
-        wheel_cmd_clipped, robot_pose_clipped = self.get_actuated_interval(self.wheel_cmd, self.robot_pose, start_time, end_time)
+        wheel_cmd_clipped, robot_pose_clipped = self.get_actuated_interval(self.wheel_cmd, self.robot_pose, start_time,
+                                                                           end_time)
         wheel_cmd_exec_rs = self.resampling(wheel_cmd_clipped, robot_pose_clipped)
 
         wheel_cmd_exec_sel = self.select_interval(wheel_cmd_exec_rs, self.discard_first, self.discard_last)
         robot_pose_sel = self.select_interval(robot_pose_clipped, self.discard_first, self.discard_last)
-        t = wheel_cmd_exec_sel['timestamp'] #at this point the times should be synced so select time from either of them
+        t = wheel_cmd_exec_sel[
+            'timestamp']  # at this point the times should be synced so select time from either of them
 
         data['wheel_cmd_exec'] = u_adapter(wheel_cmd_exec_sel)
         data['robot_pose'] = x_adapter(robot_pose_sel, localization_type=localization_type)
         data['timestamp'] = t
 
         return data
-
 
     def filter(self, data_selected):
         """
@@ -86,15 +75,14 @@ class DataPreparation():
         # cast the measurements into a numpy array and apply filtering
         # u operations are the same across different localization schemes
         data['wheel_cmd_exec'] = self.filter_measurement(data['wheel_cmd_exec'],
-                                           [self.filter_length, self.filter_length, self.filter_length],
-                                           [self.filter_type, self.filter_type, self.filter_type])
+                                                         [self.filter_length, self.filter_length, self.filter_length],
+                                                         [self.filter_type, self.filter_type, self.filter_type])
         # x operations vary for apriltag, lane filter etc.
         data['robot_pose'] = self.filter_measurement(data['robot_pose'],
-                                       [self.filter_length, self.filter_length, self.filter_length],
-                                       [self.filter_type, self.filter_type, self.filter_type])
+                                                     [self.filter_length, self.filter_length, self.filter_length],
+                                                     [self.filter_type, self.filter_type, self.filter_type])
 
         return data
-
 
     def experiment_duration(self):
         """
@@ -118,8 +106,9 @@ class DataPreparation():
             rospy.logerr('DATA SET DOES NOT CONTAIN ANY ACTUATION COMMAND')
 
         start_time = actuated_t[0]  # first time instance when an the vehicle recieves an actuation command
-        end_time = actuated_t[-1]  # last time instance when an the vehicle recieves an actuation command. notice that this is not necessarily the stopping instance as the vehicle will keep on moving due to inertia.
-        duration =  end_time - start_time
+        end_time = actuated_t[
+            -1]  # last time instance when an the vehicle recieves an actuation command. notice that this is not necessarily the stopping instance as the vehicle will keep on moving due to inertia.
+        duration = end_time - start_time
 
         return start_time, end_time, duration
 
@@ -247,7 +236,7 @@ class DataPreparation():
         wheel_cmd_exec = self.get_wheels_command(input_bag, top_wheel_cmd_exec)
 
         if rosbag.Bag(input_bag).get_message_count(top_robot_pose) == 0:
-            rospy.logfatal('provided rosbag: {} does not contain topic: {}'.format(input_bag,top_robot_pose))
+            rospy.logfatal('provided rosbag: {} does not contain topic: {}'.format(input_bag, top_robot_pose))
 
         if localization_type == 'apriltag':
             robot_pose = self.get_robot_pose_apriltag(input_bag, top_robot_pose)
@@ -299,9 +288,8 @@ class DataPreparation():
         else:
             raise NotImplementedError
 
-
     def get_robot_pose_lane_filter(self, input_bag, topic_name):
-        pose = {'d': [],'phi': [], 'timestamp': []}
+        pose = {'d': [], 'phi': [], 'timestamp': []}
 
         # Loop over the image files contained in rosbag
         for topic, msg, t in rosbag.Bag(input_bag).read_messages(topics=topic_name):
@@ -338,7 +326,8 @@ class DataPreparation():
             multiplot(states_list=[original_signal, filtered_signal],
                       experiment_name_list=['Original Signal', 'Filtered Signal'],
                       plot_title="Original and Filtered Signal for " + self.exp_name,
-                      save=save_plot)
+                      save=save_plot,
+                      save_dir=get_workspace_param("results_preprocessing_dir"))
         return filtered_signal
 
 
@@ -381,7 +370,7 @@ def smooth(x, window_len=1, window='hanning'):
     if x.size < window_len:
         raise ValueError("Input vector needs to be bigger than window size.")
 
-    if window_len<3:
+    if window_len < 3:
         return x
 
     if not window in ['flat', 'hanning', 'hamming', 'bartlett', 'blackman']:
@@ -389,15 +378,16 @@ def smooth(x, window_len=1, window='hanning'):
 
     #  mirror the beginning and end of the sequence with window length -1 elements
     # if array x = [1,2,3,4,5] and window_len = 2, then s = [2, 1, 2, 3, 4, 5, 4]
-    s=np.r_[x[window_len-1:0:-1], x, np.flip(x[x.size - window_len:x.size-1])]
+    s = np.r_[x[window_len - 1:0:-1], x, np.flip(x[x.size - window_len:x.size - 1])]
 
-    if window == 'flat': #moving average
-        w=np.ones(window_len,'d')
+    if window == 'flat':  # moving average
+        w = np.ones(window_len, 'd')
     else:
-        w=eval('np.'+window+'(window_len)')
+        w = eval('np.' + window + '(window_len)')
 
-    y=np.convolve(w/w.sum(),s,mode='valid')
-    return y[(window_len-1)/2:-(window_len-1)/2]
+    y = np.convolve(w / w.sum(), s, mode='valid')
+    return y[(window_len - 1) / 2:-(window_len - 1) / 2]
+
 
 # UTILITY FUNCTIONS AND CLASSES
 
@@ -409,6 +399,7 @@ def save_pickle(object=None, save_as=None):
     else:
         rospy.logerr('empty experiment set, please check that your bag files are not corrupted')
 
+
 def load_pickle(experiment_name):
     if experiment_name is not None:
         rospy.loginfo('pickling experiment data with name [{}]'.format(experiment_name))
@@ -419,27 +410,31 @@ def load_pickle(experiment_name):
     else:
         rospy.logfatal('to load data with pickle, specify the experiment name')
 
+
 # To save data easily with pickle create a trivial class
 class ExperimentData():
     pass
 
+
 class AprilTagDetection():
     def __init__(self, id=None, size=None):
         self.pose = {
-            'px': [],'py': [],'pz': [],
-            'rx':[],'ry':[],'rz':[],
+            'px': [], 'py': [], 'pz': [],
+            'rx': [], 'ry': [], 'rz': [],
             'timestamp': []
         }
         self.id = id
         self.size = size
 
-    def add(self, pose_key , pose_val):
+    def add(self, pose_key, pose_val):
         self.pose[pose_key].append(pose_val)
+
 
 if __name__ == '__main__':
     from plotting_utils import multiplot
-    single_channel_raw = np.arange(0,5,1)
+
+    single_channel_raw = np.arange(0, 5, 1)
     u_raw = np.zeros((2, single_channel_raw.size))
-    u_raw[0,:] = single_channel_raw
-    u_raw[1,:] = single_channel_raw
-    #u = u_filter(u_raw, [5,5], ['flat','flat'])
+    u_raw[0, :] = single_channel_raw
+    u_raw[1, :] = single_channel_raw
+    # u = u_filter(u_raw, [5,5], ['flat','flat'])

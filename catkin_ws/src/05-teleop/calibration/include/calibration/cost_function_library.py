@@ -2,8 +2,6 @@ import numpy as np
 import rospy
 from utils import get_param_from_config_file
 
-measurement_coordinate_frame = get_param_from_config_file("express_measurements_in")
-
 """ Metrics 
 
 input: 1D arrays of measurements and predictions 
@@ -58,15 +56,10 @@ def se(x, x_sim):
 
 def calculate_cost(x, x_sim, metric_eval):
     cost_val = 0.0
-    if measurement_coordinate_frame == 'cartesian':
-        x_pos = metric_eval(x[0, :], x_sim[0, :])
-        y_pos = metric_eval(x[1, :], x_sim[1, :])
-        z_rot = metric_eval(x[2, :], x_sim[2, :])
-        obj_cost = x_pos + y_pos + z_rot
-    elif measurement_coordinate_frame == 'polar':
-        rho = metric_eval(x[0, :], x_sim[0, :])
-        yaw = metric_eval(x[1, :], x_sim[1, :])
-        obj_cost = rho + yaw
+
+    rho = metric_eval(x[0, :], x_sim[0, :])
+    yaw = metric_eval(x[1, :], x_sim[1, :])
+    obj_cost = rho + yaw
     return obj_cost
 
 

@@ -50,9 +50,8 @@ class LaneFilterNode(object):
 
             # construct a model by specifying which model to use
             model_type = "kinematic_drive"
-            measurement_coordinate_frame = "polar"
 
-            self.model_object = model_generator(model_type, measurement_coordinate_frame)
+            self.model_object = model_generator(model_type)
             self.model_params = cautious_read_param_from_file(self.veh, self.model_object)
         else:
             self.sub_velocity = rospy.Subscriber("~car_cmd", Twist2DStamped, self.updateVelocity)

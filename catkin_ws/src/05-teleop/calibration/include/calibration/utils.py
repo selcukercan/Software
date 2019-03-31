@@ -1,3 +1,5 @@
+import datetime
+import gzip
 import os
 import pickle
 import shutil
@@ -13,9 +15,16 @@ from duckietown_utils.yaml_wrap import yaml_load_file
 options = {
     "results_dir": None,
     "tmp_dir": None,
-    "path_to_config_file": None
+    "path_to_config_file": None,
+    "results_optimization_dir": None,
+    "results_preprocessing_dir": None
 }
 
+config={}
+
+def update_local_config_dict():
+    global config
+    config = yaml_load_file(get_workspace_param("path_to_config_file"), plain_yaml=True)
 
 def defined_ros_param(ros_param_name):
     try:
@@ -148,6 +157,7 @@ def get_param_from_config_file(param_name):
     config_file_path = get_config_file_path()
     return yaml_load_file(config_file_path, plain_yaml=True)[param_name]
 
+
 def x_in_np(data):
     if type(data) == dict:
         data = data['robot_pose']
@@ -198,8 +208,13 @@ def cost_function_over_param_space(self, model_object, experiments):
 def work_space_settings():
     package_root = get_package_root("calibration")
     options["results_dir"] = create_results_dir(package_root)
+    options["results_optimization_dir"] = safe_create_dir(os.path.join(options["results_dir"], "optimization"))
+    options["results_preprocessing_dir"] = safe_create_dir(os.path.join(options["results_dir"], "preprocessing"))
     options["tmp_dir"] = safe_create_dir(os.path.join(package_root, "tmp"))
     options["path_to_config_file"] = get_config_file_path()
+
+    # strecthing the function a bit, called here kinematic calls it.
+    update_local_config_dict()
 
 def get_workspace_param(option):
     return options[option]
@@ -251,6 +266,15 @@ def get_cpu_info():
     import platform
     return platform.processor()
 
+def reshape_x(x):
+    return np.array(x).reshape(2, 1)
+
+def window(x, discard_n):
+    """ discard n points at the boundaries"""
+    if x.ndim is 1:
+        return x[discard_n:-discard_n]
+    else:
+        return x[:,discard_n:-discard_n]
 
 if __name__ == '__main__':
     print get_files_in_dir('/home/selcuk/multi_bag_processing/')
