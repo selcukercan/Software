@@ -44,8 +44,14 @@ class CameraCalibrationTest:
         self.package_name = "calibration"
         self.node_name = 'camera_calibration_test_node'  # node name , as defined in launch file
         host_package_node = host_package + self.node_name
-        #self.veh = host_package.split('/')[1]
-        self.veh = "mete"
+
+        # load script configs
+        self.conf = self.load_test_config()
+
+        if self.conf["debug"]:
+            self.veh = self.conf["vehicle_name"]
+        else:
+            self.veh = host_package.split('/')[1]
 
         # Initialize the node with rospy
         rospy.init_node('CameraCalibrationTest', anonymous=True, disable_signals=True)
@@ -91,8 +97,6 @@ class CameraCalibrationTest:
         self.wait_write_rosbag = 0
 
         self.started_recording = False
-        self.conf = self.load_test_config()
-
         self.recieved_at_position_estimates = []
         self.allowed_at_id = self.conf["at_list"]
         self.number_of_images_to_process = self.conf["number_of_images_to_process"]
