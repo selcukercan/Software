@@ -97,6 +97,38 @@ class CameraCalibrationTest:
         self.allowed_at_id = self.conf["at_list"]
         self.number_of_images_to_process = self.conf["number_of_images_to_process"]
 
+    def advertise(self):
+        msg = """
+        Welcome to Camera Calibration Verification Test!
+        This script lets you determine if your duckiebots`s camera is properly calibrated.
+        
+        At this point make sure that you properly placed your duckiebot into the verification hardware.
+        
+        For the purposes of AIDO Suitability Test type in ** default ** when you are prompted to select 
+        an experiment.
+        
+        The ** default ** experiment takes {} images and calculates the mean and the standard
+        deviation of the error - the difference between the pose estimation by apriltag algorithm and 
+        the ground truth. Then we compare these values against some predefined threshold values.
+        
+        The experiment is considered successfull iff the error stats remains inside these defined boundaries:
+        rotational_error_tolerance: {} [degrees]
+        translational_error_tolerance: {} [meters]
+        rotational_std_tolerance: {} [degrees]
+        translational_std_tolerance: {} [meters]
+    
+        The parameters describing the test can be found inside the camera_calibration_test_1.0.yaml located at
+        rospack(calibration)/configs/camera_calibration/
+        """.format(
+            self.conf["number_of_images_to_process"],
+            self.conf["rotational_error_tolerance"],
+            self.conf["translational_error_tolerance"],
+            self.conf["rotational_std_tolerance"],
+            self.conf["translational_std_tolerance"]
+        )
+
+        print(msg)
+
     def cb_at_local_pose(self, msg):
         if self.started_recording:
             self.at_local_i += 1
@@ -123,6 +155,7 @@ class CameraCalibrationTest:
         self.available_experiments = experiment_map_dict.keys()
 
         ui = ExperimentUI()
+        self.advertise()
 
         while DO_EXPERIMENT == "yes":
             # welcoming
