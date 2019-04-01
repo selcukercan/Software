@@ -264,12 +264,12 @@ class calib():
 
                 multi_path_plot([x, x_sim_opt],
                                 experiment_name_list=['measurement', self.model_type],
-                                plot_title="Trajectory Simulation using One-Step-Ahead Prediction {}".format(exp_name),
+                                plot_title="Trajectory Simulation using One-Step-Ahead Prediction for Model: {} Dataset: {}".format(model_object.name, exp_name),
                                 save=self.save_experiment_results)
 
                 multi_path_plot([x, x_sim_opt_n_step],
                                 experiment_name_list=['measurement', self.model_type],
-                                plot_title="Trajectory Simulation using N-Step Ahead Prediction {}".format(exp_name),
+                                plot_title="Trajectory Simulation using N-Step Ahead Prediction for Model: {} Dataset: {}".format(model_object.name, exp_name),
                                 save=self.save_experiment_results)
 
             if self.initial_param_vs_optimal_param:
