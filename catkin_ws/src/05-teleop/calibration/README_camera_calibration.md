@@ -1,4 +1,4 @@
-# Camera Calibration Verification Test {#demo-camcaltest status=beta}
+# Camera Calibration Verification Demo {#demo-camcaltest status=beta}
 
 This document provides instructions for testing the camera calibration.
 
@@ -68,12 +68,11 @@ With data-acquisition interface you can specify
 
 * the type of the experiment you would like to conduct by choosing amongst the presented options,
 
-* whether to save the collected experiment data by replying to the question after the experiment has been completed,
+* whether to save the collected experiment data by replying to the question after the experiment has been completed (answer yes for AIDO Challange Camera Suitability Test),
 
-* whether to do another experiment.
+* whether to do another experiment (answer no for AIDO Challange Camera Suitability Test).
 
-
-The results of the experiment can be found under `/logs` folder in a zipped form. To download the results ![ZIPPED_RESULT_NAME] to your local computer first move the zipped folder to your `/data` folder,
+The program will terminate and the results of the experiment will be placed under `/logs` folder in a zipped form. At this point, you will also be informed whether your camera calibration passes the tests. To download the results ![ZIPPED_RESULT_NAME] to your local computer first move the zipped folder to your `/data` folder,
 
     duckiebot $ mv /logs/![ZIPPED_RESULT_NAME] /data/
 
