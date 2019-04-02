@@ -76,10 +76,10 @@ class ImgRectFullRatio(object):
             rospy.logwarn("[{}] not active".format(self.node_name))
             return
         if self.cam_info is None:
-            rospy.logwarn("[{}] cam_info is none".format(self.node_name))
+            #rospy.logwarn("[{}] cam_info is none".format(self.node_name))
             return
         if self.gpg is None:
-            rospy.logwarn("[{}] gpg is none".format(self.node_name))
+            #rospy.logwarn("[{}] gpg is none".format(self.node_name))
             return
 
         cv_image = self.bridge.imgmsg_to_cv2(msg, "mono8")

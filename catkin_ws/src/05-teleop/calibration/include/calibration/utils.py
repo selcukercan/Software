@@ -105,7 +105,7 @@ def get_software_version(path_to_repo):
 
 def create_time_label():
     import datetime
-    return datetime.datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
+    return datetime.datetime.now().strftime('%Y_%m_%d_%H_%M_%S')
 
 def create_results_dir(package_root):
     """ create a results directory under the package root with the date and time information """

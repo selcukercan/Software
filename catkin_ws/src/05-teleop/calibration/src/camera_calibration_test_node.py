@@ -14,7 +14,7 @@ from duckietown_utils.yaml_wrap import yaml_load_file, yaml_write_to_file
 from rosbag_recorder.srv import *
 
 """
-TODO: 
+TODO:
 
 * The new apriltag pp will return in radians. Be sure to adjust the code,
 * For each new apriltag add them to ground-truth and map. (ground truth will come from Rafael.
@@ -93,7 +93,7 @@ class CameraCalibrationTest:
         self.recording_stop= rospy.ServiceProxy('/stop_recording', StopRecording)
         rospy.loginfo('[Data Collector Node] AFTER SERVICE REGISTER')
 
-        self.wait_start_rosbag = 1 # wait for wait_for_rosbag seconds to make sure that the bag has started recording
+        self.wait_start_rosbag = 7 # wait for wait_for_rosbag seconds to make sure that the bag has started recording
         self.wait_write_rosbag = 0
 
         self.started_recording = False
@@ -105,22 +105,22 @@ class CameraCalibrationTest:
         msg = """
         Welcome to Camera Calibration Verification Test!
         This script lets you determine if your duckiebots`s camera is properly calibrated.
-        
+
         At this point make sure that you properly placed your duckiebot into the verification hardware.
-        
-        For the purposes of AIDO Suitability Test type in ** default ** when you are prompted to select 
+
+        For the purposes of AIDO Suitability Test type in ** default ** when you are prompted to select
         an experiment.
-        
+
         The ** default ** experiment takes {} images and calculates the mean and the standard
-        deviation of the error - the difference between the pose estimation by apriltag algorithm and 
+        deviation of the error - the difference between the pose estimation by apriltag algorithm and
         the ground truth. Then we compare these values against some predefined threshold values.
-        
+
         The experiment is considered successfull iff the error stats remains inside these defined boundaries:
         rotational_error_tolerance: {} [degrees]
         translational_error_tolerance: {} [meters]
         rotational_std_tolerance: {} [degrees]
         translational_std_tolerance: {} [meters]
-    
+
         The parameters describing the test can be found inside the camera_calibration_test_1.0.yaml located at
         rospack(calibration)/configs/camera_calibration/
         """.format(
@@ -264,8 +264,10 @@ class CameraCalibrationTest:
                 #rospy.logwarn("at pose: {}\ndict: {}".format(at_pose, at_i_eval_dict[at_pose]))
                 verdict = at_i_eval_dict[at_pose]["pass"]
                 if verdict == False:
-                    return False
-        return True
+                    rospy.logwarn("Verdict: FAIL \n The camra did not pass at least one of the tests =( please inspect the output report for further information")
+                    return "FAIL"
+        rospy.logwarn("Verdict: PASS \nYour camera is well calibrated! ")
+        return "PASS"
 
     def generate_report(self):
         # base-report content, entries are valid for both validation and optimization operations

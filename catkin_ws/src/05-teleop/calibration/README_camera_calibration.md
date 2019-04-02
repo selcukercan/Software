@@ -1,6 +1,6 @@
 # Camera Calibration Verification Test {#demo-camcaltest status=beta}
 
-This document provides instructions for testing the camera calibration. 
+This document provides instructions for testing the camera calibration.
 
 
 <div class='requirements' markdown="1">
@@ -21,7 +21,7 @@ Check: the duckiebot has sufficient battery
 
 ## Abbreviations {#demo-camcaltest-abb}
 
-`DOCKER_CONTAINER]` = duckietown/rpi-duckiebot-base:devel-optimization_v1
+`DOCKER_CONTAINER]` = duckietown/rpi-duckiebot-base:suitability-suite-v1
 
 `SOFTWARE_ROOT` = /home/software
 
@@ -48,7 +48,7 @@ if the output is empty then `DOCKER_HOST` is not set. You can set it with
 
 Now, we will run the docker container. Be sure to replace the `DOCKER_CONTAINER` with the name provided under Abbreviations section.
 
-    laptop $ docker -H ![HOST_NAME].local run -it --net host --privileged -v /data/logs:/logs -v /data:/data --memory="800m" --memory-swap="2.8g" --name camera-test ![DOCKER_CONTAINER] /bin/bash
+    laptop $ docker -H ![HOST_NAME].local run -it --net host --privileged -v /data/logs:/logs -v /data:/data --memory="800m" --memory-swap="2.8g" --name suitability-suite ![DOCKER_CONTAINER] /bin/bash
 
 Depending on you network speed it might take some time until the duckiebot downloads the container.
 
@@ -58,12 +58,11 @@ Having the experimental setup ready, we can start testing, enter into the runnin
 
     laptop $ export DOCKER_HOST=![ROBOT_NAME].local
 
-    laptop $ docker exec -it sysid-pi /bin/bash
+    laptop $ docker exec -it suitability-suite /bin/bash
 
-    duckiebot $ roslaunch calibration camera_calibration_test.launch veh:=![HOST_NAME] output_rosbag_dir:=/logs
-    
+    duckiebot $ roslaunch calibration camera_calibration_test.launch veh:=![HOST_NAME] output_dir:=/logs
 
-Note that, if `output_rosbag_dir` is not specified the program attempts to save the results to user´s home folder. This will fail it you don't have enough space in your device.
+Note that, if `output_dir` is not specified the program attempts to save the results to user´s home folder. This will fail it you don't have enough space in your device.
 
 With data-acquisition interface you can specify
 
@@ -74,11 +73,11 @@ With data-acquisition interface you can specify
 * whether to do another experiment.
 
 
-The results of the experiment can be found under `logs` folder in a zipped form. To download the results ![ZIPPED_RESULT_NAME] to your local computer,
-    
-    duckiebot $ mv ...
+The results of the experiment can be found under `/logs` folder in a zipped form. To download the results ![ZIPPED_RESULT_NAME] to your local computer first move the zipped folder to your `/data` folder,
 
+    duckiebot $ mv /logs/![ZIPPED_RESULT_NAME] /data/
 
+Now you can download the file by heading to `![HOST_NAME]:8082` in your **browser** and then clicking on `![ZIPPED_RESULT_NAME]`.  
 
 ## Troubleshooting {#demo-camcaltest-troubleshooting}
 
@@ -90,25 +89,15 @@ Symptom: Logs are created but they are empty.
 
 Resolution: This might be because the Raspberry-Pi did not have enough time to save the data. Please increase `wait_start_rosbag` and `wait_write_rosbag` inside [this script](https://github.com/selcukercan/Software/blob/system-identificiation-v1/catkin_ws/src/05-teleop/calibration/src/data_collector.py).
 
-Symptom: The duckiebot deviates from the trajectory, so that the AprilTag goes out of the camera’s field of view.
+Symptom: While shutting-down program complains,`ROSException: publish() to a closed topic`.
 
-Resolution: You can adjust the parameters of each command to maximize the duration
+Resolution: This is a known problem and it does not interfere with the healthy operation of the program. It is in the to-do list to have a graceful execution termination. Feel free to contribute with a pull request if you resolve this issue.
 
-Symptom: There are large discontinuities in the recordings despite the fact that the duckiebot does see the AprilTag most of the time.
-
-Resolution: One possible cause of this problem is insufficient memory. Please make sure to execute `docker run` command with `--memory="800m" --memory-swap="2.8g"` flags which would tell docker to utilize the swap space. Swap space is created and allocated during the initialization process. The swap space allocation is done by default since 5 October 2018. If you had flashed your SD card prior to that, please reflash your SD card. You can verify that you have swap space by executing `top` command in your duckiebot and inspecting `KiB Swap` section.
-
-Symptom: My problem is not listed here. How do I get help?
-
-Resolution: Though we tested the system identification procedure multiple times on different duckiebots, it is possible that something did not work for you. Please file an issue on GitHub, [here](https://github.com/selcukercan/Software/issues).
 
 ## Development Notes
 
-If you would like to develop locally on your computer you should record a rosbag and use it to emulate real operation. 
+If you would like to develop locally on your computer you should record a rosbag and use it to emulate the actual operation conditions.
 
 After taking a rosbag containing the topics necessary for your application, on your computer start a roscore, start playing the rosbag you recorded in the background and then execute
 
-
     laptop $ roslaunch calibration camera_calibration_test_node.launch veh:=![HOST_NAME] output_dir:=![OUTPUT_DIR]
-    
-   

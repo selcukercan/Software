@@ -56,8 +56,7 @@ class ToLocalPose:
         self.image_id += 1
         if (len(msg.detections) > 0):  # non-emtpy detection message
             veh_pose_euler_array_msg.local_pose_list = []
-
-            rospy.loginfo("\n\n\nXXXXX   AprilTag Detections   XXXXX")
+            #rospy.loginfo("\n\n\nXXXXX   AprilTag Detections   XXXXX")
             for i in range(len(msg.detections)):
                 # unpack the position and orientation returned by apriltags2 ros
                 t_msg = msg.detections[i].pose.pose.pose.position
@@ -77,11 +76,12 @@ class ToLocalPose:
                 # convert from numpy float to standart python float to be written into the message
                 veh_t_world = veh_t_world.tolist()
                 world_feaXYZ_veh = world_feaXYZ_veh.tolist()
-
+                """
                 rospy.loginfo('AprilTag ID: {} posx: {} posy: {} rotz: {} ({} deg)'.format(tag_id_msg,
                                                                                            veh_t_world[0], veh_t_world[1],
                                                                                            world_feaXYZ_veh[2],
                                                                                            world_feaXYZ_veh[2] * 180 / np.pi))
+                """
                 # form message to publish
                 veh_pose_euler_msg = VehiclePoseEuler()
                 veh_pose_euler_msg.header.stamp = rospy.Time.now()

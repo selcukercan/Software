@@ -46,7 +46,7 @@ class DecoderNode(object):
             return
         now = rospy.Time.now()
         if (now - self.last_stamp < self.publish_duration) and self.operation_mode == 0:
-            rospy.logwarn("[{}] not publishing as calledback faster than the publishing frequency".format(self.node_name))
+            #rospy.logwarn("[{}] not publishing as calledback faster than the publishing frequency".format(self.node_name))
             return
         else:
             self.last_stamp = now
