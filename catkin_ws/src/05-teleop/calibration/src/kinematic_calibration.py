@@ -95,8 +95,11 @@ class calib():
         self.copy_calibrations_folder()
         copy(get_workspace_param("path_to_config_file"), self.results_dir)
         copy(self.output_yaml_file, self.results_dir)
-        pack_results(self.results_dir)
 
+        rospy.logwarn('[{}] started compressing the results folder, this might take around a minute ...'.format(self.node_name))
+        pack_results(self.results_dir)
+        rospy.logwarn('[{}] completed compressing the results folder'.format(self.node_name))
+        
     # train
     def training_routine(self, model_object, experiments):
         """ train the model and write the results to the YAML file"""

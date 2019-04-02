@@ -37,7 +37,7 @@ Check: the duckiebot has sufficient battery
 
 ## Abbreviations {#demo-sysidII-abb}
 
-`DOCKER_CONTAINER]` = duckietown/rpi-duckiebot-base:devel-optimization_v1
+`DOCKER_CONTAINER]` = duckietown/rpi-duckiebot-base:suitability-suite-v1
 
 `SOFTWARE_ROOT` = /home/software
 
@@ -110,11 +110,23 @@ We start by creating a two folders to store the post-processed bags: training fo
 
     duckiebot $ mkdir /data/logs/train_folder /data/logs/validation_folder /data/logs/raw_data
 
-Now you can launch the script that converts the images to local poses. Place the the rosbags you want to process under a new folder. Note that the folder must contain ONLY the rosbags you want to process. Then   
+Place the the rosbags you want to process under `/data/logs/raw_data`,
+
+    duckiebot $ mv /logs/![MY_ROSBAG].bag /data/logs/raw_data
+
+Now you can launch the script that converts the images to local poses. Note that the folder must contain **ONLY** the rosbags you want to process. Then   
 
     duckiebot $ roslaunch calibration calculate_poses.launch veh:=![HOST_NAME] input_path:=/data/logs/raw_data lane_filter:=false operation_mode:=1
 
-This process will take couple of minutes depending on the number of images contained in your rosbags. After processing has been completed, you can find the processed rosbags under `/data/logs/raw_data/processed`. Verify that the processed bags contain `_pp` suffix. This indicates that the process has been completed successfully.
+This process will take couple of minutes depending on the number of images contained in your rosbags. Once you see the message `finished processing all N bags`, where N is the number of rosbags placed under `/data/logs/raw_data`, you can exit the program with keyboard command `CTRL + C`. You can find the processed rosbags under `/data/logs/raw_data/post_processed`. Verify that the processed bags contain `_pp` suffix. This indicates that the process has been completed successfully.
+
+Now copy the files you would like to use for training into `/data/logs/train_folder/`,
+
+    duckiebot $ mv /logs/raw_data/post_processed/![MY_POST_PROCESSED_ROSBAG].bag /data/logs/train_folder/
+
+Also copy the files you would like to use for verification into `/data/logs/validation_folder`,
+
+    duckiebot $ mv /logs/raw_data/post_processed/![MY_POST_PROCESSED_ROSBAG].bag /data/logs/validation_folder
 
 **Step 6**: Now we are ready to launch our optimization script.
 
@@ -130,7 +142,7 @@ During the optimization routine you will be prompted some information regarding 
 
     duckiebot $ cd /home/software/catkin_ws/src/05-teleop/calibration/results
 
-Note that every time the optimization routine is run, a new folder named according to the execution date/time will be automatically generated. Inside this folder you will find
+Here you will find the results folder and the zipped version of the results folder named according to the program execution date and time. Note that every time the optimization routine is run, a new folder named according to new execution date and time will be automatically generated. Inside this folder you will find
 
 1- 'optimization' folder containing; convergence of the model parameters, evolution cost during the optimization,
 
@@ -148,7 +160,7 @@ Note that every time the optimization routine is run, a new folder named accordi
 
 The program also generates a YAML file named `![HOST_NAME]_kinematic_drive.yaml` and saves it under `/data/config/calibrations/kinematics`.
 
-It is worth noting we provide a package level config file to give user control over some of the internal procedures. For details please see `![PACKAGE_ROOT]/src/config.yaml`.
+It is worth noting we provide a package level config file to give user control over some of the internal procedures. For details please see `![PACKAGE_ROOT]/configs/system_identification/`.
 
 
 **Step 8**: Now lets test whether the parameters returned by the optimization script improved the system performance, i.e. whether the duckiebot can drive perform well for certain tasks such as driving straight or following a circle.

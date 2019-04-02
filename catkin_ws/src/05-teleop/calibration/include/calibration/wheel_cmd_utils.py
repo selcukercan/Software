@@ -71,7 +71,7 @@ class RampUp(BaseExperimentClass):
         self.name = "ramp_up"
         self.mode = mode
 
-        self.wheel_cmd_parameter_dict = {'n_step': 180, 'd_max': 0.5}
+        self.wheel_cmd_parameter_dict = {'n_step': 100, 'd_max': 0.5}
         self.traj_param_dict = {'n_step': 120, 'v_max': 0.5}
 
         self.parameter_dict = self.get_param_dict()
@@ -209,7 +209,7 @@ class Sine(BaseExperimentClass):
         self.name = "sine"
         self.mode = mode
 
-        self.wheel_cmd_parameter_dict = {'k1': 0.2, 'k2': 0.06, 'omega': 0.007, 'duration': 1500}
+        self.wheel_cmd_parameter_dict = {'k1': 0.4, 'k2': 0.08, 'omega': 0.005, 'duration': 2000}
         self.traj_param_dict ={'v': 0.3, 'w': 1.0,  'period': 2000}
 
         self.parameter_dict = self.get_param_dict()
@@ -230,7 +230,7 @@ class Sine(BaseExperimentClass):
         k1:\t\tmedian value of the sine
         k2:\t\tamplitude of the sine
         omega:\t\tangular velocity of the sine [rad/msec]
-        duration:\t\tlength of the experiment in miliseconds
+        duration:\tlength of the experiment in miliseconds
 
         """
         print(info_msg)

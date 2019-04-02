@@ -14,5 +14,5 @@ translational_std_tolerance: 0.001 # meters
 number_of_images_to_process: 10
 
 # Only for development
-debug: True
+debug: False
 vehicle_name: mete

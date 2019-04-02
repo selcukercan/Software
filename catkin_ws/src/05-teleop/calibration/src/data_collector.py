@@ -125,8 +125,6 @@ class DataCollector:
         rospy.sleep(self.wait_for_parameter_server)
 
         while DO_EXPERIMENT == "yes":
-            rospy.loginfo("waiting for all parameters to be set ... ")
-            rospy.sleep(self.wait_for_parameter_server)
             print("\nType in the name of the experiment to conduct: {}".format(str(self.available_experiments)))
             experiment_type, experiment_object_init = self.get_valid_experiment(use_for=self.use_for)
             experiment_object = experiment_object_init(mode=self.use_for)

@@ -205,8 +205,10 @@ class CameraCalibrationTest:
             DO_EXPERIMENT = user_wish.strip().lower()
         else:
             rospy.loginfo("farewell, no more experiments for now.")
-            rospy.logwarn("[{}] packing up, find the results at: {}".format(self.node_name, self.results_dir))
+            rospy.logwarn("[{}] started packing up, the results will be at: {}".format(self.node_name, self.results_dir))
+            rospy.logwarn('[{}] started compressing the results folder, this might take around a minute ...'.format(self.node_name))
             self.prepare_to_leave()
+            rospy.logwarn('[{}] completed compressing the results folder'.format(self.node_name))
 
     def get_at_locations(self, experiment_name):
         """
