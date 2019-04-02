@@ -2,22 +2,24 @@
 
 This document provides instructions for testing the camera calibration.
 
-
 <div class='requirements' markdown="1">
 
 Requires: A duckiebot version DB-18.
 
 Requires: USB drive.
 
-Requires: Calibration calibration test hardware, see below.
+Requires: Camera calibration verification hardware.
+
 </div>
 
 
 ## Pre-flight checklist {#demo-camcaltest-pre-flight}
 
-Check: the USB plugged in.
+Check: the USB plugged in
 
 Check: the duckiebot has sufficient battery
+
+Check: you have camera calibration verification hardware ready
 
 ## Abbreviations {#demo-camcaltest-abb}
 
@@ -25,7 +27,7 @@ Check: the duckiebot has sufficient battery
 
 `SOFTWARE_ROOT` = /home/software
 
-`PACKAGE_ROOT` = `SOFTWARE_ROOT`/catkin_ws/src/05_teleop/calibration
+`PACKAGE_ROOT` = /catkin_ws/src/05_teleop/calibration
 
 ## Demo instructions {#demo-camcaltest-run}
 
