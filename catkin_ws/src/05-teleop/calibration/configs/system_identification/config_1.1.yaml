@@ -27,5 +27,12 @@ densification_factor: 3
 discard_n_after_spline_fitting: 5
 
 # Model assessment logic - see include/calibration/model_assessment.py for more details.
+validation_method: expected_displacement
+# n-step-ahead prediction
 assessment_rule: nsap_threshold
 nsap_threshold: 1.7
+# expected displacement
+initial_longitudinal_distance: 1.0 # meters
+initial_heading_angle: 0.0 # degrees
+longitudinal_distance_threshold:  0.05 # meters
+heading_angle_error_threshold:  15.0 # degrees

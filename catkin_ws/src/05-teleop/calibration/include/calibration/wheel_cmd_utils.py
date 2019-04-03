@@ -502,7 +502,7 @@ class Infinity(BaseExperimentClass):
 
         d_r:\t\tduty cycle of the right motor
         d_l:\t\tduty cycle of the left motor
-        duration:\t\tduration of the experiment
+        duration:\tduration of the experiment
         """
         print(info_msg)
     '''
@@ -519,7 +519,7 @@ class Infinity(BaseExperimentClass):
 
         v:\t\tlongitudinal velocity [m/sec]
         w:\t\tangular velocity [rad/sec]
-        duration:\t\tduration of the experiment [msec]
+        duration:\tduration of the experiment [msec]
         """
         print(info_msg)
 

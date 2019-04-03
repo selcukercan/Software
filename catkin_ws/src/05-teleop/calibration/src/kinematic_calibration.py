@@ -208,6 +208,7 @@ class calib():
 
     def validation_routine(self, model_object, experiments):
         """ performs validation with the specified model and its latest parameters """
+        self.validation_method = self.conf["validation_method"]
         popt = defaulted_param_load(model_object, self.robot_name)
 
         for exp_name in experiments.keys():
@@ -217,76 +218,85 @@ class calib():
             x_dot = exp_data['robot_velocity']
             u = exp_data['wheel_cmd_exec']
 
-            # one-step-ahead simulation of the model
-            # states for a particular p set
-            if self.model_type == "kinematic_drive":
-                x_sim_opt = model_object.simulate(t, x, u, popt)
-            elif self.model_type == "dynamic_drive":
-                x_sim_opt = model_object.simulate(t, x, x_dot, u, popt)  # states for a particular p set
-            # calculate the error metric
-            self.osap_error = calculate_cost(x, x_sim_opt, self.validation_metric)
+            if self.validation_method == "n_step_ahed_prediction":
+                # one-step-ahead simulation of the model
+                # states for a particular p set
+                if self.model_type == "kinematic_drive":
+                    x_sim_opt = model_object.simulate(t, x, u, popt)
+                elif self.model_type == "dynamic_drive":
+                    x_sim_opt = model_object.simulate(t, x, x_dot, u, popt)  # states for a particular p set
+                # calculate the error metric
+                self.osap_error = calculate_cost(x, x_sim_opt, self.validation_metric)
 
-            print(
-                '\nModel Performance Evaluation based on One-Step-Ahead-Prediction :\nModel Name: {}\nMetric Type: {} Value: {}\n'.format(
-                    exp_name,
-                    self.validation_metric,
-                    self.osap_error))
+                print(
+                    '\nModel Performance Evaluation based on One-Step-Ahead-Prediction :\nModel Name: {}\nMetric Type: {} Value: {}\n'.format(
+                        exp_name,
+                        self.validation_metric,
+                        self.osap_error))
 
-            # n-step-ahead simulation of the model, i.e. given an initial position predict the vehicle motion for the
-            # complete experiment horizan.
-            x0 = x[:, 0]
-            if self.model_type == "kinematic_drive":
-                x_sim_opt_n_step = model_object.simulate_horizan(t, x0, u, popt)
-            else:
-                x_sim_opt_n_step = model_object.simulate_horizan(t, x, x_dot, u, popt)
+                # n-step-ahead simulation of the model, i.e. given an initial position predict the vehicle motion for the
+                # complete experiment horizan.
+                x0 = x[:, 0]
+                if self.model_type == "kinematic_drive":
+                    x_sim_opt_n_step = model_object.simulate_horizan(t, x0, u, popt)
+                else:
+                    x_sim_opt_n_step = model_object.simulate_horizan(t, x, x_dot, u, popt)
 
-            self.nsap_error = calculate_cost(x, x_sim_opt_n_step, self.validation_metric)
+                self.nsap_error = calculate_cost(x, x_sim_opt_n_step, self.validation_metric)
 
-            print(
-                '\nModel Performance Evaluation based on N-Step-Ahead-Prediction :\nModel Name: {}\nMetric Type: {} Value: {}\n'.format(
-                    exp_name,
-                    self.validation_metric,
-                    self.nsap_error))
+                print(
+                    '\nModel Performance Evaluation based on N-Step-Ahead-Prediction :\nModel Name: {}\nMetric Type: {} Value: {}\n'.format(
+                        exp_name,
+                        self.validation_metric,
+                        self.nsap_error))
 
-            if self.show_plots:
-                multiplot(states_list=[x, x_sim_opt],
-                          input_list=[u, u],
-                          time_list=[t, t],
-                          experiment_name_list=[exp_name + '_measurement', exp_name + '_simulated_optimal'],
-                          plot_title="One-Step-Ahead Predictions for Model: {} Dataset: {}".format(model_object.name,
-                                                                                                   exp_name),
-                          save=self.save_experiment_results)
-
-                multiplot(states_list=[x, x_sim_opt_n_step],
-                          input_list=[u, u],
-                          time_list=[t, t],
-                          experiment_name_list=[exp_name + '_measurement', exp_name + '_simulated_optimal'],
-                          plot_title="N-Step-Ahead Predictions for Model: {} Dataset: {}".format(model_object.name,
-                                                                                                 exp_name),
-                          save=self.save_experiment_results)
-
-                multi_path_plot([x, x_sim_opt],
-                                experiment_name_list=['measurement', self.model_type],
-                                plot_title="Trajectory Simulation using One-Step-Ahead Prediction for Model: {} Dataset: {}".format(model_object.name, exp_name),
-                                save=self.save_experiment_results)
-
-                multi_path_plot([x, x_sim_opt_n_step],
-                                experiment_name_list=['measurement', self.model_type],
-                                plot_title="Trajectory Simulation using N-Step Ahead Prediction for Model: {} Dataset: {}".format(model_object.name, exp_name),
-                                save=self.save_experiment_results)
-
-            if self.initial_param_vs_optimal_param:
-                x_sim_init = simulate(model_object, t, x, u, self.p0)
                 if self.show_plots:
-                    multiplot(states_list=[x, x_sim_init, x_sim_opt],
-                              input_list=[u, u, u],
-                              time_list=[t, t, t],
-                              experiment_name_list=[exp_name + '_measurement', exp_name + '_simulated_init',
-                                                    exp_name + '_simulated_optimal'],
-                              plot_title="One Step Ahead Predictions for Model: {} Dataset: {}".format(
-                                  model_object.name,
-                                  exp_name),
+                    multiplot(states_list=[x, x_sim_opt],
+                              input_list=[u, u],
+                              time_list=[t, t],
+                              experiment_name_list=[exp_name + '_measurement', exp_name + '_simulated_optimal'],
+                              plot_title="One-Step-Ahead Predictions for Model: {} Dataset: {}".format(model_object.name,
+                                                                                                       exp_name),
                               save=self.save_experiment_results)
+
+                    multiplot(states_list=[x, x_sim_opt_n_step],
+                              input_list=[u, u],
+                              time_list=[t, t],
+                              experiment_name_list=[exp_name + '_measurement', exp_name + '_simulated_optimal'],
+                              plot_title="N-Step-Ahead Predictions for Model: {} Dataset: {}".format(model_object.name,
+                                                                                                     exp_name),
+                              save=self.save_experiment_results)
+
+                    multi_path_plot([x, x_sim_opt],
+                                    experiment_name_list=['measurement', self.model_type],
+                                    plot_title="Trajectory Simulation using One-Step-Ahead Prediction for Model: {} Dataset: {}".format(model_object.name, exp_name),
+                                    save=self.save_experiment_results)
+
+                    multi_path_plot([x, x_sim_opt_n_step],
+                                    experiment_name_list=['measurement', self.model_type],
+                                    plot_title="Trajectory Simulation using N-Step Ahead Prediction for Model: {} Dataset: {}".format(model_object.name, exp_name),
+                                    save=self.save_experiment_results)
+
+                if self.initial_param_vs_optimal_param:
+                    x_sim_init = simulate(model_object, t, x, u, self.p0)
+                    if self.show_plots:
+                        multiplot(states_list=[x, x_sim_init, x_sim_opt],
+                                  input_list=[u, u, u],
+                                  time_list=[t, t, t],
+                                  experiment_name_list=[exp_name + '_measurement', exp_name + '_simulated_init',
+                                                        exp_name + '_simulated_optimal'],
+                                  plot_title="One Step Ahead Predictions for Model: {} Dataset: {}".format(
+                                      model_object.name,
+                                      exp_name),
+                                  save=self.save_experiment_results)
+            elif self.validation_method == "expected_displacement":
+                initial_long_distance = self.conf["initial_longitudinal_distance"]
+                initial_heading = self.conf["initial_heading_angle"]
+
+                rho_final = x[0][-1]
+                theta_final = x[1][-1]
+                self.delta_long_distance_error = initial_long_distance - rho_final
+                self.delta_heading_error = initial_heading - theta_final
 
     # Save results
     def write_calibration(self, model_object, popt):
@@ -367,7 +377,10 @@ class calib():
     def get_verdict(self):
         assesment_fn = assesment_rule()
         # adjust the parameters of assesment_fn to generate a verdict
-        verdict = assesment_fn(self.nsap_error)
+        if self.validation_method == "n_step_ahed_prediction":
+            verdict = assesment_fn(self.nsap_error)
+        elif self.validation_method == "expected_displacement":
+            verdict = assesment_fn(self.delta_long_distance_error, self.delta_heading_error)
         return verdict
 
     def copy_experiment_data(self):
@@ -407,16 +420,17 @@ class calib():
             'hostname': get_hostname(),
             'platform': get_cpu_info(),
             'experiment_time': os.path.basename(self.results_dir),
-            'used_model': self.model_type,
-            'osap_error': self.osap_error.item(),
-            'nsap_error': self.nsap_error.item(),
-            'verdict': self.get_verdict()
+            'used_model': self.model_type
         }
         if self.do_train:
             # when optimization is done, also include optimization related entries.
             yaml_dict['optimization_converged'] = self.optimization_status
             yaml_dict['optimization_solve_time'] = str(self.total_calculation_time)
-
+        if self.do_validate:
+            # in validation mode calculate certain metric
+            yaml_dict['osap_error'] = self.osap_error.item()
+            yaml_dict['nsap_error'] = self.nsap_error.item()
+            yaml_dict['verdict'] = self.get_verdict()
         # create the report file
         report = os.path.join(self.results_dir, 'report.yaml')
         os.mknod(report)

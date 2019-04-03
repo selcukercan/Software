@@ -163,7 +163,7 @@ The program also generates a YAML file named `![HOST_NAME]_kinematic_drive.yaml`
 It is worth noting we provide a package level config file to give user control over some of the internal procedures. For details please see `![PACKAGE_ROOT]/configs/system_identification/`.
 
 
-**Step 8**: Now lets test whether the parameters returned by the optimization script improved the system performance, i.e. whether the duckiebot can drive perform well for certain tasks such as driving straight or following a circle.
+**Step 7**: Now lets test whether the parameters returned by the optimization script improved the system performance, i.e. whether the duckiebot can drive perform well for certain tasks such as driving straight or following a circle.
 
 Place your duckiebot on the ground, and execute,
 
