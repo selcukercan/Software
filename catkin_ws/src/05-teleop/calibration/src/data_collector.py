@@ -8,6 +8,7 @@ from os import remove, mknod
 from std_msgs.msg import String #Imports msg
 from duckietown_msgs.msg import WheelsCmdStamped, Twist2DStamped, AprilTagDetectionArray, VehiclePoseEuler
 from calibration.wheel_cmd_utils import *
+from calibration.utils import is_valid_param
 # Service types to be imported from rosbag_recorder package
 from rosbag_recorder.srv import *
 
@@ -25,9 +26,9 @@ class DataCollector:
 
         # Parameters
         self.rosbag_dir = rospy.get_param("~output_rosbag_dir")
-        self.use_for = self.is_valid_param(param_name='use_for',
-                                           param_address='~use_for',
-                                           valid_params=['calibration', 'verification'])
+        self.use_for = is_valid_param(param_name='use_for',
+                                      param_address='~use_for',
+                                      valid_params=['calibration', 'verification'])
 
         # Publisher
         if self.use_for == 'calibration':
@@ -208,13 +209,6 @@ class DataCollector:
             self.pub_car_cmd.publish(msg_car_cmd)
             self.rate.sleep()
         rospy.loginfo("completed sending reference velocities\n")
-
-    def is_valid_param(self, param_name=None, param_address=None, valid_params=None):
-        param_val = rospy.get_param(param_address)
-        if param_val in valid_params:
-            return param_val
-        else:
-            rospy.logfatal('[{}] {} is not a valid argument, please select one of {}'.format(self.node_name, param_name, str(valid_params)))
 
     def topics_ready(self, topics_to_follow):
         pub_topics_and_message_type = rospy.get_published_topics('/' + self.veh)
