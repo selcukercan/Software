@@ -24,8 +24,12 @@ class DataPreparation():
                  save_as=None, dump=False, exp_name='', dataset_name=None, localization_method=None):
         self.input_bag = input_bag
         self.exp_name = exp_name
+        # loaded robot pose representation is localization method dependent
         self.wheel_cmd, self.robot_pose = self.load_bag(input_bag, top_wheel_cmd_exec, top_robot_pose,
                                                         localization_type=localization_method)
+        if localization_method == 'lane_filter':
+            self.robot_pose = self.lane_filter_to_polar_pose(self.robot_pose)
+
         data_selected = self.select_interval_and_resample_numpify(localization_type=localization_method)
         self.data = self.filter(data_selected)
 
@@ -183,40 +187,7 @@ class DataPreparation():
         # note that this resampling method can handle variable data acquisition frequency. (previous methods assumed data comes at a fixed 30 hz rate.)
         cmd_right_rs = np.interp(robot_pose_timestamp, cmd_timestamp, cmd_right)
         cmd_left_rs = np.interp(robot_pose_timestamp, cmd_timestamp, cmd_left)
-        """
-        if self.DEBUG_MODE and not self.TEST_MODE:
-            # Create a trace
-            plot1 = go.Scatter(
-                x=cmd_timestamp,
-                y=cmd_right,
-                name='right wheel commands'
-            )
 
-            plot2 = go.Scatter(
-                x=robot_pose_timestamp,
-                y=cmd_right_rs,
-                name='resampled right wheel commands'
-            )
-
-
-            plot3 = go.Scatter(
-                x=cmd_timestamp,
-                y=cmd_left,
-                name='left wheel commands'
-            )
-
-            plot4 = go.Scatter(
-                x=robot_pose_timestamp,
-                y=cmd_left_rs,
-                name='resampled left wheel commands'
-            )
-
-            data_right = [plot1, plot2]
-            opy.plot(data_right)
-
-            data_left = [plot3, plot4]
-            opy.plot(data_left)
-        """
         # create a copy of the original wheel_cmd_exec dictionary
         wheel_cmd_exec_rs = copy.deepcopy(wheel_cmd_exec)
         # assign resampled wheel commands and the corresponding timestamps to the new dictionary.
@@ -330,6 +301,60 @@ class DataPreparation():
                       save_dir=get_workspace_param("results_preprocessing_dir"))
         return filtered_signal
 
+    def lane_filter_to_polar_pose(self, robot_pose_lf):
+        """
+            represents the pose returned by lane filter in polar coordinate, i.e.
+            input pose: (d, theta) where
+                d: lateral distance from robot baseline to center lane,
+                theta: heading of the vehicle.
+            output: (r, theta), where
+                r: distance from the first point of the dataset,
+                theta: heading of the vehicle.
+        """
+        # output data format
+        pose_in_polar = {'rho': None, 'theta': None, 'timestamp': None}
+
+        # unpack lane filter measurements
+        d = robot_pose_lf['d']
+        phi = robot_pose_lf['phi']
+
+        # pose at start
+        d0 = d[0]
+        phi0 = phi[0]
+
+        # polar cooardinates
+        rho = np.zeros(len(d))
+        theta = np.zeros(len(phi))
+
+        first = True
+        for i in range(rho.size):
+            if first == True:
+                rho[i] = 0
+                theta[i] = phi[i]
+                first = False
+            else:
+                del_d = d[i] - d[i-1]
+                del_phi = phi[i] - phi[i-1]
+
+                rho[i + 1] = rho[i] + delta_rho[i]
+
+        # calculate rho increments,
+        # notice that len(delta_rho) = len(robot_pose_lf['d']) - 1
+        delta_d = np.diff(np.array(d))
+        delta_phi = np.diff(np.array(phi))
+        delta_rho = np.abs(delta_d) / np.sin(delta_phi)
+
+        rho = np.zeros(len(d))
+        rho[0] = 0
+
+        for i in range(delta_rho.size):
+            rho[i + 1] = rho[i] + delta_rho[i]
+
+        pose_in_polar['rho'] = rho.tolist()
+        pose_in_polar['theta'] = phi
+        pose_in_polar['timestamp'] = robot_pose_lf['timestamp']
+
+        return pose_in_polar
 
 def smooth(x, window_len=1, window='hanning'):
     """

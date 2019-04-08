@@ -70,6 +70,15 @@ class calib():
         self.train_metric = metric_selector(train_metric)
         self.validation_metric = self.train_metric  # use the same metric for the validation as well
 
+        # load data for use in optimization
+        experiments_at = self.load_dataset("Training", self.path_training_data, localization_type='apriltag')
+        experiments_lf = self.load_dataset("Training", self.path_training_data, localization_type='lane_filter')
+
+        # calculate/add the velocity estimates to the dateset
+        #experiments_at = add_x_dot_estimate_to_dataset(experiments_at, dataset_type="Training")
+        #experiments_lf = add_x_dot_estimate_to_dataset(experiments_lf, dataset_type="Training")
+        print('se')
+        """
         if self.do_train:
             # load data for use in optimization
             experiments = self.load_dataset("Training", self.path_training_data, localization_type='apriltag')
@@ -99,7 +108,7 @@ class calib():
         rospy.logwarn('[{}] started compressing the results folder, this might take around a minute ...'.format(self.node_name))
         pack_results(self.results_dir)
         rospy.logwarn('[{}] completed compressing the results folder'.format(self.node_name))
-        
+        """
     # train
     def training_routine(self, model_object, experiments):
         """ train the model and write the results to the YAML file"""

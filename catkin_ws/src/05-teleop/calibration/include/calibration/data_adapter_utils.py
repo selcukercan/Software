@@ -46,11 +46,15 @@ def x_adapter_apriltag(x_dict):
 
 
 def x_adapter_lane_filter(x_dict):
-    """ converts lane filter measurements from dict to numpy array """
-    d = row(np.array(x_dict['d']))
-    phi = row(np.array(x_dict['phi']))
+    """
+        converts lane filter measurements from dict to numpy array
+        note: measurement space (d, phi) is converted to polar coordinates (rho, theta)
+        in lane_filter_to_polar_pose
+    """
+    rho = row(np.array(x_dict['rho']))
+    theta = row(np.array(x_dict['theta']))
 
-    return np.vstack([d, phi])
+    return np.vstack([rho, theta])
 
 
 def x_adapter(x_dict, localization_type=None):

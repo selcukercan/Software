@@ -38,7 +38,10 @@ class LaneFilterNode(object):
         self.sub = rospy.Subscriber("~segment_list", SegmentList, self.processSegments, queue_size=1)
         self.sub_change_params = rospy.Subscriber("~change_params", String, self.cbChangeParams)
 
-        operation_mode = rospy.get_param("/operation_mode", 0)
+        #operation_mode = rospy.get_param("/operation_mode", 0)
+        operation_mode =1
+        #rospy.logwarn('XXXXXXXXXXXXXXXX\nXXXXXXXXXXXXXXXX\nXXXXXXXXXXXXXXXX\n')
+        rospy.logwarn('[{}] using operation mode: {}'.format(self.node_name, operation_mode))
 
         if operation_mode:
             from calibration.model_library import model_generator
@@ -48,9 +51,8 @@ class LaneFilterNode(object):
             top_wheel_cmd_exec = "/" + self.veh + "/wheels_driver_node/wheels_cmd_executed"
             self.sub_model_velocity = rospy.Subscriber(top_wheel_cmd_exec, WheelsCmdStamped, self.modelBasedVelocityUpdate)
 
-            # construct a model by specifying which model to use
+            # construct a model by specifying its type
             model_type = "kinematic_drive"
-
             self.model_object = model_generator(model_type)
             self.model_params = cautious_read_param_from_file(self.veh, self.model_object)
         else:
@@ -73,9 +75,10 @@ class LaneFilterNode(object):
     def modelBasedVelocityUpdate(self, msg):
         # model(self, t, x, u, p) t and x are not required for model prediction and only required for SysId purposes.
         u = (msg.vel_right, msg.vel_left)
-        x_dot = self.model_object.model(None, None, u, self.model_params) # returns  [m/s, deg/s]
+        x_dot = self.model_object.model(None, None, u, self.model_params) # returns [m/s, rad/s]
         self.velocity.v = x_dot[0]
-        self.velocity.omega = x_dot[1] * (np.pi/180)
+        self.velocity.omega = 0
+        #self.velocity.omega = x_dot[1]
 
     def cbChangeParams(self, msg):
         data = json.loads(msg.data)

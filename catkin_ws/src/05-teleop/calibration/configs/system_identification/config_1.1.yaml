@@ -1,8 +1,8 @@
 # General
 config_file_version: 1.1
 vehicle_name: mete # only necessary while debugging through an IDE
-debug: False # needs to be set True while debugging through an IDE
-save_experiment_results: True # save the plots under the results
+debug: True # needs to be set True while debugging through an IDE
+save_experiment_results: False # save the plots under the results
 save_to_pickle: False
 show_plots: True # display the plots
 multitag_pose_estimation: False # not yet implemented
@@ -15,7 +15,7 @@ cost_function_type: AsRMSE # see include/calibration/cost_function_library.py fo
 filter_type: flat
 filter_length: 17
 discard_first_n_data: 20
-discard_last_n_data: 5
+discard_last_n_data: 1
 
 # Velocity estimation from position data
 spline_type: lsq_spline # lsq_spline or b_spline
