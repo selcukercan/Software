@@ -5,7 +5,6 @@ import numpy as np
 import rosbag
 import rospy
 from calibration.data_adapter_utils import *
-from calibration.data_adapter_utils import *
 from calibration.utils import get_param_from_config_file, get_workspace_param
 
 save_plot = get_param_from_config_file("save_experiment_results")

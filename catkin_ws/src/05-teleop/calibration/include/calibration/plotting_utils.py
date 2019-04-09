@@ -1,7 +1,6 @@
 from itertools import izip
 from os.path import join
 
-import plotly.figure_factory as ff
 import plotly.graph_objs as go
 import plotly.offline as opy
 import rospy
@@ -267,6 +266,7 @@ def param_space_cost_plot(cost, params_space_list):
 
 
 def path_plot_plotly(experiment, plot_name=''):
+    import plotly.figure_factory as ff
     path_data = x_in_np(experiment)  # make sure that we use numpy representation
     # Create quiver figure
     fig = ff.create_quiver(path_data[0, :], path_data[1, :], cos(path_data[2, :] * pi / 180),

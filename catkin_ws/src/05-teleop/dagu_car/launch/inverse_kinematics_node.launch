@@ -5,16 +5,16 @@
     <arg name="veh" doc="Name of vehicle. ex: megaman"/>
     <arg name="local" default="false" doc="true for running everything you possibly can on laptop. false for everything running on vehicle."/>
     <arg name="config" default="baseline" doc="Specify a config."/>
-    <arg name="model" default="gt" doc="Type of the model to be run by the node, ex: gain-trin model (standard one)"/>
+    <arg name="set_model" default="false" doc="if set to non-false value, the value passed is treated as the requested model type"/>
 
     <group ns="$(arg veh)">
         <!-- run local -->
         <node if="$(arg local)" name="$(arg node_name)" pkg="$(arg pkg_name)" type="$(arg node_name).py" output="screen" clear_params="true" required="true">
-          <param name="model" value="$(arg model)"/>
+          <param name="model" value="$(arg set_model)"/>
         </node>
         <!-- run remote -->
         <node unless="$(arg local)" machine="$(arg veh)" name="$(arg node_name)" pkg="$(arg pkg_name)" type="$(arg node_name).py" output="screen" clear_params="true" required="true">
-          <param name="model" value="$(arg model)"/>
+          <param name="model" value="$(arg set_model)"/>
         </node>
     </group>
 </launch>

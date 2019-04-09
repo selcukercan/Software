@@ -2,13 +2,13 @@
 import rospy
 from duckietown_msgs.msg import WheelsCmdStamped, Twist2DStamped, BoolStamped
 from duckietown_msgs.srv import SetValueRequest, SetValueResponse, SetValue
-from calibration.model_library import model_generator
 from std_srvs.srv import EmptyRequest, EmptyResponse, Empty
 from numpy import *
 import yaml
 import time
 import os.path
 from duckietown_utils import get_duckiefleet_root
+from duckietown_utils.yaml_wrap import yaml_load_file
 
 # Inverse Kinematics Node
 # Author: Robert Katzschmann, Shih-Yuan Liu
@@ -20,7 +20,7 @@ class InverseKinematicsNode(object):
         self.veh_name = self.node_name.split("/")[1]
 
         # Model Type
-        self.model_type = rospy.get_param('~model') # 'gt' for gain-trim model (classical) and 'sysid' for custom model (system-id based)
+        self.model_type = self.load_model()
         rospy.logwarn('Using Model Type: [{}]'.format(self.model_type))
 
         # Select Model Function
@@ -50,6 +50,16 @@ class InverseKinematicsNode(object):
 
         rospy.loginfo("[%s] Initialized.", self.node_name)
         self.printValues()
+
+    def load_model(self):
+        # load the model-type as set by the launch file, default value: False
+        model_type = rospy.get_param('~model')
+        if model_type == False:
+            from calibration.utils import get_baseline_config
+            conf = yaml_load_file(get_baseline_config(package_name="calibration"))
+            return conf["model"]
+        else:
+            return model_type
 
     def readParamFromFile(self):
         # Check file existence

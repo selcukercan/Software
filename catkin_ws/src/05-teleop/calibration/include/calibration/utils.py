@@ -276,5 +276,18 @@ def window(x, discard_n):
     else:
         return x[:,discard_n:-discard_n]
 
+def is_valid_param(self, param_name=None, param_address=None, valid_params=None):
+    """ checks if param_name is allowed  """
+    param_val = rospy.get_param(param_address)
+    if param_val in valid_params:
+        return param_val
+    else:
+        rospy.logfatal('[{}] {} is not a valid argument, please select one of {}'.format(self.node_name, param_name, str(valid_params)))
+
+def get_baseline_config(package_name, config_name="default.yaml"):
+    """ return the config ** config_name ** under baselines for the package ** package_name **"""
+    base = get_package_root("duckietown")
+    return os.path.join(base, "config", "baseline", package_name, config_name)
+
 if __name__ == '__main__':
     print get_files_in_dir('/home/selcuk/multi_bag_processing/')
