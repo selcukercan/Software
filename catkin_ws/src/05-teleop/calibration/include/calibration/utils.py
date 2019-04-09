@@ -110,7 +110,8 @@ def create_time_label():
 def create_results_dir(package_root):
     """ create a results directory under the package root with the date and time information """
     time_label = create_time_label()
-    result_dir = join(str(time_label), package_root, "results", time_label)
+    tag = "system_identification_" + time_label
+    result_dir = join(str(time_label), package_root, "results", tag)
     mkdir(result_dir)
     return result_dir
 

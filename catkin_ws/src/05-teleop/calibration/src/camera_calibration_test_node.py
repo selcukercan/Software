@@ -57,11 +57,12 @@ class CameraCalibrationTest:
         rospy.init_node('CameraCalibrationTest', anonymous=True, disable_signals=True)
         self.rate = rospy.Rate(30)  # 30 Hz
         self.time_label = create_time_label()
+        tag = "camera_calibration_" + self.time_label
 
         # Parameters
         param_results_dir = "/" + self.veh + "/calibration/camera_calibration_test_node/output_dir"
         self.output_dir = rospy.get_param(param_results_dir)
-        self.results_dir = os.path.join(self.output_dir, self.time_label)
+        self.results_dir = os.path.join(self.output_dir, tag)
         self.data_dir = os.path.join(self.results_dir, "data")
         # create necessary folders to store the results
         safe_create_dir(self.results_dir)
