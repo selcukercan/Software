@@ -26,12 +26,17 @@ class InverseKinematicsNode(object):
         # Select Model Function
         self.inv_model = self.select_model()
         # Read parameters from the yaml file and write them to ROS parameter server
-        self.readParamFromFile()
+        self.model_param_values = self.readParamFromFile()
         # Set local variables (class variables) by reading the values from ROS parameters server
         self.setModelParams()
 
         self.v_max = 999.0     # TODO: Calculate v_max !
         self.omega_max = 999.0     # TODO: Calculate v_max !
+
+        # velocity initialization
+        self.v_prev = 0
+        self.w_prev = 0
+        self.last_time = None
 
         # Prepare services
         self.setModelServices()
@@ -84,20 +89,25 @@ class InverseKinematicsNode(object):
 
         # select the parameter list that corresponds to the chosen model
         model_param_list = self.getModelParamList()
+        model_param_val = []
 
         for param_name in model_param_list:
             param_value = yaml_dict.get(param_name)
             if param_name is not None:
                 rospy.set_param("~"+param_name, param_value)
+                model_param_val.append(param_value)
             else:
                 # Skip if not defined, use default value instead.
-                pass
+                rospy.logwarn("[{}] parameter {} is not defined inside the file {} using default value instead!".format(self.node_name, param_name, fname))
+        return model_param_val
 
     def getModelParamList(self):
         if self.model_type == 'gt':
             return ["gain", "trim", "baseline", "k", "radius", "limit"]
         elif self.model_type == 'kinematic_drive':
             return ["dr", "dl", "L"]
+        elif self.model_type == 'dynamic_drive':
+            return ['u1', 'w1', 'u_alpha_r', 'u_alpha_l', 'w_alpha_r', 'w_alpha_l']
 
     def setModelParams(self):
         # common parameters
@@ -116,8 +126,15 @@ class InverseKinematicsNode(object):
             self.dr = self.setup_parameter("~dr", 1)
             self.dl = self.setup_parameter("~dl", 1)
             self.L = self.setup_parameter("~L", 1)
+        elif self.model_type == 'dynamic_drive':
+            self.u1 = self.setup_parameter("~u1", 0)
+            self.w1 = self.setup_parameter("~w1", 0)
+            self.u_alpha_r = self.setup_parameter("~u_alpha_r", 0.7)
+            self.u_alpha_l = self.setup_parameter("~u_alpha_l", 0.0001)
+            self.w_alpha_r = self.setup_parameter("~w_alpha_r", 0.2)
+            self.w_alpha_l = self.setup_parameter("~w_alpha_l", 0.2)
         else:
-            rospy.logfatal('Model name {} is not a valid one, failed to set parameters in setModelParams'.format(model_type))
+            rospy.logfatal('Model name {} is not a valid one, failed to set parameters in setModelParams'.format(self.model_type))
             rospy.signal_shutdown()
             return
 
@@ -136,6 +153,8 @@ class InverseKinematicsNode(object):
             self.srv_set_dr = rospy.Service("~set_dr", SetValue, self.cbSrvSetDR)
             self.srv_set_dl = rospy.Service("~set_dl", SetValue, self.cbSrvSetDL)
             self.srv_set_L = rospy.Service("~set_L", SetValue, self.cbSrvSetL)
+        elif self.model_type == 'dynamic_drive':
+            pass
         else:
             rospy.logfatal('Model name {} is not a valid one, failed to set services in setModelServices'.format(model_type))
 
@@ -143,6 +162,11 @@ class InverseKinematicsNode(object):
         if self.model_type == 'gt':
             return (get_duckiefleet_root()+'/calibrations/kinematics/' + name + ".yaml")
         elif self.model_type == 'kinematic_drive':
+            if name != 'default':
+                return (get_duckiefleet_root()+'/calibrations/kinematics/' + name + "_" + self.model_type + ".yaml")
+            else:
+                rospy.logfatal('\n\nyou must run the calibration script first to generate the model parameters.\n\n')
+        elif self.model_type == 'dynamic_drive':
             if name != 'default':
                 return (get_duckiefleet_root()+'/calibrations/kinematics/' + name + "_" + self.model_type + ".yaml")
             else:
@@ -275,8 +299,16 @@ class InverseKinematicsNode(object):
         v_ref = msg_car_cmd.v
         w_ref = msg_car_cmd.omega
 
-        u_r, u_l = self.inv_model(v_ref, w_ref)
+        if self.model_type == "dynamic_drive":
+            u_r, u_l = self.inv_model((self.v_prev, self.w_prev), (v_ref, w_ref), 1, self.model_param_values)
+            # x_dot_prev, x_dot_des, dt, p
+        else:
+            u_r, u_l = self.inv_model(v_ref, w_ref)
+        """
+        rospy.loginfo("[{}] desired:\nv: {} w: {} \nprev: v_prev: {} w_prev: {} \ninput d: u_r: {} u_l: {}"
+                      .format(self.node_name, v_ref, w_ref, self.v_prev, self.w_prev, u_r, u_l))
 
+        """
         # limiting output to limit, which is 1.0 for the duckiebot
         u_r_limited = max(min(u_r, self.limit), -self.limit)
         u_l_limited = max(min(u_l, self.limit), -self.limit)
@@ -287,6 +319,10 @@ class InverseKinematicsNode(object):
         msg_wheels_cmd.vel_right = u_r_limited
         msg_wheels_cmd.vel_left = u_l_limited
         self.pub_wheels_cmd.publish(msg_wheels_cmd)
+
+        # store v and w for next iteration
+        self.v_prev = v_ref
+        self.w_prev = w_ref
 
     def gt(self, v_ref, w_ref):
         # assuming same motor constants k for both motors
@@ -318,6 +354,10 @@ class InverseKinematicsNode(object):
             return self.gt
         elif self.model_type == 'kinematic_drive':
             return self.kinematic_drive
+        elif self.model_type == 'dynamic_drive':
+            from calibration.model_library import DynamicDrive
+            dynamic_model = DynamicDrive()
+            return dynamic_model.inverse_model
 
     def setup_parameter(self, param_name, default_value):
         value = rospy.get_param(param_name, default_value)

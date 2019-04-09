@@ -76,12 +76,12 @@ class ToLocalPose:
                 # convert from numpy float to standart python float to be written into the message
                 veh_t_world = veh_t_world.tolist()
                 world_feaXYZ_veh = world_feaXYZ_veh.tolist()
-                """
+
                 rospy.loginfo('AprilTag ID: {} posx: {} posy: {} rotz: {} ({} deg)'.format(tag_id_msg,
                                                                                            veh_t_world[0], veh_t_world[1],
                                                                                            world_feaXYZ_veh[2],
                                                                                            world_feaXYZ_veh[2] * 180 / np.pi))
-                """
+
                 # form message to publish
                 veh_pose_euler_msg = VehiclePoseEuler()
                 veh_pose_euler_msg.header.stamp = rospy.Time.now()

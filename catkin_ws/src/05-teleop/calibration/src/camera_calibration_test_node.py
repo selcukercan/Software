@@ -17,7 +17,7 @@ from rosbag_recorder.srv import *
 TODO:
 
 * The new apriltag pp will return in radians. Be sure to adjust the code,
-* For each new apriltag add them to ground-truth and map. (ground truth will come from Rafael.
+* For each new apriltag add them to ground-truth and map.
 
 """
 ground_truth = {
@@ -139,7 +139,7 @@ class CameraCalibrationTest:
             self.at_local_i += 1
             if self.at_local_i <= self.number_of_images_to_process: # record positions until receiving enough messages
                 self.recieved_at_position_estimates.append(msg)
-                rospy.loginfo("[{}] recieved at local pose {}".format(self.node_name, self.at_local_i))
+                rospy.loginfo("[{}] recieved at local pose {}\{}".format(self.node_name, self.at_local_i, msg))
             else:
                 self.continue_experiment = False
         else:
