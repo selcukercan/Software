@@ -52,9 +52,9 @@ class InverseKinematicsNode(object):
         self.printValues()
 
     def load_model(self):
-        # load the model-type as set by the launch file
+        # load the model-type as set by the launch file, default value: False
         model_type = rospy.get_param('~model')
-        if model_type == "false":
+        if model_type == False:
             from calibration.utils import get_baseline_config
             conf = yaml_load_file(get_baseline_config(package_name="calibration"))
             return conf["model"]

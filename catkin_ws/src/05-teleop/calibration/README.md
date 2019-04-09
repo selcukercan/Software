@@ -213,3 +213,14 @@ Note that we also label the image with the commit id.
 ## Record a rosbag from a launch file
  <!-- Start the rosbag -->
   <node pkg="rosbag" type="record" args="record -O /media/logs/$(arg veh)_calibration -a" name="record" output="screen"/>
+
+## Remarks
+
+Inverse kinematics note use the model type stated inside the yaml file under baselines IF set_model is not set. For development
+use. For global usage such as demos adjust the baseline in case you would like the modify the model to use. Currently, available
+models are:`kinematic_drive`.
+
+
+```shell
+roslaunch dagu_car inverse_kinematics_node.launch set_model:=false veh:=mete local:=true set_model:=kinematic_drive
+```
