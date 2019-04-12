@@ -12,7 +12,8 @@ import rospkg
 import rospy
 from sensor_msgs.msg import CompressedImage
 from sensor_msgs.srv import SetCameraInfo, SetCameraInfoResponse
-
+from duckietown_utils.path_utils import get_baseline_config_path
+from duckietown_utils.yaml_wrap import yaml_load_file
 
 class CameraNode(object):
 
@@ -24,6 +25,10 @@ class CameraNode(object):
         self.framerate_low = self.setupParam("~framerate_low", 15.0)
         self.res_w = self.setupParam("~res_w", 640)
         self.res_h = self.setupParam("~res_h", 480)
+        conf = yaml_load_file(get_baseline_config_path(package_name="pi_camera", config_name="camera_node/default.yaml"))
+        # setup shutter mode
+        if conf["shutter_mode"] == "sports":
+            self.camera.exposure_mode = "sports"
 
         self.image_msg = CompressedImage()
 
