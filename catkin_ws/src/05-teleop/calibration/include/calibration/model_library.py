@@ -170,8 +170,8 @@ class InputDependentKinematicDrive(BaseModelClass):
         x_sim = reshape_x(x0)
 
         for i in range(len(t) - 1):
-            t_cur, t_next = t[
-                            i:i + 2]  # prediction will be made in between two consecutive time steps, note that this does not require fixed time step.
+            # prediction will be made in between two consecutive time steps, note that this does not require fixed time step.
+            t_cur, t_next = t[i:i + 2]
             x0 = x[:, i]
             # one-step-ahead prediction
             sol = forward_euler_vel_to_pos(self.model, (t_next - t_cur), x0, u[:, i], p)
@@ -212,7 +212,7 @@ class InputDependentKinematicDrive(BaseModelClass):
     def generate_model_params(self, param_ordered_list):
         model_params = {}
         for i in np.arange(len(param_ordered_list)-1):
-            model_params[param_ordered_list[i]] = {'param_init_guess': 0.85, 'param_bounds': (None, None)}
+            model_params[param_ordered_list[i]] = {'param_init_guess': 0.0, 'param_bounds': (None, None)}
         model_params["L"] = {'param_init_guess': 0.055, 'param_bounds': (0.05, 0.06)}
         return model_params
 
@@ -234,7 +234,7 @@ class InputDependentKinematicDrive(BaseModelClass):
         #print("intervals: {}".format(self.intervals))
         #print(self.model_params)
         #print("intervals: {}".format(self.intervals))
-        print("p: {}".format(p))
+        #print("p: {}".format(p))
         #print("param_ordered_list: {}".format(self.param_ordered_list))
 
         #print("cmd_right: {} \t index_right: {} ".format(cmd_right, index_right))

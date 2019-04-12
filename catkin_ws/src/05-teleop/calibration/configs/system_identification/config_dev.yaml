@@ -19,7 +19,7 @@ discard_last_n_data: 5
 
 # Model-Spesific Parameters
 # input_dependent_kinematic_drive
-interval_count: 10
+interval_count: 20
 
 # Velocity estimation from position data
 spline_type: lsq_spline # lsq_spline or b_spline

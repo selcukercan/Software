@@ -180,7 +180,7 @@ class calib():
             u = exp_data['wheel_cmd_exec']
             x = exp_data['robot_pose']
             # simulate the model
-            if self.model_type == "kinematic_drive" or "input_dependent_kinematic_model":
+            if self.model_type == "kinematic_drive" or "input_dependent_kinematic_drive":
                 x_sim = model_object.simulate(t, x, u, p)  # states for a particular p set
             elif self.model_type == "dynamic_drive":
                 x_dot = exp_data['robot_velocity']
@@ -219,7 +219,7 @@ class calib():
 
             # one-step-ahead simulation of the model
             # states for a particular p set
-            if self.model_type == "kinematic_drive" or "input_dependent_kinematic_model":
+            if self.model_type == "kinematic_drive" or "input_dependent_kinematic_drive":
                 x_sim_opt = model_object.simulate(t, x, u, popt)
             elif self.model_type == "dynamic_drive":
                 x_sim_opt = model_object.simulate(t, x, x_dot, u, popt)  # states for a particular p set
@@ -235,7 +235,7 @@ class calib():
             # n-step-ahead simulation of the model, i.e. given an initial position predict the vehicle motion for the
             # complete experiment horizan.
             x0 = x[:, 0]
-            if self.model_type == "kinematic_drive" or "input_dependent_kinematic_model":
+            if self.model_type == "kinematic_drive" or "input_dependent_kinematic_drive":
                 x_sim_opt_n_step = model_object.simulate_horizan(t, x0, u, popt)
             else:
                 x_sim_opt_n_step = model_object.simulate_horizan(t, x, x_dot, u, popt)
@@ -274,6 +274,27 @@ class calib():
                                 experiment_name_list=['measurement', self.model_type],
                                 plot_title="Trajectory Simulation using N-Step Ahead Prediction for Model: {} Dataset: {}".format(model_object.name, exp_name),
                                 save=self.save_experiment_results)
+
+            if self.model_type == "input_dependent_kinematic_drive":
+                interval_count = get_param_from_config_file("interval_count")
+
+                # plot the drive constants
+                d_right = []
+                d_left = []
+
+                for i in range(interval_count):
+                    d_right.append(popt[2*i])
+                    d_left.append(popt[2*i + 1])
+                #simple_plot(range(len(d_right)), d_right, plot_name="Velocity Dependent Kinematic Model <br> Right Drive Constant", save_dir=self.results_dir)
+                #simple_plot(range(len(d_left)), d_left, plot_name="Velocity Dependent Kinematic Model <br> Left Drive Constant", save_dir=self.results_dir)
+                simple_plot(np.linspace(0, 1, interval_count + 1), d_right,
+                            plot_name="Velocity Dependent Kinematic Model <br> Right Drive Constant",
+                            x_axis_name="Velocity Bin [m/s]", y_axis_name="Drive Constant",
+                            save_dir=self.results_dir)
+                simple_plot(np.linspace(0, 1, interval_count + 1), d_left,
+                            plot_name="Velocity Dependent Kinematic Model <br> Left Drive Constant",
+                            x_axis_name="Velocity Bin [m/s]", y_axis_name="Drive Constant",
+                            save_dir=self.results_dir)
 
             if self.initial_param_vs_optimal_param:
                 x_sim_init = simulate(model_object, t, x, u, self.p0)
