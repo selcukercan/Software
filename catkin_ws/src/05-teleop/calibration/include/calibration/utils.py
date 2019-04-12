@@ -178,7 +178,7 @@ def rad(x):
         raise ("rad expects an input of type numpy.ndarray")
     return x * np.pi / 180
 
-
+'''
 def cost_function_over_param_space(self, model_object, experiments):
     """
     place right before the actual optimization
@@ -204,7 +204,7 @@ def cost_function_over_param_space(self, model_object, experiments):
                 print(i)
                 i += 1
     return cost, params_space_list
-
+'''
 
 def work_space_settings():
     package_root = get_package_root("calibration")
@@ -283,7 +283,7 @@ def is_valid_param(param_name=None, param_address=None, valid_params=None):
     if param_val in valid_params:
         return param_val
     else:
-        rospy.logfatal('[{}] {} is not a valid argument, please select one of {}'.format(self.node_name, param_name, str(valid_params)))
+        rospy.logfatal('[{}] {} is not a valid argument, please select one of {}'.format("utils", param_name, str(valid_params)))
 
 def get_baseline_config(package_name, config_name="default.yaml"):
     """ return the config ** config_name ** under baselines for the package ** package_name **"""
