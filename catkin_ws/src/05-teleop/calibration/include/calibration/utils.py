@@ -277,7 +277,7 @@ def window(x, discard_n):
     else:
         return x[:,discard_n:-discard_n]
 
-def is_valid_param(self, param_name=None, param_address=None, valid_params=None):
+def is_valid_param(param_name=None, param_address=None, valid_params=None):
     """ checks if param_name is allowed  """
     param_val = rospy.get_param(param_address)
     if param_val in valid_params:
