@@ -7,7 +7,6 @@ from calibration.utils import reshape_x, get_param_from_config_file
 
 used_model = get_param_from_config_file("model")
 
-
 class BaseModelClass(object):
     __metaclass__ = ABCMeta
 
@@ -141,7 +140,7 @@ class InputDependentKinematicDrive(BaseModelClass):
         (cmd_right, cmd_left) = u
         #(dr, dl, L) = p
 
-        # extract the correct parameter depending on the input
+        # extract the correct parameters (dr, dl) depending on the input
         dr, dl, L = self.input_dependent_parameter_selector(u,p)
 
         # kinetic states through actuation
@@ -231,18 +230,18 @@ class InputDependentKinematicDrive(BaseModelClass):
         index_left = 2 * (bin_id_right-1) + 1
         param_left_name = self.param_ordered_list[index_left]
         param_left_val = p[index_left]
-        """
-        print("intervals: {}".format(self.intervals))
-        print(self.model_params)
-        print("intervals: {}".format(self.intervals))
+
+        #print("intervals: {}".format(self.intervals))
+        #print(self.model_params)
+        #print("intervals: {}".format(self.intervals))
         print("p: {}".format(p))
-        print("param_ordered_list: {}".format(self.param_ordered_list))
-        
-        print("cmd_right: {} \t index_right: {} ".format(cmd_right, index_right))
-        print("Param Right Name: {} \t Param Right Value: {} ".format(param_right_name, param_right_val))
-        print("cmd_left: {} \t index_left: {} ".format(cmd_left, index_left))
-        print("Param Left Name: {} \t Param Left Value: {} ".format(param_left_name, param_left_val))
-        """
+        #print("param_ordered_list: {}".format(self.param_ordered_list))
+
+        #print("cmd_right: {} \t index_right: {} ".format(cmd_right, index_right))
+        #print("Param Right Name: {} \t Param Right Value: {} ".format(param_right_name, param_right_val))
+        #print("cmd_left: {} \t index_left: {} ".format(cmd_left, index_left))
+        #print("Param Left Name: {} \t Param Left Value: {} ".format(param_left_name, param_left_val))
+
         return param_right_val, param_left_val, p[-1]
 
 class DynamicDrive(BaseModelClass):
@@ -382,15 +381,16 @@ class DynamicDrive(BaseModelClass):
 
 # Motivation for introducing this fn:
 #  1) simplify the import procedure in the main script by avoiding the need to explicitly import certain model
-def model_generator(model_name=None):
+def model_generator(model_name=None, **kwargs):
     if model_name == None:
         rospy.logwarn('[model_library] model is not initialized'.format(model_name))
     elif model_name == 'kinematic_drive':
         return KinematicDrive()
     elif model_name == 'dynamic_drive':
         return DynamicDrive()
-    elif model_name == "input_dependent_kinematic_model":
-        return InputDependentKinematicDrive()
+    elif model_name == "input_dependent_kinematic_drive":
+        interval_count = get_param_from_config_file("interval_count")
+        return InputDependentKinematicDrive(interval_count=interval_count)
     else:
         rospy.logwarn('[model_library] model name {} is not valid!'.format(model_name))
 

@@ -180,7 +180,7 @@ class calib():
             u = exp_data['wheel_cmd_exec']
             x = exp_data['robot_pose']
             # simulate the model
-            if self.model_type == "kinematic_drive":
+            if self.model_type == "kinematic_drive" or "input_dependent_kinematic_model":
                 x_sim = model_object.simulate(t, x, u, p)  # states for a particular p set
             elif self.model_type == "dynamic_drive":
                 x_dot = exp_data['robot_velocity']
@@ -219,7 +219,7 @@ class calib():
 
             # one-step-ahead simulation of the model
             # states for a particular p set
-            if self.model_type == "kinematic_drive":
+            if self.model_type == "kinematic_drive" or "input_dependent_kinematic_model":
                 x_sim_opt = model_object.simulate(t, x, u, popt)
             elif self.model_type == "dynamic_drive":
                 x_sim_opt = model_object.simulate(t, x, x_dot, u, popt)  # states for a particular p set
@@ -235,7 +235,7 @@ class calib():
             # n-step-ahead simulation of the model, i.e. given an initial position predict the vehicle motion for the
             # complete experiment horizan.
             x0 = x[:, 0]
-            if self.model_type == "kinematic_drive":
+            if self.model_type == "kinematic_drive" or "input_dependent_kinematic_model":
                 x_sim_opt_n_step = model_object.simulate_horizan(t, x0, u, popt)
             else:
                 x_sim_opt_n_step = model_object.simulate_horizan(t, x, x_dot, u, popt)

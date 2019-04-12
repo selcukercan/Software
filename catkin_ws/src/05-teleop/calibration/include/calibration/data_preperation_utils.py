@@ -283,7 +283,7 @@ class DataPreparation():
         at_detections = self.get_apriltag_detections(input_bag, topic_name)
         if self.multitag_pose_estimation == False:
             # This case corresponds to offline calibration, distributed AprilTag ID:0.
-            return at_detections[0].pose
+            return at_detections[1].pose
         else:
             raise NotImplementedError
 
