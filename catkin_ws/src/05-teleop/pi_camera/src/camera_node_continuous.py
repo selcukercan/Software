@@ -9,7 +9,6 @@ from sensor_msgs.msg import CompressedImage
 from picamera import PiCamera
 from picamera.array import PiRGBArray
 
-
 class CameraNode(object):
     def __init__(self):
         self.node_name = rospy.get_name()
@@ -24,8 +23,8 @@ class CameraNode(object):
         # self.img_high_framerate = self.setupParam("~img_high_framerate",5.0)
         # self.img_low_res_w = self.setupParam("~img_low_res_w",320)
         # self.img_low_res_h = self.setupParam("~img_low_res_h",200)
-         self.img_high_res_w = self.setupParam("~img_high_res_w",640)
-         self.img_high_res_h = self.setupParam("~img_high_res_h",400)
+        self.img_high_res_w = self.setupParam("~img_high_res_w",640)
+        self.img_high_res_h = self.setupParam("~img_high_res_h",400)
         # self.uncompress = self.setupParam("~uncompress",False)
 
         # TODO: load camera info yaml file and publish CameraInfo
@@ -37,6 +36,7 @@ class CameraNode(object):
         # else:
         #     self.pub_img_low = rospy.Publisher("~img_low/compressed",CompressedImage,queue_size=1)
         #     self.pub_img_high= rospy.Publisher("~img_high/compressed",CompressedImage,queue_size=1)
+        #     self.pub_img_high= rospy.Publisher("~img_high/compressed",CompressedImage,queue_size=1)
 
         self.has_published = False
         self.bridge = CvBridge()
@@ -47,6 +47,7 @@ class CameraNode(object):
         self.camera = PiCamera()
         self.camera.framerate = self.framerate
         self.camera.resolution = (self.res_w,self.res_h)
+
 
         # TODO setup other parameters of the camera such as exposure and white balance etc
 

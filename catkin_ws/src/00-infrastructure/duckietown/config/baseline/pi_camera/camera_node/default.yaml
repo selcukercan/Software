@@ -5,3 +5,5 @@ res_w: 640
 res_h: 480
 #decompress: false
 #publish_info: false
+shutter_mode: custom # "custom" or "default"
+custom_shutter_speed: 5000 # microseconds
