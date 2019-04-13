@@ -25,19 +25,24 @@ class CameraNode(object):
         self.framerate_low = self.setupParam("~framerate_low", 15.0)
         self.res_w = self.setupParam("~res_w", 640)
         self.res_h = self.setupParam("~res_h", 480)
-        conf = yaml_load_file(get_baseline_config_path(package_name="pi_camera", config_name="camera_node/default.yaml"))
-        # setup shutter mode
-        if conf["shutter_mode"] == "sports":
-            self.camera.exposure_mode = "sports"
 
-        self.image_msg = CompressedImage()
+        # load baseline configuration file
+        conf = yaml_load_file(get_baseline_config_path(package_name="pi_camera", config_name="camera_node/default.yaml"))
 
         # Setup PiCamera
-
         self.camera = PiCamera()
         self.framerate = self.framerate_high  # default to high
         self.camera.framerate = self.framerate
         self.camera.resolution = (self.res_w, self.res_h)
+
+        # setup shutter mode
+        if conf["shutter_mode"] == "custom":
+            self.camera.shutter_speed = conf["custom_shutter_speed"]
+            rospy.logwarn("[{}] using custom shutter speed: {} miliseconds".format(self.node_name, self.camera.shutter_speed))
+        else:
+            rospy.loginfo("[{}] using default shutter mode".format(self.node_name))
+
+        self.image_msg = CompressedImage()
 
         # For intrinsic calibration
         self.cali_file_folder = get_duckiefleet_root() + "/calibrations/camera_intrinsic/"
