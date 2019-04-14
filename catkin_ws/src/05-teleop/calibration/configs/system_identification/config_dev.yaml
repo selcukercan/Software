@@ -2,13 +2,13 @@
 config_file_version: 1.1
 vehicle_name: mete # only necessary while debugging through an IDE
 debug: True # needs to be set True while debugging through an IDE
-save_experiment_results: True # save the plots under the results
+save_experiment_results: True # save the plots under the results folder
 save_to_pickle: False
-show_plots: True # display the plots
+show_plots: True # display the plots if save_experiment_results is False
 
 # AprilTag Detection Related
 multitag_pose_estimation: False # not yet implemented
-single_apriltag_id: 315
+single_apriltag_id: 1
 
 # Optimization
 model: input_dependent_kinematic_drive
@@ -16,13 +16,13 @@ cost_function_type: AsRMSE # see include/calibration/cost_function_library.py fo
 
 # Data preperation - see include/calibration/data_preperation_utils.py (smooth function) for more details.
 filter_type: flat
-filter_length: 17
+filter_length: 11
 discard_first_n_data: 20
 discard_last_n_data: 5
 
 # Model-Spesific Parameters
 # input_dependent_kinematic_drive
-interval_count: 20
+interval_count: 10
 
 # Velocity estimation from position data
 spline_type: lsq_spline # lsq_spline or b_spline

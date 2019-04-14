@@ -8,6 +8,7 @@ import os
 import os.path
 from shutil import copy, copyfile
 import rospy
+import numpy as np
 # ros-package-level imports
 from calibration.cost_function_library import *
 from calibration.data_adapter_utils import *
@@ -89,6 +90,7 @@ class calib():
         else:
             rospy.logwarn('[{}] not validating the model'.format(self.node_name))
 
+
         # get ready to leave
         self.copy_experiment_data()
         self.generate_report()
@@ -117,12 +119,28 @@ class calib():
         start_time = time.time()
         popt = self.nonlinear_model_fit(model_object, experiments)
         self.total_calculation_time = time.time() - start_time
+
         # parameter converge plots and cost fn
         if self.show_plots: param_convergence_plot(self.param_hist,
                                                    save_dir=get_workspace_param("results_optimization_dir"))
         if self.show_plots: simple_plot(range(len(self.cost_fn_val_list)), self.cost_fn_val_list,
                                         plot_name='Cost Function',
                                         save_dir=get_workspace_param("results_optimization_dir"))
+
+        if self.model_type == "input_dependent_kinematic_drive":
+            right_1Dpoly, left_1Dpoly = model_object.linear_fit_to_drive_constants(popt)
+            model_object.generate_inverse_model(popt[-1])
+            model_object.inverse_model(v_ref = 0.4, w_ref= 0 , V_r_init = 0.1, V_l_init = 0.1)
+
+            x_range = np.linspace(0.1, 0.5, 20)
+            simple_plot(x_range, right_1Dpoly(x_range),
+                        plot_name="Fitting to the Right Drive Constant",
+                        x_axis_name="Velocity Bin [m/s]", y_axis_name="Drive Constant",
+                        save_dir=self.results_dir)
+            simple_plot(x_range, right_1Dpoly(x_range),
+                        plot_name="Fitting to the Right Drive Constant",
+                        x_axis_name="Velocity Bin [m/s]", y_axis_name="Drive Constant",
+                        save_dir=self.results_dir)
 
         # write to the kinematic calibration file
         self.output_yaml_file = self.write_calibration(model_object, popt)

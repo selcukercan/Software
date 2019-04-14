@@ -4,6 +4,8 @@ import numpy as np
 import rospy
 from calibration.data_adapter_utils import *
 from calibration.utils import reshape_x, get_param_from_config_file
+from scipy.optimize import fsolve
+import time
 
 used_model = get_param_from_config_file("model")
 
@@ -130,15 +132,19 @@ class InputDependentKinematicDrive(BaseModelClass):
         self.name = "input_dependent_kinematic_drive"
         rospy.loginfo("\nusing model type: [{}]".format(self.name))
 
-        # Note that we assume that the vehicle is movinf forward, hence d in [0,1].
-        self.intervals = np.linspace(0, 1, interval_count + 1) # for interval_count = 1 returns array([0., 1.])
+        # Note that we assume that the vehicle is moving forward, hence d in [0,1].
+        self.interval_count = interval_count
+        self.intervals = np.linspace(0, 1, self.interval_count + 1) # for interval_count = 1 returns array([0., 1.])
         self.param_ordered_list = self.generate_param_ordered_list()
         self.model_params = self.generate_model_params(self.param_ordered_list)
+
+        # keep count of the actuated intervals, i.e. where drive constants are optimized and non-default
+        self.right_wheel_active_intervals = []
+        self.left_wheel_active_intervals = []
 
     def model(self, t, x, u, p):
         # input commands + model params
         (cmd_right, cmd_left) = u
-        #(dr, dl, L) = p
 
         # extract the correct parameters (dr, dl) depending on the input
         dr, dl, L = self.input_dependent_parameter_selector(u,p)
@@ -166,6 +172,7 @@ class InputDependentKinematicDrive(BaseModelClass):
         Returns:
             x_sim (numpy.ndarray): 3*n array, containing history of state evolution.
         """
+        
         x0 = x[:, 0]
         x_sim = reshape_x(x0)
 
@@ -225,11 +232,17 @@ class InputDependentKinematicDrive(BaseModelClass):
         param_right_name = self.param_ordered_list[index_right]
         param_right_val = p[index_right]
 
+        if bin_id_right not in self.right_wheel_active_intervals:
+            self.right_wheel_active_intervals.append(bin_id_right)
+            
         # left drive constant
         bin_id_left = np.searchsorted(self.intervals, cmd_left)
         index_left = 2 * (bin_id_right-1) + 1
         param_left_name = self.param_ordered_list[index_left]
         param_left_val = p[index_left]
+
+        if bin_id_left not in self.left_wheel_active_intervals:
+            self.left_wheel_active_intervals.append(bin_id_left)
 
         #print("intervals: {}".format(self.intervals))
         #print(self.model_params)
@@ -243,6 +256,78 @@ class InputDependentKinematicDrive(BaseModelClass):
         #print("Param Left Name: {} \t Param Left Value: {} ".format(param_left_name, param_left_val))
 
         return param_right_val, param_left_val, p[-1]
+
+    def linear_fit_to_drive_constants(self,p):
+        #rospy.logwarn("right wheels active interval: {}".format(self.right_wheel_active_intervals))
+        #rospy.logwarn("left wheels active interval: {}".format(self.left_wheel_active_intervals))
+
+        # sort the indexes
+        right_act_ind = sorted(self.right_wheel_active_intervals)
+        left_act_ind  = sorted(self.left_wheel_active_intervals)
+
+        # note: drive constant around 1st interval (d el [0, 1/interval_count] may be problematic, as the vehicle is
+        # at the most distant location hence the localiation quality is the worst, In addition transients are observed
+        # when the vehicle start to motion. Usually discarding some data points at the beginning does improve the behaviour.
+
+        #rospy.logwarn("right wheels active interval sort: {}".format(right_act_ind))
+        #rospy.logwarn("left wheels active interval sort: {}".format(left_act_ind))
+
+        right_act_val = [p[2*(i-1)] for i in right_act_ind]
+        left_act_val = [p[2*(i-1)+1] for i in left_act_ind]
+
+        #right_drive_constants = [self.model_params["dr_" + str(interval_id)] for interval_id in self.right_wheel_active_intervals]
+        #left_drive_constants = [self.model_params["dl_" + str(interval_id)] for interval_id in self.left_wheel_active_intervals]
+        #rospy.logwarn("right_drive_constants: {}".format(right_act_val))
+        #rospy.logwarn("left_drive_constants: {}".format(left_act_val))
+
+        interval_step = 1.0 / self.interval_count
+        x_right = np.array(right_act_ind) * interval_step
+        x_left = np.array(left_act_ind) * interval_step
+
+        # fitting a line
+        self.right_fit = np.polyfit(x_right, right_act_val, deg=1)
+        self.left_fit = np.polyfit(x_left, left_act_val, deg=1)
+
+        self.right_motor_model = np.poly1d(self.right_fit)
+        self.left_motor_model = np.poly1d(self.left_fit)
+
+        return self.right_motor_model, self.left_motor_model
+
+    def generate_inverse_model(self, L):
+        """ requires linear_fit_to_drive_constants to be called first """
+        rospy.logwarn("right: {}".format(self.right_fit))
+        rospy.logwarn("left: {}".format(self.left_fit))
+        right_quad = list(self.right_fit)
+        left_quad = list(self.left_fit)
+
+        # multiply the input [V_r, V_l] with kinematics: change linear V -> velocity map to quadratic
+        right_quad.append(0)
+        left_quad.append(0)
+
+        # generate velocities produced/predicted by the model
+        self.v_a_r = np.poly1d(np.array(right_quad))
+        self.v_a_l = np.poly1d(np.array(left_quad))
+        self.w_a_r = np.poly1d(np.array(right_quad) / L)
+        self.w_a_l = np.poly1d(- np.array(left_quad) / L)
+
+
+    def inverse_model(self, v_ref = None, w_ref= None, V_r_init = None, V_l_init = None):
+        input0 = np.array([V_r_init, V_l_init])
+        start_time = time.time()
+        sol = fsolve(self.inv_model, input0, args=(v_ref, w_ref))
+        rospy.logwarn("solution found: {} in {} seconds".format(sol, time.time() - start_time))
+
+    def inv_model(self, input, v_ref, w_ref):
+        v_r = input[0]
+        v_l = input[1]
+
+        f = np.zeros(2)
+
+        f[0] = v_ref - (self.v_a_r(v_r) + self.v_a_l(v_l))
+        f[1] = w_ref - (self.w_a_r(v_r) + self.w_a_l(v_l))
+        return f
+
+
 
 class DynamicDrive(BaseModelClass):
 
@@ -417,6 +502,7 @@ def forward_euler_vel_to_pos(model, dt, x_cur, u_cur, p_cur):
 
 
 if __name__ == '__main__':
+    """
     t = 0
     x = 0
     u_r = 1
@@ -425,4 +511,6 @@ if __name__ == '__main__':
     p = [1, 1, 1, 1, 1, 1, 1, 1, 0.5]
     ikd = InputDependentKinematicDrive(interval_count=4)
     ikd.model(t,x,u,p)
+    """
+    InputDependentKinematicDrive()
     print("selcuk")
