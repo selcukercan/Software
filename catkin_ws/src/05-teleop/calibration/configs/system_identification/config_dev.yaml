@@ -5,7 +5,10 @@ debug: True # needs to be set True while debugging through an IDE
 save_experiment_results: True # save the plots under the results
 save_to_pickle: False
 show_plots: True # display the plots
+
+# AprilTag Detection Related
 multitag_pose_estimation: False # not yet implemented
+single_apriltag_id: 315
 
 # Optimization
 model: input_dependent_kinematic_drive
