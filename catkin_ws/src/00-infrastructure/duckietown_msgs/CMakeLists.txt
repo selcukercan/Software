@@ -70,6 +70,8 @@ add_message_files(
   KinematicsWeights.msg
   KinematicsParameters.msg
   ThetaDotSample.msg
+  VehiclePoseEuler.msg
+  VehiclePoseEulerArray.msg
   Vsample.msg
   Trajectory.msg
   ObstacleType.msg
