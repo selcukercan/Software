@@ -14,6 +14,7 @@ class DecoderNode(object):
         self.bridge = CvBridge()
 
         self.publish_freq = self.setupParam("~publish_freq", 30.0)
+        self.operation_mode = self.setupParam("/operation_mode", 0)
         self.publish_duration = rospy.Duration.from_sec(1.0/self.publish_freq)
         self.pub_raw = rospy.Publisher("~image/raw",Image,queue_size=1)
         self.pub_compressed = rospy.Publisher("~image/compressed", CompressedImage, queue_size=1)
@@ -32,9 +33,11 @@ class DecoderNode(object):
 
     def cbImg(self,msg):
         if not self.active:
+            rospy.logwarn("[{}] not active".format(self.node_name))
             return
         now = rospy.Time.now()
-        if now - self.last_stamp < self.publish_duration:
+        if (now - self.last_stamp < self.publish_duration) and self.operation_mode == 0:
+            #rospy.logwarn("[{}] not publishing as calledback faster than the publishing frequency".format(self.node_name))
             return
         else:
             self.last_stamp = now
