@@ -1,0 +1,23 @@
+<launch>
+  <arg name="veh"/>
+  <arg name="package_namespace" default="apriltags2_ros" />
+  <arg name="node_namespace" default="publish_detections_in_local_frame" />
+  <arg name="save_lane_filter" default="false" doc="specify if you would like to save the output returned by lane filter. Note that this launch file does not start lane filter."/>
+
+  <!-- General -->
+  <arg name="operation_mode" default="0"  doc="for asynchronous (the standard ros operation):0 (default),for synchronous (sequential) operation:1." />
+  <param name="operation_mode" value="$(arg operation_mode)"/>
+
+  <!-- Set parameters -->
+  <group ns="$(arg veh)/$(arg package_namespace)">
+    <node unless="$(arg operation_mode)" pkg="apriltags2_ros" type="$(arg node_namespace).py" name="$(arg node_namespace)" clear_params="true" required="true" output="screen">
+      <param name="veh" value="$(arg veh)"/>
+    </node>
+    
+    <node if="$(arg operation_mode)" pkg="apriltags2_ros" type="$(arg node_namespace).py" name="$(arg node_namespace)" clear_params="true" required="true" output="screen">
+      <param name="veh" value="$(arg veh)"/>
+      <param name="save_lane_filter" value="$(arg save_lane_filter)"/>
+    </node>
+
+  </group>
+</launch>

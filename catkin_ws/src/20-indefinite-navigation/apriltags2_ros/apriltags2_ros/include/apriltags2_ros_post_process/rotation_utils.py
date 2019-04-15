@@ -1,0 +1,293 @@
+import tf.transformations as tr
+import numpy as np
+import math
+import rospy
+
+TILT_ANGLE = 12 * math.pi / 180.0
+
+
+def camztiltedTtag(q,t):
+    """
+    Expresesses the apriltag2_ros output (message includes a quaterion and a translation vector)
+    in homogeneous transform matrix.
+    """
+    # quaterion convention (x,y,z,w)
+    T_q = tr.quaternion_matrix(q)
+    T = T_q.copy()
+    T[:3, 3] = t
+
+    return T
+
+def inverse_homogeneous_transform(T):
+    """ Inverts a homogeneous transformation matrix using the formula 2.92 of [1]. """
+    t = T[0:3,3]
+    R = T[0:3,0:3]
+
+    T_inv = tr.identity_matrix()
+    R_inv = np.transpose(R)
+
+    t_inv = np.matmul(R_inv,-t)
+
+    T_inv[0:3,0:3] = R_inv
+    T_inv[0:3,3] = t_inv
+
+    return T_inv
+
+def camztiltedTcamz_BARIS(TILT_ANGLE):
+    """ Returns homogeneous transformation that expresses a camz_p in camz frame. """
+    d = 0.05
+
+    camztilted_T_camz = tr.rotation_matrix(TILT_ANGLE, [1,0,0])
+    t = np.array([0, d*(1 - math.cos(TILT_ANGLE)), d*math.sin(TILT_ANGLE)])
+    camztilted_T_camz[0:3,3] = t
+
+    return camztilted_T_camz
+
+def camztiltedTcamz(TILT_ANGLE):
+    """ Returns homogeneous transformation that expresses a camz_p in camz frame. """
+    camztilted_T_camz = tr.rotation_matrix(TILT_ANGLE, [1,0,0])
+
+    return camztilted_T_camz
+
+def camzTcamztilted():
+    """ Returns homogeneous transformation that expresses camztilted_p in camz frame. """
+    camztilted_T_camz = camztiltedTcamz(TILT_ANGLE)
+    camz_T_camztilted = inverse_homogeneous_transform(camztilted_T_camz)
+
+    return camz_T_camztilted
+
+def camzTcamx():
+    """ Returns homogeneous transformation that expresses camx_p in camz frame. """
+    T1 = tr.rotation_matrix(math.pi / 2, [1,0,0])
+    T2 = tr.rotation_matrix(math.pi / 2, [0,0,1])
+    camz_T_camx = np.matmul(T1, T2)
+    return camz_T_camx
+
+def camxTcamz():
+    """ Returns homogeneous transformation that expresses camz_p in camx frame. """
+    camz_T_camx = camzTcamx()
+    camx_T_camz = inverse_homogeneous_transform(camz_T_camx)
+    return camx_T_camz
+
+def vehTcamx(tOvehOcamx):
+    """ Returns homogeneous transformation that expresses camx_p in vehicle (robot) frame. """
+    veh_T_camx = tr.translation_matrix(tOvehOcamx)
+    return veh_T_camx
+
+def camxTveh(tOvehOcamx):
+    """ Returns homogeneous transformation that expresses veh_p in camx frame. """
+    veh_T_camx = vehTcamx(tOvehOcamx)
+    camx_T_veh = inverse_homogeneous_transform(veh_T_camx)
+    return camx_T_veh
+
+def tagTworld():
+    """ Returns homogeneous transformation that expresses world_p in tag frame.
+
+    Returns:
+        tag_T_world (numpy.array): homogeneous transformation that expresses world_p in tag cf
+
+    """
+    T_x = tr.rotation_matrix(-math.pi / 2, [1, 0, 0])
+    T_z = tr.rotation_matrix(math.pi / 2, [0, 0, 1])
+
+    tag_T_world = np.matmul(T_x, T_z)
+
+    return tag_T_world
+
+def robot_pose_in_word_frame(q_at,t_at):
+    """
+    expresses the apriltags2_ros output in world cf.
+
+    Args:
+        q_at (numpy.array): quaternion representing relative orientation of camera frame with respect to tag frame.
+        t_at (numpy.array): translation vector from cameras cf to tags cf expressed in camera cf.
+
+    Returns:
+        2-element tuple containing
+
+        - **veh_R_world** (*numpy.array*) - veh_R_world, rotation matrix that expresses world_p in robot cf.
+        - **veh_t_world** (*numpy.array*) - translation vector from robot's cf to apriltag's cf expressed in robot cf.
+    """
+
+    tOvehOcamx = np.array([10,0.0,0.105])
+
+    camztilted_T_tag = camztiltedTtag(q_at,t_at)
+    camz_T_camztilted = camzTcamztilted()
+    camx_T_camz = camxTcamz()
+    veh_T_camx = vehTcamx(tOvehOcamx)
+
+    D1 = np.matmul(veh_T_camx,camx_T_camz)
+    D2 = np.matmul(D1, camz_T_camztilted)
+
+    veh_T_tag = np.matmul(D2, camztilted_T_tag)
+
+    tag_T_world = tagTworld()
+    veh_T_world = np.matmul(veh_T_tag, tag_T_world)
+
+    veh_R_world = veh_T_world[0:3, 0:3]
+    veh_t_world= veh_T_world[0:3, 3]
+
+    return veh_R_world, veh_t_world
+
+
+def vehTworld(q_at,t_at):
+    """
+    expresses the apriltags2_ros output in world cf.
+
+    Args:
+        q_at (numpy.array): quaternion representing relative orientation of camera frame with respect to tag frame.
+        t_at (numpy.array): translation vector from cameras cf to tags cf expressed in camera cf.
+
+    Returns:
+        2-element tuple containing
+
+        - **veh_T_world** (*numpy.array*) - homogeneous transformation that represent a p_world in vehicle frame
+    """
+    tOvehOcamx = np.array([0.07,0.0,0.10])
+
+    camztilted_T_tag = camztiltedTtag(q_at,t_at)
+    camz_T_camztilted = camzTcamztilted()
+    camx_T_camz = camxTcamz()
+    veh_T_camx = vehTcamx(tOvehOcamx)
+    tag_T_world = tagTworld()
+
+    #print("\ncamztilted_T_tag\n{}\n".format(camztilted_T_tag))
+    A1 = np.matmul(camztilted_T_tag,tag_T_world)
+    #print("\nA1\n{}\n".format(A1))
+    A2 = np.matmul(camz_T_camztilted, A1)
+    #print("\nA2\n{}\n".format(A2))
+    A3 = np.matmul(camx_T_camz, A2)
+    #print("\nA3\n{}\n".format(A3))
+
+    proper = True
+    if proper == True:
+        A4 = np.matmul(veh_T_camx, A3)
+        """
+        #print("\nA4\n{}\n".format(A4))
+        veh_R_world = A4[0:3, 0:3]
+        veh_t_world = A4[0:3, 3]
+
+        R = rotation_matrix_to_euler(veh_R_world)
+        euler = R.tolist()
+        #rospy.loginfo('veh_T_world posx: {} posy: {} rotz: {} ({} deg)'.format(veh_t_world[0], veh_t_world[1], euler[2], euler[2] * 180 / np.pi))
+        
+        world_T_veh = inverse_homogeneous_transform(A4)
+        world_R_veh = world_T_veh[0:3, 0:3]
+        world_t_veh = world_T_veh[0:3, 3]
+
+        world_euler_veh = rotation_matrix_to_euler(world_R_veh)
+        world_euler_veh = world_euler_veh.tolist()
+        rospy.loginfo('world_T_veh posx: {} posy: {} rotz: {} ({} deg)'.format(world_t_veh[0], world_t_veh[1],
+                                                                        world_euler_veh[2], world_euler_veh[2] * 180 / np.pi))
+        """
+    else:
+        A3_R = A3[0:3, 0:3]
+        A3_t = A3[0:3, 3]
+
+        A3_feaXYZ = rotation_matrix_to_euler(A3_R)
+        A3_feaXYZ = A3_feaXYZ.tolist()
+        #rospy.loginfo('rotx: {} roty: {} rotz: {}'.format(A3_feaXYZ[0],A3_feaXYZ[1],A3_feaXYZ[2]))
+
+        A3_inv = inverse_homogeneous_transform(A3)
+        A3_inv_R = A3_inv[0:3, 0:3]
+        A3_inv_t = A3_inv[0:3, 3]
+
+        A3_inv_feaXYZ = rotation_matrix_to_euler(A3_inv_R)
+        A3_inv_feaXYZ = A3_inv_feaXYZ.tolist()
+        rospy.loginfo('uncompensated posx: {} posy: {} rotz: {} ({} deg)'.format(A3_inv_t[0], A3_inv_t[1],
+                                                                                 A3_inv_feaXYZ[2], A3_inv_feaXYZ[2] * 180 / np.pi))
+
+        A4 = A3_inv
+        A4[0,3] = A3_inv[0,3] - tOvehOcamx[0] * np.cos(A3_inv_feaXYZ[2])
+        A4[1,3] = A3_inv[1,3] - tOvehOcamx[0] * np.sin(A3_inv_feaXYZ[2])
+        #print("\nAfter A4\n{}\n".format(A4))
+        A4_R = A4[0:3, 0:3]
+        A4_t = A4[0:3, 3]
+
+        A4_feaXYZ = rotation_matrix_to_euler(A4_R)
+        A4_feaXYZ = A4_feaXYZ.tolist()
+        rospy.loginfo('compansated posx: {} posy: {} rotz: {} ({} deg)'.format(A4_t[0], A4_t[1],
+                                                                               A4_feaXYZ[2], A4_feaXYZ[2] * 180 / np.pi))
+
+    veh_R_world = A4[0:3, 0:3]
+    veh_t_world = A4[0:3, 3]
+
+    return veh_R_world, veh_t_world
+
+def worldTveh(q_at,t_at):
+
+    veh_T_world = vehTworld(q_at,t_at)
+    world_T_veh = inverse_homogeneous_transform(veh_T_world)
+    world_R_veh = world_T_veh[0:3, 0:3]
+    world_t_veh = world_T_veh[0:3, 3]
+
+    return world_R_veh, world_t_veh
+
+def rotation_matrix_to_euler(veh_R_world):
+    """
+    expresses the apriltags2_ros output in robot cf.
+
+    Args:
+        q_at (numpy.array): quaternion representing relative orientation of camera frame with respect to tag frame.
+        t_at (numpy.array): translation vector from cameras cf to tags cf expressed in camera cf.
+
+    Returns:
+        veh_R_world (numpy.array): rotation matrix orientation that expresses world_p in robot cf in radians.
+        veh_t_world (numpy.array): translation vector from robots cf to apriltag's cf expressed in robot cf.
+    """
+    euler_angles_w = tr.euler_from_matrix(veh_R_world, 'sxyz')
+    euler_angles_w_np = np.asarray(euler_angles_w)
+
+    return euler_angles_w_np
+
+'''
+[NOMENCLATURE]
+
+Z camera frame:
+    seeing what camera sees:
+        X -> right
+        Y -> down
+        Z -> forward
+X camera frame:
+    seeing what camera sees:
+        X -> forward
+        Y -> left
+        Z -> up
+
+endFrame_Tp_initFrame:
+Represents passive Transformation, i.e represented vector remains the same wrt to a fixed world frame.
+The matrix describes how the basis vectors of are related to each other, specifically it translates
+a vector expressed in initFrame into a vector expressed in endFrame.
+
+endFrame_R_initFrame:
+represents relative orientation of endFrame wrt. initFrame, and is obtained by a series of consecutive relative rotations with rotations post-multiplied:
+R = R1 * R2 * ...
+
+endFrame_t_initFrame:
+represent the position vector from the origin of initFrame to the origin of endFrame expressed in initFrame
+
+FRAME_p:
+position vector p expressed in FRAME frame, i.e  WORLD_p means p is in WORLD coordinate frame.
+
+[ABBREVIATIONS]
+
+cf: coordinate frame
+'''
+
+'''
+[RESOURCES]
+
+[1] "Robot Dynamics and Control", Second Edition, Mark W. Spong, Seth Hutchinson, and M. Vidyasagar.
+
+[2] ROS TF library for python: https://github.com/ros/geometry/blob/hydro-devel/tf/src/tf/transformations.py
+'''
+
+if __name__ == '__main__':
+    q = [0.924, -0.082, 0.350, -0.130]
+    t = [-0.011, 0.07, 0.44]
+
+    # Quaternions ix + jy + kz + w are represented as [x, y, z, w]
+    veh_R_world, veh_t_world = robot_pose_in_word_frame(q, t)
+    veh_feaXYZ_world= rotation_matrix_to_euler(veh_R_world) # feaXYZ f for fixed ea for euler angles XYZ is self exp.
+
+    print "Selcuk"
