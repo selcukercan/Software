@@ -8,6 +8,8 @@
     <arg name="pkg_name" value="lane_filter"/>
     <arg name="node_name" default="lane_filter_node"/>
 
+    <arg name="operation_mode" default="0"  doc="for asynchronous (the standard ros operation):0 (default),for synchronous (sequential) operation:1." />
+
     <group ns="$(arg veh)">        
         <!-- run local -->
         <node if="$(arg local)" name="$(arg node_name)" pkg="$(arg pkg_name)" type="$(arg node_name).py" output="screen" clear_params="true" >

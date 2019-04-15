@@ -4,6 +4,9 @@
   <arg name="config" default="baseline" doc="Specify a config."/>
   <arg name="param_file_name" default="default" doc="Specify a param file. ex:megaman." />
   <arg name="camera_topic" default="camera_node"/>
+  <arg name="operation_mode" default="0"  doc="for asynchronous (the standard ros operation):0 (default),for synchronous (sequential) operation:1." />
+
+  <param name="~operation_mode" value="$(arg operation_mode)"/>
   <!-- <arg name="rectify" default="false" doc="If set to true, rectify image before process."/> -->
 
 <!--  <include file="$(find duckietown)/machines"/> -->

@@ -1,0 +1,11 @@
+<launch>
+    <arg name="veh" doc="Name of vehicle. ex: megaman"/>
+    <arg name="package_namespace" default="rosbag_recorder" />
+    <arg name="node_namespace" default="rosbag_recorder_server" />
+    <arg name="output_rosbag_dir" default="$(env HOME)" doc="folder to save the rosbag" />
+
+    <node  pkg="rosbag_recorder" type="rosbag_recorder_server.py" name="rosbag_recorder_server" output="screen" clear_params="true" required="true">
+        <param name="veh" value="$(arg veh)"/>
+        <param name="output_rosbag_dir" value="$(arg output_rosbag_dir)"/>
+    </node>
+</launch>
