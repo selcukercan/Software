@@ -1,5 +1,5 @@
 <launch>
-    <arg name="pkg_name" value="pi_camera"/>
+    <arg name="pkg_name" value="calibration"/>
     <arg name="node_name" default="image_rect_full_ratio"/>
 
     <arg name="veh" doc="Name of vehicle. ex: megaman"/>
