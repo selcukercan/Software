@@ -1,0 +1,18 @@
+# General
+config_file_name: camera_calibration_test
+config_file_version: undetermined
+
+# Test Parameters
+at_list:
+  - 83
+  - 84
+  - 85
+rotational_error_tolerance: 2 # degrees
+translational_error_tolerance: 0.01 # meters
+rotational_std_tolerance: 0.05 # degrees
+translational_std_tolerance: 0.001 # meters
+number_of_images_to_process: 10
+
+# Only for development
+debug: False
+vehicle_name: mete

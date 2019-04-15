@@ -1,0 +1,100 @@
+<launch>
+  <!-- Camera -->
+  <arg name="veh" doc="Name of vehicle. ex: megaman"/>
+  <arg name="local" default="true" doc="true for running everything you possibly can on laptop. false for everything running on vehicle."/>
+  <arg name="config" default="baseline" doc="Specify a config."/>
+  <arg name="param_file_name" default="default" doc="Specify a param file. ex:megaman." />
+  <arg name="raw" default="true" doc="If set to true, also publish raw image using decoder."/>
+  <arg name="cam_info" default="true" doc="If set to true, use cam_info_reader_node to pusblish CameraInfo."/>
+  <arg name="live" default="true" doc="live set to false means we don't run the actual camera (i.e. running from a log file" />
+  <arg name="rect" default="true" />
+
+  <arg name="custom_resolution" default="no" doc="to process images with non-default dimension, i.e. (640, 480),  enter a tuple (HIGH, LOW)"/>
+
+  <!-- Calibration -->
+  <arg name="package_namespace" default="calibration" />
+  <arg name="node_namespace" default="data_collector" />
+
+  <!-- directories to read and save the rosbags -->
+  <arg name="input_rosbag" doc="path to the input rosbag containing the compressed image"/>
+  <arg name="output_rosbag" doc="file path to save the processed rosbag."/>
+
+  <!-- General -->
+  <arg name="operation_mode" default="0"  doc="for asynchronous (the standard ros operation):0 (default),for synchronous (sequential) operation:1." />
+  <param name="operation_mode" value="$(arg operation_mode)"/>
+
+    <arg name="save_lane_filter" default="false" doc="specify if you would like to save the output returned by lane filter. Note that this launch file does not start lane filter."/>
+
+    <!-- decoder_node -->
+    <group if="$(arg raw)">
+        <remap from="decoder_node/compressed_image" to="buffer_node/image/compressed"/>
+        <remap from="decoder_node/image/raw" to="camera_node/image/raw"/>
+        <include file="$(find pi_camera)/launch/decoder_node.launch">
+            <arg name="veh" value="$(arg veh)"/>
+            <arg name="local" value="$(arg local)"/>
+            <arg name="config" value="$(arg config)"/>
+            <arg name="publish_freq" value="15"/>
+        </include>
+    </group>
+    <!-- cam_info_reader_node -->
+    <group if="$(arg cam_info)">
+        <remap from="cam_info_reader_node/camera_info" to="camera_node/camera_info"/>
+        <remap from="cam_info_reader_node/compressed_image" to="buffer_node/image/compressed"/>
+        <include file="$(find pi_camera)/launch/cam_info_reader_node.launch">
+            <arg name="veh" value="$(arg veh)"/>
+            <arg name="local" value="$(arg local)"/>
+            <arg name="config" value="$(arg config)"/>
+            <arg name="param_file_name" value="$(arg param_file_name)"/>
+            <arg name="custom_resolution" value="$(arg custom_resolution)"/>
+        </include>
+
+      <group if="$(arg raw)">
+
+          <remap from="raw_cam_info_reader_node/camera_info" to="camera_node/raw_camera_info"/>
+          <remap from="raw_cam_info_reader_node/compressed_image" to="camera_node/image/raw"/>
+          <include file="$(find pi_camera)/launch/cam_info_reader_node.launch">
+              <arg name="veh" value="$(arg veh)"/>
+              <arg name="local" value="$(arg local)"/>
+              <arg name="config" value="$(arg config)"/>
+              <arg name="param_file_name" value="$(arg param_file_name)"/>
+              <arg name="node_name" value="raw_cam_info_reader_node" />
+              <arg name="image_type" value="raw" />
+              <arg name="custom_resolution" value="$(arg custom_resolution)"/>
+          </include>
+
+          <!-- Rectification -->
+          <group if="$(arg rect)">
+            <remap from="image_raw" to="camera_node/image/raw"/>
+            <remap from="camera_info" to="camera_node/raw_camera_info"/>
+            <remap from="image_rect" to="camera_node/image/rect" />
+            <remap from="rect_camera_info" to="camera_node/rect_camera_info"/>
+
+              <include file="$(find pi_camera)/launch/image_rect_full_ratio.launch">
+                  <arg name="veh" value="$(arg veh)"/>
+                  <arg name="local" value="$(arg local)"/>
+              </include>
+          </group>
+      </group>
+  </group>
+
+  <!-- start the apriltag detector launch -->
+  <include file="$(find apriltags2_ros)/launch/apriltag2_demo.launch">
+    <arg name="veh" value="$(arg veh)"/>
+  </include>
+
+    <!-- start the apriltag to world frame launch -->
+    <include file="$(find apriltags2_ros)/launch/detection_to_local_frame.launch">
+        <arg name="veh" value="$(arg veh)"/>
+        <arg name="input_rosbag" value="$(arg input_rosbag)"/>
+        <arg name="output_rosbag" value="$(arg output_rosbag)"/>
+        <arg name="operation_mode" value="$(arg operation_mode)"/>
+        <arg name="save_lane_filter" value="$(arg save_lane_filter)"/>
+    </include>
+
+  <!-- start buffer launch -->
+  <include file="$(find calibration)/launch/buffer_node.launch">
+    <arg name="veh" value="$(arg veh)"/>
+    <arg name="input_rosbag" value="$(arg input_rosbag)"/>
+  </include>
+
+</launch>

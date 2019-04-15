@@ -1,0 +1,20 @@
+<launch>
+  <arg name="veh"/>
+  <arg name="package_namespace" default="calibration" />
+  <arg name="node_namespace" default="measurement_buffer" />
+  <arg name="input_path" doc="directory to input rosbags"/>
+
+  <!-- General -->
+  <arg name="operation_mode" default="0"  doc="for asynchronous (the standard ros operation):0 (default),for synchronous (sequential) operation:1." />
+  <param name="operation_mode" value="$(arg operation_mode)"/>
+
+  <!-- Set parameters -->
+  <group ns="$(arg veh)/$(arg package_namespace)">
+    <node pkg="$(arg package_namespace)" type="$(arg node_namespace).py" name="$(arg node_namespace)" clear_params="true" required="true" output="screen">
+      <param name="veh" value="$(arg veh)"/>
+      <param name="operation_mode" value="$(arg operation_mode)"/>
+      <param name="input_path" value="$(arg input_path)"/>
+    </node>
+  </group>
+
+</launch>

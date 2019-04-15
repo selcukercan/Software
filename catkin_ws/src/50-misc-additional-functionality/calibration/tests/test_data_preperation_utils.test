@@ -1,0 +1,11 @@
+<launch>
+  <arg name="veh" default="testbot"/>
+  <arg name="package_namespace" default="calibration" />
+  <arg name="node_namespace" default="calibration" />
+  <arg name="path" default="$(find calibration)/tests/rosbags/" doc="path to the recorded bag." />
+
+  <test test-name="test_data_preperation_utils" pkg="calibration" type="test_data_preperation_utils.py" ns="$(arg veh)">
+    <param name="veh" value="$(arg veh)"/>
+    <param name="path" value="$(arg path)"/>
+  </test>
+</launch>

@@ -1,0 +1,26 @@
+<launch>
+  <!-- general -->
+  <arg name="veh" doc="Name of vehicle. ex: megaman"/>
+
+  <!-- start the apriltag detector launch -->
+  <include file="$(find pi_camera)/launch/camera_apriltag_demo.launch">
+    <arg name="veh" value="$(arg veh)"/>
+  </include>
+
+  <!-- start the apriltag detector launch -->
+  <include file="$(find apriltags2_ros)/launch/apriltag2_demo.launch">
+    <arg name="veh" value="$(arg veh)"/>
+  </include>
+
+  <!-- start the apriltag to local frame launch -->
+  <include file="$(find apriltags2_ros)/launch/detection_to_local_frame.launch">
+      <arg name="veh" value="$(arg veh)"/>
+  </include>
+
+  <!-- start the camera calibration verification test launch -->
+  <include file="$(find calibration)/launch/camera_calibration_test_node.launch">
+      <arg name="veh" value="$(arg veh)"/>
+      <arg name="output_dir" value="$(arg output_dir)" />
+  </include>
+
+</launch>

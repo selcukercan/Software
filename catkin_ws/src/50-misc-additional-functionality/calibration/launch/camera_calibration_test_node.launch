@@ -1,0 +1,20 @@
+<launch>
+  <arg name="veh"/>
+  <arg name="package_namespace" default="calibration" />
+  <arg name="node_namespace" default="camera_calibration_test_node" />
+  <arg name="output_dir" default="$(env HOME)" doc="folder to save the test results" />
+
+  <!-- Launch the rosbag_recorder node to start/stop bag file inside a node in this package -->
+  <include file="$(find rosbag_recorder)/launch/rosbag_recorder_server.launch">
+    <arg name="veh" value="$(arg veh)"/>
+    <arg name="output_rosbag_dir" value="$(arg output_dir)"/>
+  </include>
+
+  <!-- Set parameters -->
+  <group ns="$(arg veh)/$(arg package_namespace)">
+    <node pkg="$(arg package_namespace)" type="$(arg node_namespace).py" name="$(arg node_namespace)" clear_params="true" required="true" output="screen">
+      <param name="veh" value="$(arg veh)"/>
+      <param name="output_dir" value="$(arg output_dir)"/>
+    </node>
+  </group>
+</launch>
