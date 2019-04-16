@@ -4,14 +4,14 @@ FROM duckietown/rpi-ros-kinetic-base:master19
 
 RUN [ "cross-build-start" ]
 
-COPY requirements.txt /requirements.txt
 COPY requirements_build.txt /requirements_build.txt
+COPY requirements.txt /requirements.txt
 
 # otherwise installation of Picamera fails https://github.com/resin-io-projects/resin-rpi-python-picamera/issues/8
 ENV READTHEDOCS True
 
-RUN pip install -r /requirements.txt
 RUN pip install -r /requirements_build.txt
+RUN pip install -r /requirements.txt
 
 
 RUN mkdir /home/software
