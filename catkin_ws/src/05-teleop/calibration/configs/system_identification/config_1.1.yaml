@@ -8,12 +8,12 @@ show_plots: True # display the plots
 multitag_pose_estimation: False # not yet implemented
 
 # Optimization
-model: kinematic_drive
+model: dynamic_drive
 cost_function_type: AsRMSE # see include/calibration/cost_function_library.py for available options
 
 # Data preperation - see include/calibration/data_preperation_utils.py (smooth function) for more details.
-filter_type: flat
-filter_length: 17
+filter_type: hanning
+filter_length: 11
 discard_first_n_data: 20
 discard_last_n_data: 5
 
