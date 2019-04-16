@@ -27,3 +27,8 @@ picamera==1.13
 # SystemCmd
 jpeg4py
 networkx==2.2
+
+# packages required by calibration routine.
+plotly==3.5.0
+numpy==1.15.2
+GitPython==2.1.11

@@ -1,0 +1,9 @@
+# These are requirements to be installed using Pip
+# Note the switch '--user':
+#
+#   $ pip install --user --upgrade -r requirements.txt
+#
+# NEVER use "sudo" for these.
+
+# packages required by calibration routine
+scipy==1.2.0
