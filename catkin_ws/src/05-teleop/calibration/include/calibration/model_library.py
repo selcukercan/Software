@@ -263,51 +263,57 @@ class DynamicDrive(BaseModelClass):
 
     def __init__(self):
         self.name = "dynamic_drive"
-        """
+
         self.param_ordered_list = ['u1', 'u2', 'u3', 'w1', 'w2', 'w3', 'u_alpha_r', 'u_alpha_l', 'w_alpha_r', 'w_alpha_l']
-        self.model_params = {'u1': {'param_init_guess': 1, 'param_bounds': (None, None), 'search': (None, None)},
+        self.model_params = {'u1': {'param_init_guess': 1, 'param_bounds': (0, None), 'search': (None, None)},
                              'u2': {'param_init_guess': 1, 'param_bounds': (None, None), 'search': (None, None)},
                              'u3': {'param_init_guess': 1, 'param_bounds': (None, None), 'search': (None, None)},
-                             'w1': {'param_init_guess': 1, 'param_bounds': (None, None), 'search': (None, None)},
+                             'w1': {'param_init_guess': 1, 'param_bounds': (0, None), 'search': (None, None)},
                              'w2': {'param_init_guess': 1, 'param_bounds': (None, None), 'search': (None, None)},
-                             'w3': {'param_init_guess': 1, 'param_bounds': (None, None), 'search': (None, None)},
+                             'w3': {'param_init_guess': 1, 'param_bounds': (-0.10, 0.03), 'search': (None, None)},
                              'u_alpha_r': {'param_init_guess': 1, 'param_bounds': (None, None), 'search': (None, None)},
                              'u_alpha_l': {'param_init_guess': 1, 'param_bounds': (None, None), 'search': (None, None)},
                              'w_alpha_r': {'param_init_guess': 1, 'param_bounds': (None, None), 'search': (None, None)},
                              'w_alpha_l': {'param_init_guess': 1, 'param_bounds': (None, None), 'search': (None, None)}}
         """
         #self.param_ordered_list = ['u1', 'w1', 'c1', 'c2', 'L1', 'L2', 'm', 'Iz']
-        self.param_ordered_list = ['u1', 'w1', 'c1', 'c2', 'e1', 'e2', 'm']
+        self.param_ordered_list = ['u1', 'u2', 'u3', 'w1', 'w2', 'w3', 'c1', 'c2', 'e1', 'e2', 'm']
 
         self.model_params = {
                              'u1': {'param_init_guess': 0, 'param_bounds': (None, None)},
+                             'u2': {'param_init_guess': 0, 'param_bounds': (None, None)},
+                             'u3': {'param_init_guess': 0, 'param_bounds': (None, None)},
                              'w1': {'param_init_guess': 0, 'param_bounds': (None, None)},
+                             'w2': {'param_init_guess': 0, 'param_bounds': (None, None)},
+                             'w3': {'param_init_guess': 0, 'param_bounds': (None, None)},
                              'c1': {'param_init_guess': 1, 'param_bounds': (0, None)},
                              'c2': {'param_init_guess': 1, 'param_bounds': (0, None)},
                              'e1': {'param_init_guess': 1, 'param_bounds': (0, None)},
                              'e2': {'param_init_guess': 1, 'param_bounds': (0, None)},
                              'm': {'param_init_guess': 0.5, 'param_bounds': (0.4, 1.5)}
                              }
-
+        """
         rospy.loginfo("\nusing model type: [{}]".format(self.name))
 
     def model(self, t, x_dot, U, p):
         V = col(np.array(U))  # input array
         (u, w) = x_dot
-        # (u1, u2, u3, w1, w2, w3, u_alpha_r, u_alpha_l, w_alpha_r, w_alpha_l) = p
+        (u1, u2, u3, w1, w2, w3, u_alpha_r, u_alpha_l, w_alpha_r, w_alpha_l) = p
         #(u1, w1, u_alpha_r, u_alpha_l, w_alpha_r, w_alpha_l) = p
         #(u1, w1, c1, c2, L1, L2, m, Iz) = p
-        (u1, w1, c1, c2, e1, e2, m) = p
+        #(u1, u2, u3, w1, w2, w3, c1, c2, e1, e2, m) = p
 
+        """
         u_alpha_r = c1 / m
         u_alpha_l = c2 / m
         w_alpha_r = e1 * c1
         w_alpha_l = e2 * c2
+        """
 
         #w_alpha_r = (L1/Iz) * c1
         #w_alpha_l = (L2/Iz) * c2
 
-        u2 = u3 = w2 = w3 = 0
+
 
         # Nonlinear Dynamics - autonomous response
         f_dynamic = np.array([
