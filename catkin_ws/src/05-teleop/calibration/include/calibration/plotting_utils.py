@@ -199,7 +199,7 @@ def single_plot_generic(x=None, y=None, plot_title=None):
     return data
 
 
-def simple_plot(x_val, y_val, plot_name="", save_dir=""):
+def simple_plot(x_val, y_val, plot_name="", save_dir="", x_axis_name="", y_axis_name=""):
     data = []
 
     if x_val is None:
@@ -211,7 +211,36 @@ def simple_plot(x_val, y_val, plot_name="", save_dir=""):
         mode='markers'
     )
     data.extend([p1])
-    layout = dict(title=plot_name)
+    layout = dict(
+    title=go.layout.Title(
+        text=plot_name,
+        font=dict(
+            family='Courier New, monospace',
+            size=20,
+            color='#7f7f7f'
+        )
+    ),
+    xaxis=go.layout.XAxis(
+        title=go.layout.xaxis.Title(
+            text=x_axis_name,
+            font=dict(
+                family='Courier New, monospace',
+                size=18,
+                color='#7f7f7f'
+            )
+        )
+    ),
+    yaxis=go.layout.YAxis(
+        title=go.layout.yaxis.Title(
+            text=y_axis_name,
+            font=dict(
+                family='Courier New, monospace',
+                size=18,
+                color='#7f7f7f'
+            )
+        )
+    )
+    )
     fig = dict(data=data, layout=layout)
     save_plot = get_param_from_config_file("save_experiment_results")
     if save_plot:

@@ -4,9 +4,10 @@ import numpy as np
 import rospy
 from calibration.data_adapter_utils import *
 from calibration.utils import reshape_x, get_param_from_config_file
+from scipy.optimize import fsolve
+import time
 
 used_model = get_param_from_config_file("model")
-
 
 class BaseModelClass(object):
     __metaclass__ = ABCMeta
@@ -123,6 +124,209 @@ class KinematicDrive(BaseModelClass):
             x_sim = a.copy()
             x0 = sol
         return x_sim
+
+
+class InputDependentKinematicDrive(BaseModelClass):
+
+    def __init__(self, interval_count=1):
+        self.name = "input_dependent_kinematic_drive"
+        rospy.loginfo("\nusing model type: [{}]".format(self.name))
+
+        # Note that we assume that the vehicle is moving forward, hence d in [0,1].
+        self.interval_count = interval_count
+        self.intervals = np.linspace(0, 1, self.interval_count + 1) # for interval_count = 1 returns array([0., 1.])
+        self.param_ordered_list = self.generate_param_ordered_list()
+        self.model_params = self.generate_model_params(self.param_ordered_list)
+
+        # keep count of the actuated intervals, i.e. where drive constants are optimized and non-default
+        self.right_wheel_active_intervals = []
+        self.left_wheel_active_intervals = []
+
+    def model(self, t, x, u, p):
+        # input commands + model params
+        (cmd_right, cmd_left) = u
+
+        # extract the correct parameters (dr, dl) depending on the input
+        dr, dl, L = self.input_dependent_parameter_selector(u,p)
+
+        # kinetic states through actuation
+        vx = (dr * cmd_right + dl * cmd_left)  # m/s
+        omega = (dr * cmd_right - dl * cmd_left) / L  # rad/s
+
+        # position states in relation to kinetic states
+        rho_dot = vx  # m/s
+        theta_dot = omega  # rad/s
+
+        return [rho_dot, theta_dot]
+
+    def simulate(self, t, x, u, p):
+        """
+        Note that this function performs N step ahead propagation of the initial state
+        for in one step ahead manner
+        Args:
+            model_object: a model object as defined by model library.
+            t (list) : time array for which the predictions will be made.
+            x (list) : measured states; x, y, yaw
+            u (numpy.ndarray): 2*n array, whose first row is wheel_right_exec, and second row is wheel_left_exec. n is the number of time-steps.
+            p (list): model parameters.
+        Returns:
+            x_sim (numpy.ndarray): 3*n array, containing history of state evolution.
+        """
+        
+        x0 = x[:, 0]
+        x_sim = reshape_x(x0)
+
+        for i in range(len(t) - 1):
+            # prediction will be made in between two consecutive time steps, note that this does not require fixed time step.
+            t_cur, t_next = t[i:i + 2]
+            x0 = x[:, i]
+            # one-step-ahead prediction
+            sol = forward_euler_vel_to_pos(self.model, (t_next - t_cur), x0, u[:, i], p)
+            a = np.hstack([x_sim, reshape_x(sol)])
+            x_sim = a.copy()
+        return x_sim
+
+    def simulate_horizan(self, t, x0, u, p):
+        """
+        Note that this function performs N step ahead propagation of the initial state
+        for given input sequence u.
+        Args:
+            model_object: a model object as defined by model library.
+            t (list) : time array for which the predictions will be made.
+            x0 (list) : initial values of the states; x, y, yaw
+            u (numpy.ndarray): 2*n array, whose first row is wheel_right_exec, and second row is wheel_left_exec. n is the number of time-steps.
+            p (list): model parameters.
+        Returns:
+            x_sim (numpy.ndarray): 3*n array, containing history of state evolution.
+        """
+        x_sim = reshape_x(x0)
+        for i in range(len(t) - 1):
+            t_cur, t_next = t[
+                            i:i + 2]  # prediction will be made in between two consecutive time steps, note that this does not require fixed time step.
+            sol = forward_euler_vel_to_pos(self.model, (t_next - t_cur), x0, u[:, i], p)
+            a = np.hstack([x_sim, reshape_x(sol)])
+            x_sim = a.copy()
+            x0 = sol
+        return x_sim
+
+    def generate_param_ordered_list(self):
+        param_ordered_list = []
+        for i in range(len(self.intervals)-1):
+            param_ordered_list.extend(["dr_" + str(i), "dl_" + str(i)])
+        param_ordered_list.append("L")
+        return param_ordered_list
+
+    def generate_model_params(self, param_ordered_list):
+        model_params = {}
+        for i in np.arange(len(param_ordered_list)-1):
+            model_params[param_ordered_list[i]] = {'param_init_guess': 0.0, 'param_bounds': (None, None)}
+        model_params["L"] = {'param_init_guess': 0.055, 'param_bounds': (0.05, 0.06)}
+        return model_params
+
+    def input_dependent_parameter_selector(self, u, p):
+        (cmd_right, cmd_left) = u
+
+        # right drive constant
+        bin_id_right = np.searchsorted(self.intervals, cmd_right)
+        index_right = 2 * (bin_id_right-1)
+        param_right_name = self.param_ordered_list[index_right]
+        param_right_val = p[index_right]
+
+        if bin_id_right not in self.right_wheel_active_intervals:
+            self.right_wheel_active_intervals.append(bin_id_right)
+            
+        # left drive constant
+        bin_id_left = np.searchsorted(self.intervals, cmd_left)
+        index_left = 2 * (bin_id_right-1) + 1
+        param_left_name = self.param_ordered_list[index_left]
+        param_left_val = p[index_left]
+
+        if bin_id_left not in self.left_wheel_active_intervals:
+            self.left_wheel_active_intervals.append(bin_id_left)
+
+        #print("intervals: {}".format(self.intervals))
+        #print(self.model_params)
+        #print("intervals: {}".format(self.intervals))
+        #print("p: {}".format(p))
+        #print("param_ordered_list: {}".format(self.param_ordered_list))
+
+        #print("cmd_right: {} \t index_right: {} ".format(cmd_right, index_right))
+        #print("Param Right Name: {} \t Param Right Value: {} ".format(param_right_name, param_right_val))
+        #print("cmd_left: {} \t index_left: {} ".format(cmd_left, index_left))
+        #print("Param Left Name: {} \t Param Left Value: {} ".format(param_left_name, param_left_val))
+
+        return param_right_val, param_left_val, p[-1]
+
+    def linear_fit_to_drive_constants(self,p):
+        #rospy.logwarn("right wheels active interval: {}".format(self.right_wheel_active_intervals))
+        #rospy.logwarn("left wheels active interval: {}".format(self.left_wheel_active_intervals))
+
+        # sort the indexes
+        right_act_ind = sorted(self.right_wheel_active_intervals)
+        left_act_ind  = sorted(self.left_wheel_active_intervals)
+
+        # note: drive constant around 1st interval (d el [0, 1/interval_count] may be problematic, as the vehicle is
+        # at the most distant location hence the localiation quality is the worst, In addition transients are observed
+        # when the vehicle start to motion. Usually discarding some data points at the beginning does improve the behaviour.
+
+        #rospy.logwarn("right wheels active interval sort: {}".format(right_act_ind))
+        #rospy.logwarn("left wheels active interval sort: {}".format(left_act_ind))
+
+        right_act_val = [p[2*(i-1)] for i in right_act_ind]
+        left_act_val = [p[2*(i-1)+1] for i in left_act_ind]
+
+        #right_drive_constants = [self.model_params["dr_" + str(interval_id)] for interval_id in self.right_wheel_active_intervals]
+        #left_drive_constants = [self.model_params["dl_" + str(interval_id)] for interval_id in self.left_wheel_active_intervals]
+        #rospy.logwarn("right_drive_constants: {}".format(right_act_val))
+        #rospy.logwarn("left_drive_constants: {}".format(left_act_val))
+
+        interval_step = 1.0 / self.interval_count
+        x_right = np.array(right_act_ind) * interval_step
+        x_left = np.array(left_act_ind) * interval_step
+
+        # fitting a line
+        self.right_fit = np.polyfit(x_right, right_act_val, deg=1)
+        self.left_fit = np.polyfit(x_left, left_act_val, deg=1)
+
+        self.right_motor_model = np.poly1d(self.right_fit)
+        self.left_motor_model = np.poly1d(self.left_fit)
+
+        return self.right_motor_model, self.left_motor_model
+
+    def generate_inverse_model(self, L):
+        """ requires linear_fit_to_drive_constants to be called first """
+        rospy.logwarn("right: {}".format(self.right_fit))
+        rospy.logwarn("left: {}".format(self.left_fit))
+        right_quad = list(self.right_fit)
+        left_quad = list(self.left_fit)
+
+        # multiply the input [V_r, V_l] with kinematics: change linear V -> velocity map to quadratic
+        right_quad.append(0)
+        left_quad.append(0)
+
+        # generate velocities produced/predicted by the model
+        self.v_a_r = np.poly1d(np.array(right_quad))
+        self.v_a_l = np.poly1d(np.array(left_quad))
+        self.w_a_r = np.poly1d(np.array(right_quad) / L)
+        self.w_a_l = np.poly1d(- np.array(left_quad) / L)
+
+
+    def inverse_model(self, v_ref = None, w_ref= None, V_r_init = None, V_l_init = None):
+        input0 = np.array([V_r_init, V_l_init])
+        start_time = time.time()
+        sol = fsolve(self.inv_model, input0, args=(v_ref, w_ref))
+        rospy.logwarn("solution found: {} in {} seconds".format(sol, time.time() - start_time))
+
+    def inv_model(self, input, v_ref, w_ref):
+        v_r = input[0]
+        v_l = input[1]
+
+        f = np.zeros(2)
+
+        f[0] = v_ref - (self.v_a_r(v_r) + self.v_a_l(v_l))
+        f[1] = w_ref - (self.w_a_r(v_r) + self.w_a_l(v_l))
+        return f
+
 
 
 class DynamicDrive(BaseModelClass):
@@ -262,13 +466,16 @@ class DynamicDrive(BaseModelClass):
 
 # Motivation for introducing this fn:
 #  1) simplify the import procedure in the main script by avoiding the need to explicitly import certain model
-def model_generator(model_name=None):
+def model_generator(model_name=None, **kwargs):
     if model_name == None:
         rospy.logwarn('[model_library] model is not initialized'.format(model_name))
     elif model_name == 'kinematic_drive':
         return KinematicDrive()
     elif model_name == 'dynamic_drive':
         return DynamicDrive()
+    elif model_name == "input_dependent_kinematic_drive":
+        interval_count = get_param_from_config_file("interval_count")
+        return InputDependentKinematicDrive(interval_count=interval_count)
     else:
         rospy.logwarn('[model_library] model name {} is not valid!'.format(model_name))
 
@@ -295,25 +502,15 @@ def forward_euler_vel_to_pos(model, dt, x_cur, u_cur, p_cur):
 
 
 if __name__ == '__main__':
-    from plotting_utils import multiplot
-    from calibration.utils import work_space_settings
-
-    work_space_settings()
-    # Testing model and simulate functions
-    dd = model_generator('dynamic_drive', 'polar')
-
-    t_beg = 0
-    t_end = 4
-    t_step = 1
-
-    t = np.arange(t_beg, t_end, t_step)
-
-    x_dot = np.array([[0, 1, 1, 1], [0, 0, 0, 1]])
-    u = np.vstack([np.ones(np.size(t)) * 1.0, np.ones(np.size(t)) * 1.0])
-    p = [0.5, 0, 0, 0.5, 0, 0, 1, 1, 1, 1]
-
-    x_sim = dd.simulate(t, x_dot, u, p)
-
-    multiplot(states_list=[x_sim], time_list=[t], experiment_name_list=["simulation"], plot_title='dynamics',
-              save=False)
+    """
+    t = 0
+    x = 0
+    u_r = 1
+    u_l = 1
+    u = (u_r, u_l)
+    p = [1, 1, 1, 1, 1, 1, 1, 1, 0.5]
+    ikd = InputDependentKinematicDrive(interval_count=4)
+    ikd.model(t,x,u,p)
+    """
+    InputDependentKinematicDrive()
     print("selcuk")

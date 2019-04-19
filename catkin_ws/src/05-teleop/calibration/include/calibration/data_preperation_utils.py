@@ -282,8 +282,10 @@ class DataPreparation():
     def get_robot_pose_apriltag(self, input_bag, topic_name):
         at_detections = self.get_apriltag_detections(input_bag, topic_name)
         if self.multitag_pose_estimation == False:
-            # This case corresponds to offline calibration, distributed AprilTag ID:0.
-            return at_detections[0].pose
+
+            # load the id of a single tag; used in offline calibration, distributed AprilTag ID:0.
+            single_apriltag_id = get_param_from_config_file("single_apriltag_id")
+            return at_detections[single_apriltag_id].pose
         else:
             raise NotImplementedError
 
