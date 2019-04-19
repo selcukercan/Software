@@ -264,17 +264,30 @@ class DynamicDrive(BaseModelClass):
     def __init__(self):
         self.name = "dynamic_drive"
 
+        """
+        self.param_ordered_list = ['u1', 'u2', 'u3', 'w1', 'w2', 'w3', 'alpha_r', 'alpha_l']
+        self.model_params = {'u1': {'param_init_guess': 1, 'param_bounds': (0, None), 'search': (None, None)},
+                             'u2': {'param_init_guess': 0, 'param_bounds': (None, None), 'search': (None, None)},
+                             'u3': {'param_init_guess': 0, 'param_bounds': (-0.05, 0.05), 'search': (None, None)},
+                             'w1': {'param_init_guess': 1, 'param_bounds': (0, None), 'search': (None, None)},
+                             'w2': {'param_init_guess': 0, 'param_bounds': (None, None), 'search': (None, None)},
+                             'w3': {'param_init_guess': 0, 'param_bounds': (None, None), 'search': (None, None)},
+                             'alpha_r': {'param_init_guess': 1, 'param_bounds': (0, None), 'search': (None, None)},
+                             'alpha_l': {'param_init_guess': 1, 'param_bounds': (0, None), 'search': (None, None)}}
+        """
         self.param_ordered_list = ['u1', 'u2', 'u3', 'w1', 'w2', 'w3', 'u_alpha_r', 'u_alpha_l', 'w_alpha_r', 'w_alpha_l']
         self.model_params = {'u1': {'param_init_guess': 1, 'param_bounds': (0, None), 'search': (None, None)},
-                             'u2': {'param_init_guess': 1, 'param_bounds': (None, None), 'search': (None, None)},
-                             'u3': {'param_init_guess': 1, 'param_bounds': (None, None), 'search': (None, None)},
+                             'u2': {'param_init_guess': 0, 'param_bounds': (None, None), 'search': (None, None)},
+                             'u3': {'param_init_guess': 0, 'param_bounds': (-0.05, 0.05), 'search': (None, None)},
                              'w1': {'param_init_guess': 1, 'param_bounds': (0, None), 'search': (None, None)},
-                             'w2': {'param_init_guess': 1, 'param_bounds': (None, None), 'search': (None, None)},
-                             'w3': {'param_init_guess': 1, 'param_bounds': (-0.10, 0.03), 'search': (None, None)},
-                             'u_alpha_r': {'param_init_guess': 1, 'param_bounds': (None, None), 'search': (None, None)},
-                             'u_alpha_l': {'param_init_guess': 1, 'param_bounds': (None, None), 'search': (None, None)},
-                             'w_alpha_r': {'param_init_guess': 1, 'param_bounds': (None, None), 'search': (None, None)},
-                             'w_alpha_l': {'param_init_guess': 1, 'param_bounds': (None, None), 'search': (None, None)}}
+                             'w2': {'param_init_guess': 0, 'param_bounds': (None, None), 'search': (None, None)},
+                             'w3': {'param_init_guess': 0, 'param_bounds': (None, None), 'search': (None, None)},
+                             'u_alpha_r': {'param_init_guess': 1, 'param_bounds': (0, None), 'search': (None, None)},
+                             'u_alpha_l': {'param_init_guess': 1, 'param_bounds': (0, None), 'search': (None, None)},
+                             'w_alpha_r': {'param_init_guess': 1, 'param_bounds': (0, None), 'search': (None, None)},
+                             'w_alpha_l': {'param_init_guess': 1, 'param_bounds': (0, None), 'search': (None, None)}}
+
+
         """
         #self.param_ordered_list = ['u1', 'w1', 'c1', 'c2', 'L1', 'L2', 'm', 'Iz']
         self.param_ordered_list = ['u1', 'u2', 'u3', 'w1', 'w2', 'w3', 'c1', 'c2', 'e1', 'e2', 'm']
@@ -298,10 +311,13 @@ class DynamicDrive(BaseModelClass):
     def model(self, t, x_dot, U, p):
         V = col(np.array(U))  # input array
         (u, w) = x_dot
+        #(u1, u2, u3, w1, w2, w3, alpha_r, alpha_l) = p
         (u1, u2, u3, w1, w2, w3, u_alpha_r, u_alpha_l, w_alpha_r, w_alpha_l) = p
         #(u1, w1, u_alpha_r, u_alpha_l, w_alpha_r, w_alpha_l) = p
         #(u1, w1, c1, c2, L1, L2, m, Iz) = p
         #(u1, u2, u3, w1, w2, w3, c1, c2, e1, e2, m) = p
+        #u_alpha_r = w_alpha_r = alpha_r
+        #u_alpha_l = w_alpha_l = alpha_l
 
         """
         u_alpha_r = c1 / m
@@ -316,11 +332,17 @@ class DynamicDrive(BaseModelClass):
 
 
         # Nonlinear Dynamics - autonomous response
-        f_dynamic = np.array([
-            [-u1 * u - u2 * w + u3 * w ** 2],
-            [-w1 * w - w2 * u - w3 * u * w]
-        ])
 
+        f_dynamic = np.array([
+            [-u1 * u - u2 * w - u3 * w ** 2],
+            [-w1 * w - w2 * u + w3 * u * w]
+        ])
+        """
+        f_dynamic = np.array([
+            [-u1 * u - u2 * w],
+            [-w1 * w - w2 * u]
+        ])
+        """
         # Input Matrix
         B = np.array([
             [u_alpha_r, u_alpha_l],

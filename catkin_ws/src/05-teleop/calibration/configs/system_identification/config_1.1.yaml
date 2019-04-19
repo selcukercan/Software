@@ -13,18 +13,19 @@ cost_function_type: AsRMSE # see include/calibration/cost_function_library.py fo
 
 # Data preperation - see include/calibration/data_preperation_utils.py (smooth function) for more details.
 filter_type: hanning
-filter_length: 11
-discard_first_n_data: 20
+filter_length: 13
+discard_first_n_data: 10
 discard_last_n_data: 5
+down_sample_rate: 3
 
 # Velocity estimation from position data
-spline_type: lsq_spline # lsq_spline or b_spline
-spline_smoothing_factor: 10
+spline_type: lsq_spline # lsq_spline or spline
+spline_smoothing_factor: 1
 lsq_spline_order: 3
-lsq_spline_knot_every: 20
-lsq_discard_n_at_boundary: 1
+lsq_spline_knot_every: 3
+lsq_discard_n_at_boundary: 5
 densification_factor: 3
-discard_n_after_spline_fitting: 5
+discard_n_after_spline_fitting: 1
 
 # Model assessment logic - see include/calibration/model_assessment.py for more details.
 assessment_rule: nsap_threshold
