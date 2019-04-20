@@ -198,7 +198,7 @@ class LaneFilterNode(object):
         return #TODO adjust self.active
 
     def updateVelocity(self,twist_msg):
-        rospy.logwarn("\n\n\n\n EVER HERE ?\n\n\n\n")
+        rospy.logwarn("in updateVelocity")
         self.velocity = twist_msg
 
     def onShutdown(self):

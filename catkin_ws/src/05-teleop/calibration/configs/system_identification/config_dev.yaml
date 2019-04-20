@@ -1,6 +1,6 @@
 # General
 config_file_version: 1.1
-vehicle_name: mete # only necessary while debugging through an IDE
+vehicle_name: autobot02 # only necessary while debugging through an IDE
 debug: True # needs to be set True while debugging through an IDE
 save_experiment_results: True # save the plots under the results folder
 save_to_pickle: False
@@ -11,13 +11,13 @@ multitag_pose_estimation: False # not yet implemented
 single_apriltag_id: 1
 
 # Optimization
-model: input_dependent_kinematic_drive
+model: kinematic_drive
 cost_function_type: AsRMSE # see include/calibration/cost_function_library.py for available options
 
 # Data preperation - see include/calibration/data_preperation_utils.py (smooth function) for more details.
-filter_type: flat
+filter_type: hanning
 filter_length: 11
-discard_first_n_data: 20
+discard_first_n_data: 10
 discard_last_n_data: 5
 
 # Model-Spesific Parameters
