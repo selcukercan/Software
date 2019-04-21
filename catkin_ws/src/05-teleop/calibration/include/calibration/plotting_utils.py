@@ -200,6 +200,7 @@ def single_plot_generic(x=None, y=None, plot_title=None):
 
 
 def simple_plot(x_val, y_val, plot_name="", save_dir="", x_axis_name="", y_axis_name=""):
+    import plotly.plotly
     data = []
 
     if x_val is None:

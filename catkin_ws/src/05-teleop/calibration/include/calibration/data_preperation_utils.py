@@ -239,6 +239,7 @@ class DataPreparation():
 
         if localization_type == 'apriltag':
             robot_pose = self.get_robot_pose_apriltag(input_bag, top_robot_pose)
+            self.plot_city_trajectory(robot_pose)
         elif localization_type == 'lane_filter':
             robot_pose = self.get_robot_pose_lane_filter(input_bag, top_robot_pose)
         else:
@@ -279,15 +280,177 @@ class DataPreparation():
                 at_obj.add('timestamp', t.to_sec())
         return known_at
 
-    def get_robot_pose_apriltag(self, input_bag, topic_name):
-        at_detections = self.get_apriltag_detections(input_bag, topic_name)
-        if self.multitag_pose_estimation == False:
+    def get_apriltag_detections_time(self, input_bag, topic_name):
+        time_at = []
+        # Loop over the image files contained in rosbag
+        for topic, msg, t in rosbag.Bag(input_bag).read_messages(topics=topic_name):
+            tags_in_scene_i = {}
+            for at in msg.local_pose_list:
+                if at.id not in tags_in_scene_i.keys():
+                    at_obj = AprilTagDetection(at.id, at.size)
+                    tags_in_scene_i[at.id] = at_obj
+                at_obj = tags_in_scene_i[at.id]
+                at_obj.add('px', at.posx)
+                at_obj.add('py', at.posy)
+                at_obj.add('pz', at.posz)
+                at_obj.add('rx', at.rotx)
+                at_obj.add('ry', at.roty)
+                at_obj.add('rz', at.rotz)
+                at_obj.add('timestamp', t.to_sec())
+            time_at.append(tags_in_scene_i)
+        return time_at
 
+    def get_robot_pose_apriltag(self, input_bag, topic_name):
+        if self.multitag_pose_estimation == False:
+            at_detections = self.get_apriltag_detections(input_bag, topic_name)
+            self.plot_city_trajectory(at_detections)
             # load the id of a single tag; used in offline calibration, distributed AprilTag ID:0.
             single_apriltag_id = get_param_from_config_file("single_apriltag_id")
             return at_detections[single_apriltag_id].pose
         else:
-            raise NotImplementedError
+            at_time = self.get_apriltag_detections_time(input_bag, topic_name)
+            x_trajectory = self.multitag_localization(at_time)
+            self.plot_city_trajectory(x_trajectory)
+            print('selcuk')
+
+    def plot_city_trajectory(self, trajectory):
+        import plotly.graph_objs as go
+        #import plotly.plotly as py
+        import plotly.offline as opy
+
+        opy.init_notebook_mode(connected=True)
+
+        #import plotly
+        #plotly.tools.set_credentials_file(username='selcukercan', api_key='uiHkN3x2e7AfTnF8YwHk')
+
+        map = True
+        angle = False
+        sine = False
+
+        if sine:
+            data = []
+
+            p1 = go.Scatter(
+                x=trajectory[1].pose['px'],
+                y=trajectory[1].pose['py'],
+                mode='markers')
+
+            data.extend([p1])
+
+            fig = dict(data=data)
+            #py.plot(fig)
+            opy.plot(fig)
+
+        if map:
+            data = []
+
+            x = [p[0] for p in trajectory]
+            y = [p[1] for p in trajectory]
+            theta = [p[2] for p in trajectory]
+
+            p1 = go.Scatter(
+                x=x,
+                y=y,
+                mode='markers')
+
+            data.extend([p1])
+
+            fig = dict(data=data)
+            #py.plot(fig)
+            opy.plot(fig)
+
+        if angle:
+            data = []
+            theta = [p[2] for p in trajectory]
+
+            p1 = go.Scatter(
+                x=len(theta),
+                y=np.array(theta))
+
+            data.extend([p1])
+
+            fig = dict(data=data)
+            # py.plot(fig)
+            opy.plot(fig)
+
+
+    def multitag_localization(self, at_detections):
+        x_prev = np.array([0.0, 0.0, 0.0])
+        x_trajectory = []
+        x_trajectory.append(x_prev)
+
+        # apriltags at the first scene
+        local_pose_prev = at_detections[0]
+
+        for i in np.arange(1, len(at_detections)):
+            local_pose_cur= at_detections[i]
+
+            delta_x = self.calculate_progress(local_pose_prev, local_pose_cur)
+            x_cur = self.generate_current_position(x_prev, delta_x)
+            x_trajectory.append(x_cur)
+
+            x_prev = x_cur
+            local_pose_prev = local_pose_cur
+            print(i)
+        return x_trajectory
+
+
+    def generate_current_position(self, x_prev, delta_polar):
+        '''
+        current_theta = x_prev[2] + delta_polar[1]
+        current_x = x_prev[0] + delta_polar[0] * np.cos(current_theta)
+        current_y = x_prev[1] + delta_polar[0] * np.sin(current_theta)
+        '''
+        current_x = x_prev[0] + delta_polar[0]
+        current_y = x_prev[1] + delta_polar[1]
+        current_theta = x_prev[2] + delta_polar[2]
+
+        return np.array([current_x, current_y, current_theta])
+
+    def calculate_progress(self, local_pose_prev, local_pose_cur):
+        '''
+        rho_votes = []
+        theta_votes = []
+
+        for at_i in local_pose_cur.keys():
+            if at_i in local_pose_prev.keys():
+                delta_x = local_pose_prev[at_i].pose['px'][0] - local_pose_cur[at_i].pose['px'][0]
+                delta_y = local_pose_prev[at_i].pose['py'][0] - local_pose_cur[at_i].pose['py'][0]
+                delta_rho = np.sqrt(np.power(delta_x, 2) +  np.power(delta_y, 2))
+                delta_theta = local_pose_prev[at_i].pose['rz'][0] - local_pose_cur[at_i].pose['rz'][0]
+                rho_votes.append(delta_rho)
+                theta_votes.append(delta_theta)
+        if len(rho_votes) != 0:
+            rho_avg = np.mean(np.array(rho_votes))
+            theta_avg = np.mean(np.array(theta_votes))
+        else:
+            rho_avg = theta_avg = 0
+            rospy.logwarn('NO MATCHING AT IN TWO CONSECUTIVE FRAMES: cannot estimate assuming zero')
+        return np.array([rho_avg, theta_avg])
+        '''
+        x_votes = []
+        y_votes = []
+        theta_votes = []
+
+        for at_i in local_pose_cur.keys():
+            if at_i in local_pose_prev.keys():
+                delta_x = local_pose_prev[at_i].pose['px'][0] - local_pose_cur[at_i].pose['px'][0]
+                delta_y = local_pose_prev[at_i].pose['py'][0] - local_pose_cur[at_i].pose['py'][0]
+                delta_theta = local_pose_prev[at_i].pose['rz'][0] - local_pose_cur[at_i].pose['rz'][0]
+
+                x_votes.append(delta_x)
+                y_votes.append(delta_y)
+                theta_votes.append(delta_theta)
+
+        if len(x_votes) != 0:
+            x_avg = np.mean(np.array(x_votes))
+            y_avg = np.mean(np.array(y_votes))
+            theta_avg = np.mean(np.array(theta_votes))
+
+        else:
+            x_avg = y_avg = theta_avg = 0
+            rospy.logwarn('NO MATCHING AT IN TWO CONSECUTIVE FRAMES: cannot estimate assuming zero')
+        return np.array([x_avg, y_avg, theta_avg])
 
     def get_robot_pose_lane_filter(self, input_bag, topic_name):
         pose = {'d': [], 'phi': [], 'timestamp': []}
