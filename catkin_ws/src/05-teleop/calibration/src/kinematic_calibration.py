@@ -18,7 +18,7 @@ from calibration.model_library import model_generator
 from calibration.plotting_utils import *
 from calibration.utils import work_space_settings, get_workspace_param, \
     defined_ros_param, input_folder_to_experiment_dict, get_file_path, defaulted_param_load, \
-    pack_results, get_hostname, get_cpu_info
+    pack_results, get_hostname, get_cpu_info, get_valid_drive_constants
 from calibration.model_assessment import assesment_rule
 from scipy.optimize import minimize
 # duckietown imports
@@ -127,23 +127,27 @@ class calib():
                                         plot_name='Cost Function',
                                         save_dir=get_workspace_param("results_optimization_dir"))
 
-        if self.model_type == "input_dependent_kinematic_drive":
-            right_1Dpoly, left_1Dpoly = model_object.linear_fit_to_drive_constants(popt)
-            model_object.generate_inverse_model(popt[-1])
-            model_object.inverse_model(v_ref = 0.4, w_ref= 0 , V_r_init = 0.1, V_l_init = 0.1)
-
-            x_range = np.linspace(0.1, 0.5, 20)
-            simple_plot(x_range, right_1Dpoly(x_range),
-                        plot_name="Fitting to the Right Drive Constant",
-                        x_axis_name="Velocity Bin [m/s]", y_axis_name="Drive Constant",
-                        save_dir=self.results_dir)
-            simple_plot(x_range, right_1Dpoly(x_range),
-                        plot_name="Fitting to the Right Drive Constant",
-                        x_axis_name="Velocity Bin [m/s]", y_axis_name="Drive Constant",
-                        save_dir=self.results_dir)
-
         # write to the kinematic calibration file
         self.output_yaml_file = self.write_calibration(model_object, popt)
+
+        if self.model_type == "input_dependent_kinematic_drive":
+            duty_cycle_right, drive_constant_right, duty_cycle_left, drive_constant_left, L = \
+                self.get_valid_drive_constants(self.robot_name, model_object)
+
+            right_1Dpoly, left_1Dpoly = model_object.linear_interp_drive_constants(duty_cycle_right, drive_constant_right, duty_cycle_left, drive_constant_left)
+
+            x_range = np.linspace(0, 1, 20)
+            simple_plot(x_range, right_1Dpoly(x_range),
+                        plot_name="Fitting to the Right Drive Constant",
+                        x_axis_name="Velocity Bin [m/s]", y_axis_name="Drive Constant",
+                        save_dir=self.results_dir)
+            simple_plot(x_range, left_1Dpoly(x_range),
+                        plot_name="Fitting to the Left Drive Constant",
+                        x_axis_name="Velocity Bin [m/s]", y_axis_name="Drive Constant",
+                        save_dir=self.results_dir)
+
+            model_object.inverse_model(v_ref = 0.6, w_ref= 0.0 , V_r_init = 0.5, V_l_init = 0.5, semi_wheel_distance=L)
+
 
     # Data Operations
     def load_dataset(self, dataset_name, path_to_dataset, localization_type=None):
@@ -192,6 +196,7 @@ class calib():
         """
         calculates stage cost
         """
+        obj_cost = 0
         for exp_name in experiments.keys():
             exp_data = experiments[exp_name].data
             t = exp_data['timestamp']
@@ -204,7 +209,7 @@ class calib():
                 x_dot = exp_data['robot_velocity']
                 x_sim = model_object.simulate(t, x, x_dot, u, p)  # states for a particular p set
 
-            obj_cost = calculate_cost(x, x_sim, self.train_metric)
+            obj_cost += calculate_cost(x, x_sim, self.train_metric)
 
         self.update_param_hist(model_object.param_ordered_list, p)
         self.cost_fn_val_list.append(obj_cost)

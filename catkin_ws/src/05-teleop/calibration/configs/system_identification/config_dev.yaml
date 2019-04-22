@@ -11,7 +11,7 @@ multitag_pose_estimation: False # not yet implemented
 single_apriltag_id: 1
 
 # Optimization
-model: kinematic_drive
+model: input_dependent_kinematic_drive
 cost_function_type: AsRMSE # see include/calibration/cost_function_library.py for available options
 
 # Data preperation - see include/calibration/data_preperation_utils.py (smooth function) for more details.

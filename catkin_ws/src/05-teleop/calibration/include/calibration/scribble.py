@@ -2,12 +2,14 @@ import plotly.graph_objs as go
 import plotly.plotly as py
 import plotly
 import numpy as np
+from scipy.interpolate import interp1d
 plotly.tools.set_credentials_file(username='selcukercan', api_key='uiHkN3x2e7AfTnF8YwHk')
 
 
 plot_first = False
-plot_second = True
-plot_third = True
+plot_second = False
+plot_third = False
+plot_fourth = True
 
 data = []
 # autobot 2
@@ -126,6 +128,53 @@ if plot_third:
     layout3 = dict(
         title=go.layout.Title(
             text="Drive constant vs Rotational Velocity",
+            font=dict(
+                family='Courier New, monospace',
+                size=20,
+                color='#7f7f7f'
+            )
+        ),
+        xaxis=go.layout.XAxis(
+            title=go.layout.xaxis.Title(
+                text="Duty Cycle",
+                font=dict(
+                    family='Courier New, monospace',
+                    size=18,
+                    color='#7f7f7f'
+                )
+            )
+        ),
+        yaxis=go.layout.YAxis(
+            title=go.layout.yaxis.Title(
+                text="Omega [rad/s]",
+                font=dict(
+                    family='Courier New, monospace',
+                    size=18,
+                    color='#7f7f7f'
+                )
+            )
+        )
+    )
+    fig3 = dict(data=data3, layout=layout3)
+    py.plot(fig3)
+
+x_test = x = xnew = np.linspace(0.1, 1, num=41, endpoint=True)
+f_r = interp1d(d, dr, kind='cubic')
+
+if plot_fourth:
+    # Drive constant vs Velocity
+    data3 = []
+
+    p4 = go.Scatter(
+            x=x_test,
+            y=f_r(x_test),
+            mode='markers')
+
+    data3.extend([p4])
+
+    layout3 = dict(
+        title=go.layout.Title(
+            text="Fitting to Drive Constant Variation",
             font=dict(
                 family='Courier New, monospace',
                 size=20,

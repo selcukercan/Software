@@ -22,6 +22,26 @@ options = {
 
 config={}
 
+
+def get_valid_drive_constants(veh_name, model_object):
+    param_dict = read_param_from_file(veh_name, model_object)
+    duty_cycle_right = []
+    drive_constant_right = []
+    duty_cycle_left = []
+    drive_constant_left = []
+
+    for active_right_i in model_object.right_wheel_active_intervals:
+        duty_cycle_right.append(model_object.intervals[active_right_i])
+        drive_constant_right.append(param_dict['dr_' + str(active_right_i)])
+
+    for active_left_i in model_object.left_wheel_active_intervals:
+        duty_cycle_left.append(model_object.intervals[active_left_i])
+        drive_constant_left.append(param_dict['dl_' + str(active_left_i)])
+
+    L = param_dict["L"]
+    return duty_cycle_right, drive_constant_right, duty_cycle_left, drive_constant_left, L
+
+
 def update_local_config_dict():
     global config
     config = yaml_load_file(get_workspace_param("path_to_config_file"), plain_yaml=True)

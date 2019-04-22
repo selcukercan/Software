@@ -5,6 +5,7 @@ import rospy
 from calibration.data_adapter_utils import *
 from calibration.utils import reshape_x, get_param_from_config_file
 from scipy.optimize import fsolve
+from scipy.interpolate import interp1d
 import time
 
 used_model = get_param_from_config_file("model")
@@ -57,7 +58,7 @@ class KinematicDrive(BaseModelClass):
                                    'L']  # it is used to enforce an order (to avoid possible confusions) while importing params from YAML as bounds are imported from model always.
         self.model_params = {'dr': {'param_init_guess': 0.85, 'param_bounds': (None, None), 'search': (2.0, 0.4)},
                              'dl': {'param_init_guess': 0.85, 'param_bounds': (None, None), 'search': (2.0, 0.4)},
-                             'L': {'param_init_guess': 0.055, 'param_bounds': (0.05, 0.06), 'search': (0.050, 0.010)}}
+                             'L': {'param_init_guess': 0.0522, 'param_bounds': (0.05, 0.06), 'search': (0.050, 0.010)}}
         # "search" is used for for brute-force cost function value evaluatiom: (magnitude of variation in both directions, decimation)
         rospy.loginfo("\nusing model type: [{}]".format(self.name))
 
@@ -65,7 +66,7 @@ class KinematicDrive(BaseModelClass):
         # input commands + model params
         (cmd_right, cmd_left) = u
         (dr, dl, L) = p
-
+        L = 0.0522
         # kinetic states through actuation
         vx = (dr * cmd_right + dl * cmd_left)  # m/s
         omega = (dr * cmd_right - dl * cmd_left) / L  # rad/s
@@ -212,14 +213,14 @@ class InputDependentKinematicDrive(BaseModelClass):
     def generate_param_ordered_list(self):
         param_ordered_list = []
         for i in range(len(self.intervals)-1):
-            param_ordered_list.extend(["dr_" + str(i), "dl_" + str(i)])
+            param_ordered_list.extend(["dr_" + str(i+1), "dl_" + str(i+1)])
         param_ordered_list.append("L")
         return param_ordered_list
 
     def generate_model_params(self, param_ordered_list):
         model_params = {}
         for i in np.arange(len(param_ordered_list)-1):
-            model_params[param_ordered_list[i]] = {'param_init_guess': 0.0, 'param_bounds': (None, None)}
+            model_params[param_ordered_list[i]] = {'param_init_guess': -0.000001, 'param_bounds': (None, None)}
         model_params["L"] = {'param_init_guess': 0.055, 'param_bounds': (0.05, 0.06)}
         return model_params
 
@@ -227,7 +228,7 @@ class InputDependentKinematicDrive(BaseModelClass):
         (cmd_right, cmd_left) = u
 
         # right drive constant
-        bin_id_right = np.searchsorted(self.intervals, cmd_right)
+        bin_id_right = np.searchsorted(self.intervals, cmd_right) - 1
         index_right = 2 * (bin_id_right-1)
         param_right_name = self.param_ordered_list[index_right]
         param_right_val = p[index_right]
@@ -236,7 +237,7 @@ class InputDependentKinematicDrive(BaseModelClass):
             self.right_wheel_active_intervals.append(bin_id_right)
             
         # left drive constant
-        bin_id_left = np.searchsorted(self.intervals, cmd_left)
+        bin_id_left = np.searchsorted(self.intervals, cmd_left) - 1
         index_left = 2 * (bin_id_right-1) + 1
         param_left_name = self.param_ordered_list[index_left]
         param_left_val = p[index_left]
@@ -257,77 +258,28 @@ class InputDependentKinematicDrive(BaseModelClass):
 
         return param_right_val, param_left_val, p[-1]
 
-    def linear_fit_to_drive_constants(self,p):
-        #rospy.logwarn("right wheels active interval: {}".format(self.right_wheel_active_intervals))
-        #rospy.logwarn("left wheels active interval: {}".format(self.left_wheel_active_intervals))
+    def linear_interp_drive_constants(self,duty_cycle_right, drive_constant_right, duty_cycle_left, drive_constant_left):
+        self.right_fit = interp1d(duty_cycle_right, drive_constant_right, fill_value='extrapolate')
+        self.left_fit = interp1d(duty_cycle_left, drive_constant_left, fill_value='extrapolate')
 
-        # sort the indexes
-        right_act_ind = sorted(self.right_wheel_active_intervals)
-        left_act_ind  = sorted(self.left_wheel_active_intervals)
-
-        # note: drive constant around 1st interval (d el [0, 1/interval_count] may be problematic, as the vehicle is
-        # at the most distant location hence the localiation quality is the worst, In addition transients are observed
-        # when the vehicle start to motion. Usually discarding some data points at the beginning does improve the behaviour.
-
-        #rospy.logwarn("right wheels active interval sort: {}".format(right_act_ind))
-        #rospy.logwarn("left wheels active interval sort: {}".format(left_act_ind))
-
-        right_act_val = [p[2*(i-1)] for i in right_act_ind]
-        left_act_val = [p[2*(i-1)+1] for i in left_act_ind]
-
-        #right_drive_constants = [self.model_params["dr_" + str(interval_id)] for interval_id in self.right_wheel_active_intervals]
-        #left_drive_constants = [self.model_params["dl_" + str(interval_id)] for interval_id in self.left_wheel_active_intervals]
-        #rospy.logwarn("right_drive_constants: {}".format(right_act_val))
-        #rospy.logwarn("left_drive_constants: {}".format(left_act_val))
-
-        interval_step = 1.0 / self.interval_count
-        x_right = np.array(right_act_ind) * interval_step
-        x_left = np.array(left_act_ind) * interval_step
-
-        # fitting a line
-        self.right_fit = np.polyfit(x_right, right_act_val, deg=1)
-        self.left_fit = np.polyfit(x_left, left_act_val, deg=1)
-
-        self.right_motor_model = np.poly1d(self.right_fit)
-        self.left_motor_model = np.poly1d(self.left_fit)
-
-        return self.right_motor_model, self.left_motor_model
-
-    def generate_inverse_model(self, L):
-        """ requires linear_fit_to_drive_constants to be called first """
-        rospy.logwarn("right: {}".format(self.right_fit))
-        rospy.logwarn("left: {}".format(self.left_fit))
-        right_quad = list(self.right_fit)
-        left_quad = list(self.left_fit)
-
-        # multiply the input [V_r, V_l] with kinematics: change linear V -> velocity map to quadratic
-        right_quad.append(0)
-        left_quad.append(0)
-
-        # generate velocities produced/predicted by the model
-        self.v_a_r = np.poly1d(np.array(right_quad))
-        self.v_a_l = np.poly1d(np.array(left_quad))
-        self.w_a_r = np.poly1d(np.array(right_quad) / L)
-        self.w_a_l = np.poly1d(- np.array(left_quad) / L)
+        return self.right_fit, self.left_fit
 
 
-    def inverse_model(self, v_ref = None, w_ref= None, V_r_init = None, V_l_init = None):
+    def inverse_model(self, v_ref = None, w_ref= None, V_r_init = None, V_l_init = None, semi_wheel_distance=None):
         input0 = np.array([V_r_init, V_l_init])
         start_time = time.time()
-        sol = fsolve(self.inv_model, input0, args=(v_ref, w_ref))
+        sol = fsolve(self.inv_model, input0, args=(v_ref, w_ref, semi_wheel_distance))
         rospy.logwarn("solution found: {} in {} seconds".format(sol, time.time() - start_time))
 
-    def inv_model(self, input, v_ref, w_ref):
+    def inv_model(self, input, v_ref, w_ref, L):
         v_r = input[0]
         v_l = input[1]
 
         f = np.zeros(2)
 
-        f[0] = v_ref - (self.v_a_r(v_r) + self.v_a_l(v_l))
-        f[1] = w_ref - (self.w_a_r(v_r) + self.w_a_l(v_l))
+        f[0] = v_ref - (self.right_fit(v_r) * v_r + self.left_fit(v_l) * v_l)
+        f[1] = w_ref - (self.right_fit(v_r) * v_r - self.left_fit(v_l) * v_l) / L
         return f
-
-
 
 class DynamicDrive(BaseModelClass):
 
