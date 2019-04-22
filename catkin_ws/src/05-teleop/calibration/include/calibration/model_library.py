@@ -270,6 +270,7 @@ class InputDependentKinematicDrive(BaseModelClass):
         start_time = time.time()
         sol = fsolve(self.inv_model, input0, args=(v_ref, w_ref, semi_wheel_distance))
         rospy.logwarn("solution found: {} in {} seconds".format(sol, time.time() - start_time))
+        return sol
 
     def inv_model(self, input, v_ref, w_ref, L):
         v_r = input[0]

@@ -132,7 +132,7 @@ class calib():
 
         if self.model_type == "input_dependent_kinematic_drive":
             duty_cycle_right, drive_constant_right, duty_cycle_left, drive_constant_left, L = \
-                self.get_valid_drive_constants(self.robot_name, model_object)
+                get_valid_drive_constants(self.robot_name, model_object, interval_count= self.conf["interval_count"])
 
             right_1Dpoly, left_1Dpoly = model_object.linear_interp_drive_constants(duty_cycle_right, drive_constant_right, duty_cycle_left, drive_constant_left)
 
@@ -352,6 +352,8 @@ class calib():
         for i, param in enumerate(model_object.param_ordered_list):
             yaml_dict[param] = popt[i].item()
         yaml_dict['calibration_time'] = datetime.datetime.now().strftime('%Y-%m-%d__%H:%M:%S')
+        if self.model_type == "input_dependent_kinematic_drive":
+            yaml_dict['interval_count'] = get_param_from_config_file("interval_count")
 
         # load calibration file
         filename = get_file_path(self.robot_name, model_object.name)

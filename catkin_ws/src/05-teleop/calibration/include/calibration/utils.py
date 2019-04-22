@@ -23,20 +23,42 @@ options = {
 config={}
 
 
-def get_valid_drive_constants(veh_name, model_object):
-    param_dict = read_param_from_file(veh_name, model_object)
+def get_valid_drive_constants(veh_name, model_object, interval_count=None):
+    fname = get_file_path(veh_name, model_object.name)
+    param_dict = yaml_load_file(fname, plain_yaml=True)
+    if interval_count == None:
+        interval_count = param_dict["interval_count"]
+    step_size = 1.0 / interval_count # 0 <= d <= 1
+
     duty_cycle_right = []
     drive_constant_right = []
     duty_cycle_left = []
     drive_constant_left = []
 
-    for active_right_i in model_object.right_wheel_active_intervals:
-        duty_cycle_right.append(model_object.intervals[active_right_i])
-        drive_constant_right.append(param_dict['dr_' + str(active_right_i)])
+    params_to_neglect = ["L", "interval_count", "calibration_time"]
+    for param in param_dict.keys():
+        if param not in params_to_neglect: # then we are looking at a motor parameter
+            if param_dict[param] > 0: # indicates that it is set by the optimizer/active region
+                motor_name, interval_id = param.split("_")
+                if motor_name == "dr":
+                    duty_cycle_right.append(int(interval_id) * step_size)
+                    drive_constant_right.append(param_dict[param])
+                elif motor_name == "dl":
+                    duty_cycle_left.append(int(interval_id) * step_size)
+                    drive_constant_left.append(param_dict[param])
 
-    for active_left_i in model_object.left_wheel_active_intervals:
-        duty_cycle_left.append(model_object.intervals[active_left_i])
-        drive_constant_left.append(param_dict['dl_' + str(active_left_i)])
+    dc_r = np.array(duty_cycle_right)
+    p_r = np.array(drive_constant_right)
+    dc_l = np.array(duty_cycle_left)
+    p_l = np.array(drive_constant_left)
+
+    ind_r = np.argsort(dc_r)
+    ind_l = np.argsort(dc_l)
+
+    duty_cycle_right = dc_r[ind_r]
+    drive_constant_right = p_r[ind_r]
+    duty_cycle_left = dc_l[ind_l]
+    drive_constant_left = p_l[ind_l]
 
     L = param_dict["L"]
     return duty_cycle_right, drive_constant_right, duty_cycle_left, drive_constant_left, L

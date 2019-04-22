@@ -64,6 +64,7 @@ class InverseKinematicsNode(object):
     def readParamFromFile(self):
         # Check file existence
         fname = self.getFilePath(self.veh_name)
+
         # Use default.yaml if file doesn't exsit
         if not os.path.isfile(fname):
             rospy.logwarn("[%s] %s does not exist. Using default.yaml." %(self.node_name,fname))
@@ -98,6 +99,9 @@ class InverseKinematicsNode(object):
             return ["gain", "trim", "baseline", "k", "radius", "limit"]
         elif self.model_type == 'kinematic_drive':
             return ["dr", "dl", "L"]
+        elif self.model_type == "input_dependent_kinematic_drive":
+            return self.model_object.param_ordered_list
+
 
     def setModelParams(self):
         # common parameters
@@ -116,8 +120,10 @@ class InverseKinematicsNode(object):
             self.dr = self.setup_parameter("~dr", 1)
             self.dl = self.setup_parameter("~dl", 1)
             self.L = self.setup_parameter("~L", 1)
+        elif self.model_type == 'input_dependent_kinematic_drive':
+            pass
         else:
-            rospy.logfatal('Model name {} is not a valid one, failed to set parameters in setModelParams'.format(model_type))
+            rospy.logfatal('Model name {} is not a valid one, failed to set parameters in setModelParams'.format(self.model_type))
             rospy.signal_shutdown()
             return
 
@@ -136,6 +142,8 @@ class InverseKinematicsNode(object):
             self.srv_set_dr = rospy.Service("~set_dr", SetValue, self.cbSrvSetDR)
             self.srv_set_dl = rospy.Service("~set_dl", SetValue, self.cbSrvSetDL)
             self.srv_set_L = rospy.Service("~set_L", SetValue, self.cbSrvSetL)
+        elif self.model_type == "input_dependent_kinematic_drive":
+            pass
         else:
             rospy.logfatal('Model name {} is not a valid one, failed to set services in setModelServices'.format(model_type))
 
@@ -143,6 +151,11 @@ class InverseKinematicsNode(object):
         if self.model_type == 'gt':
             return (get_duckiefleet_root()+'/calibrations/kinematics/' + name + ".yaml")
         elif self.model_type == 'kinematic_drive':
+            if name != 'default':
+                return (get_duckiefleet_root()+'/calibrations/kinematics/' + name + "_" + self.model_type + ".yaml")
+            else:
+                rospy.logfatal('\n\nyou must run the calibration script first to generate the model parameters.\n\n')
+        elif self.model_type == 'input_dependent_kinematic_drive':
             if name != 'default':
                 return (get_duckiefleet_root()+'/calibrations/kinematics/' + name + "_" + self.model_type + ".yaml")
             else:
@@ -275,7 +288,14 @@ class InverseKinematicsNode(object):
         v_ref = msg_car_cmd.v
         w_ref = msg_car_cmd.omega
 
-        u_r, u_l = self.inv_model(v_ref, w_ref)
+        if self.model_type == "input_dependent_kinematic_drive":
+            inputs = self.inv_model(v_ref = v_ref, w_ref= w_ref ,
+                                    V_r_init = 0.5, V_l_init = 0.5,
+                                    semi_wheel_distance=self.semi_baseline_length)
+            u_r = inputs[0]
+            u_l = inputs[1]
+        else:
+            u_r, u_l = self.inv_model(v_ref, w_ref)
 
         # limiting output to limit, which is 1.0 for the duckiebot
         u_r_limited = max(min(u_r, self.limit), -self.limit)
@@ -318,6 +338,24 @@ class InverseKinematicsNode(object):
             return self.gt
         elif self.model_type == 'kinematic_drive':
             return self.kinematic_drive
+        elif self.model_type == "input_dependent_kinematic_drive":
+            from calibration.model_library import model_generator
+            from calibration.utils import get_valid_drive_constants
+
+            self.model_object = model_generator("input_dependent_kinematic_drive")
+
+            duty_cycle_right, drive_constant_right, duty_cycle_left, drive_constant_left, self.semi_baseline_length = \
+                get_valid_drive_constants(self.veh_name, self.model_object)
+
+            print duty_cycle_right
+            print drive_constant_right
+            print duty_cycle_left
+            print drive_constant_left
+            print self.semi_baseline_length
+
+            # set the interpolation utilities inside the model object
+            self.model_object.linear_interp_drive_constants(duty_cycle_right, drive_constant_right, duty_cycle_left, drive_constant_left)
+            return self.model_object.inverse_model
 
     def setup_parameter(self, param_name, default_value):
         value = rospy.get_param(param_name, default_value)
