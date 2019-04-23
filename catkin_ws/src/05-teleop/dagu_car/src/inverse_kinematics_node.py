@@ -354,7 +354,9 @@ class InverseKinematicsNode(object):
             print self.semi_baseline_length
 
             # set the interpolation utilities inside the model object
-            self.model_object.linear_interp_drive_constants(duty_cycle_right, drive_constant_right, duty_cycle_left, drive_constant_left)
+            #self.model_object.linear_interp_drive_constants(duty_cycle_right, drive_constant_right, duty_cycle_left, drive_constant_left)
+            self.model_object.fit_to_exponential_model_drive_constants(duty_cycle_right, drive_constant_right, duty_cycle_left,
+                                                            drive_constant_left)
             return self.model_object.inverse_model
 
     def setup_parameter(self, param_name, default_value):

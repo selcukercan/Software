@@ -257,13 +257,23 @@ class InputDependentKinematicDrive(BaseModelClass):
         #print("Param Left Name: {} \t Param Left Value: {} ".format(param_left_name, param_left_val))
 
         return param_right_val, param_left_val, p[-1]
-
+    """
     def linear_interp_drive_constants(self,duty_cycle_right, drive_constant_right, duty_cycle_left, drive_constant_left):
         self.right_fit = interp1d(duty_cycle_right, drive_constant_right, fill_value='extrapolate')
         self.left_fit = interp1d(duty_cycle_left, drive_constant_left, fill_value='extrapolate')
 
         return self.right_fit, self.left_fit
+    """
+    def fit_to_exponential_model_drive_constants(self,duty_cycle_right, drive_constant_right, duty_cycle_left, drive_constant_left):
+        from scipy.optimize import curve_fit
+        self.popt_right, pcov_right = curve_fit(self.exponential_decay, duty_cycle_right, drive_constant_right,  p0=(1 ,7, 0.35))
+        self.popt_left, pcov_left = curve_fit(self.exponential_decay, duty_cycle_left, drive_constant_left, p0=(1 ,7, 0.35))
 
+        return self.popt_right, self.popt_left
+
+    @staticmethod
+    def exponential_decay(x, a, c, d):
+        return a * np.exp(-c * x) + d
 
     def inverse_model(self, v_ref = None, w_ref= None, V_r_init = None, V_l_init = None, semi_wheel_distance=None):
         input0 = np.array([V_r_init, V_l_init])
@@ -277,9 +287,17 @@ class InputDependentKinematicDrive(BaseModelClass):
         v_l = input[1]
 
         f = np.zeros(2)
-
+        """
+        # linear_interp_drive_constants
         f[0] = v_ref - (self.right_fit(v_r) * v_r + self.left_fit(v_l) * v_l)
         f[1] = w_ref - (self.right_fit(v_r) * v_r - self.left_fit(v_l) * v_l) / L
+        """
+        p_r = self.exponential_decay(v_r, self.popt_right[0], self.popt_right[1], self.popt_right[2])
+        p_l = self.exponential_decay(v_l, self.popt_left[0], self.popt_left[1], self.popt_left[2])
+
+        f[0] = v_ref - (p_r * v_r + p_l * v_l)
+        f[1] = w_ref - (p_r * v_r - p_l * v_l) / L
+
         return f
 
 class DynamicDrive(BaseModelClass):
