@@ -208,7 +208,7 @@ class calib():
                 x_dot = exp_data['robot_velocity']
                 x_sim = model_object.simulate(t, x, x_dot, u, p)  # states for a particular p set
 
-            obj_cost += calculate_cost(x, x_sim, self.train_metric)
+            obj_cost += calculate_cost(x, x_sim, self.train_metric, p=p)
 
         self.update_param_hist(model_object.param_ordered_list, p)
         self.cost_fn_val_list.append(obj_cost)

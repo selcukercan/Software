@@ -13,9 +13,9 @@ cost_function_type: AsRMSE # see include/calibration/cost_function_library.py fo
 
 # Data preperation - see include/calibration/data_preperation_utils.py (smooth function) for more details.
 filter_type: hanning
-filter_length: 13
-discard_first_n_data: 10
-discard_last_n_data: 5
+filter_length: 11
+discard_first_n_data: 20
+discard_last_n_data: 1
 down_sample_rate: 3
 
 # Velocity estimation from position data

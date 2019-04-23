@@ -194,7 +194,7 @@ class DataPreparation():
 
             plot2 = go.Scatter(
                 x=robot_pose_timestamp,
-                y=cmd_right_rs,
+                y=cmd_right_rs,down_sample_rate = get_param_from_config_file("down_sample_rate")
                 name='resampled right wheel commands'
             )
 
@@ -300,8 +300,7 @@ class DataPreparation():
             pose['timestamp'].append(t.to_sec())
         return pose
 
-    @staticmethod
-    def select_interval(dict, discard_first, discard_last):
+    def select_interval(self, dict, discard_first, discard_last):
         for key, val in dict.items():
             dict[key] = dict[key][discard_first:-discard_last:self.down_sample_rate]
         return dict

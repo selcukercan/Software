@@ -11,7 +11,7 @@ multitag_pose_estimation: False # not yet implemented
 single_apriltag_id: 1
 
 # Optimization
-model: input_dependent_kinematic_drive
+model: dynamic_drive
 cost_function_type: AsRMSE # see include/calibration/cost_function_library.py for available options
 
 # Data preperation - see include/calibration/data_preperation_utils.py (smooth function) for more details.
@@ -19,6 +19,7 @@ filter_type: hanning
 filter_length: 11
 discard_first_n_data: 10
 discard_last_n_data: 5
+down_sample_rate: 1
 
 # Model-Spesific Parameters
 # input_dependent_kinematic_drive
@@ -28,10 +29,10 @@ interval_count: 10
 spline_type: lsq_spline # lsq_spline or b_spline
 spline_smoothing_factor: 10
 lsq_spline_order: 3
-lsq_spline_knot_every: 20
+lsq_spline_knot_every: 3
 lsq_discard_n_at_boundary: 1
 densification_factor: 3
-discard_n_after_spline_fitting: 5
+discard_n_after_spline_fitting: 1
 
 # Model assessment logic - see include/calibration/model_assessment.py for more details.
 assessment_rule: nsap_threshold

@@ -60,17 +60,18 @@ def calculate_cost(x, x_sim, metric_eval, p=None):
 
     rho = metric_eval(x[0, :], x_sim[0, :])
     yaw = metric_eval(x[1, :], x_sim[1, :])
-    print("stage cost rho: {} yaw: {}".format(rho, yaw))
+    #print("stage cost rho: {} yaw: {}".format(rho, yaw))
     if eval_mode == "pure_state":
         obj_cost = rho + yaw
     elif eval_mode == "similar_motors":
+        print p
         u_alpha_r = p[6]
         u_alpha_l = p[7]
         w_alpha_r = p[8]
         w_alpha_l = p[9]
 
         delta_u = (u_alpha_r - u_alpha_l) ** 2 * 0
-        delta_w = (w_alpha_r - w_alpha_l) ** 2 * 00
+        delta_w = (w_alpha_r - w_alpha_l) ** 2 * 0.007
         obj_cost = rho + yaw + delta_u + delta_w
         """
         alpha_r = p[6]
