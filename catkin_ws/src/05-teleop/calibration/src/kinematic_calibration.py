@@ -90,7 +90,6 @@ class calib():
         else:
             rospy.logwarn('[{}] not validating the model'.format(self.node_name))
 
-
         # get ready to leave
         self.copy_experiment_data()
         self.generate_report()
@@ -247,7 +246,7 @@ class calib():
             elif self.model_type == "dynamic_drive":
                 x_sim_opt = model_object.simulate(t, x, x_dot, u, popt)  # states for a particular p set
             # calculate the error metric
-            self.osap_error = calculate_cost(x, x_sim_opt, self.validation_metric)
+            self.osap_error = calculate_cost(x, x_sim_opt, self.validation_metric, p=popt)
 
             print(
                 '\nModel Performance Evaluation based on One-Step-Ahead-Prediction :\nModel Name: {}\nMetric Type: {} Value: {}\n'.format(
@@ -263,7 +262,7 @@ class calib():
             else:
                 x_sim_opt_n_step = model_object.simulate_horizan(t, x, x_dot, u, popt)
 
-            self.nsap_error = calculate_cost(x, x_sim_opt_n_step, self.validation_metric)
+            self.nsap_error = calculate_cost(x, x_sim_opt_n_step, self.validation_metric, p=popt)
 
             print(
                 '\nModel Performance Evaluation based on N-Step-Ahead-Prediction :\nModel Name: {}\nMetric Type: {} Value: {}\n'.format(

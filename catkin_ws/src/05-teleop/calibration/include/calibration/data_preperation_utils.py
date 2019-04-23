@@ -18,6 +18,7 @@ class DataPreparation():
     discard_first = get_param_from_config_file("discard_first_n_data")
     discard_last = get_param_from_config_file("discard_last_n_data")
     multitag_pose_estimation = get_param_from_config_file("multitag_pose_estimation")
+    down_sample_rate = get_param_from_config_file("down_sample_rate")
 
     def __init__(self, input_bag=None, top_wheel_cmd_exec=None, top_robot_pose=None,
                  save_as=None, dump=False, exp_name='', dataset_name=None, localization_method=None):
@@ -302,7 +303,7 @@ class DataPreparation():
     @staticmethod
     def select_interval(dict, discard_first, discard_last):
         for key, val in dict.items():
-            dict[key] = dict[key][discard_first:-discard_last]
+            dict[key] = dict[key][discard_first:-discard_last:self.down_sample_rate]
         return dict
 
     def filter_measurement(self, original_signal, flen_array, filter_type):
