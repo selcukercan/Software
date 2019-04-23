@@ -17,7 +17,7 @@
 #     {id: ID, size: SIZE, name: NAME},
 #     ...
 #   ]
-# NOTE: Dimensions of tag with ID 0,1,2,3,96 has been changed for sysid
+# NOTE: Dimensions of tag with ID 0,1,2,3,4,5,6,7,8,9 has been changed for sysid
 standalone_tags:
   [
     {id: 0, size: 0.1735, name: Tag0},
@@ -116,7 +116,7 @@ standalone_tags:
     {id: 93, size: 0.065, name: Tag93},
     {id: 94, size: 0.065, name: Tag94},
     {id: 95, size: 0.065, name: Tag95},
-    {id: 96, size: 0.1735, name: Tag96},
+    {id: 96, size: 0.065, name: Tag96},
     {id: 97, size: 0.065, name: Tag97},
     {id: 98, size: 0.065, name: Tag98},
     {id: 99, size: 0.065, name: Tag99},
