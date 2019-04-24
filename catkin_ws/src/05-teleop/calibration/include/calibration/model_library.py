@@ -464,7 +464,7 @@ class DynamicDrive(BaseModelClass):
         #(u1, u2, u3, w1, w2, w3, c1, c2, e1, e2, m) = p
         #u_alpha_r = w_alpha_r = alpha_r
         #u_alpha_l = w_alpha_l = alpha_l
-        u2 = w2 = u3 = w3 = 0
+        #u2 = w2 = u3 = w3 = 0
         """
         u_alpha_r = c1 / m
         u_alpha_l = c2 / m
@@ -576,6 +576,56 @@ class DynamicDrive(BaseModelClass):
             x_dot_sim[:, i] = x_dot_cur
         return x_sim
 
+    def inverse_model(self, x_dot_prev, x_dot_des, dt, p):
+        """
+
+        Args:
+            x_dot_prev: (u_prev, w_prev)
+            x_dot_des: (u_des, w_des)
+            dt: float
+            p: param_list as defined by "param_ordered_list"
+
+        Returns:
+            u_r, u_l: float duty cycles
+        """
+
+        # unpack velocities
+        (u, w) = x_dot_prev
+        (u_des, w_des) = x_dot_des
+
+        # unpack params
+        (u1, u2, u3, w1, w2, w3, u_alpha_r, u_alpha_l, w_alpha_r, w_alpha_l) = p
+
+        # Nonlinear Dynamics - autonomous response
+        f_dynamic = np.array([
+            [-u1 * u - u2 * w + u3 * w ** 2],
+            [-w1 * w - w2 * u - w3 * u * w]
+        ])
+        #print("[{}] f_dynamics:{} shape: {}".format("model_library", f_dynamic, f_dynamic.shape))
+
+        # Input Matrix
+        B = np.array([
+            [u_alpha_r, u_alpha_l],
+            [w_alpha_r, -w_alpha_l]
+        ])
+
+        x_dot_prev = col(np.array(x_dot_prev))
+        x_dot_des = col(np.array(x_dot_des))
+        #print("[{}] x_dot_des:{} shape: {}".format("model_library", x_dot_des, x_dot_des.shape))
+        x_dot_del = (x_dot_des - x_dot_prev) / dt
+        #print("[{}] x_dot_del:{} shape: {}".format("model_library", x_dot_del, x_dot_del.shape))
+        x_dot_req_input = x_dot_del - f_dynamic
+        #print("[{}] x_dot_req_input:{} shape: {}".format("model_library", x_dot_req_input, x_dot_req_input.shape))
+        #print(B.shape, x_dot_req_input.shape)
+        V = np.matmul(B, x_dot_req_input)
+        #print("[{}] V:{} shape: {}".format("model_library", V, V.shape))
+        u_r, u_l = V
+
+        rospy.loginfo("[{}] desired:\nv: {} w: {} \nprev: v_prev: {} w_prev: {} \ninput d: u_r: {} u_l: {}"
+                      .format("model_library", u_des, w_des, u, w, u_r, u_l))
+
+        #print("\nXXXXXXXXXXXX")
+        return u_r, u_l
 
 # Include basic utility functions here
 
