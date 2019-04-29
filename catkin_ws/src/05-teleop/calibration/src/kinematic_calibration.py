@@ -128,7 +128,7 @@ class calib():
 
         # write to the kinematic calibration file
         self.output_yaml_file = self.write_calibration(model_object, popt)
-
+        """
         if self.model_type == "input_dependent_kinematic_drive":
             duty_cycle_right, drive_constant_right, duty_cycle_left, drive_constant_left, L = \
                 get_valid_drive_constants(self.robot_name, model_object, interval_count= self.conf["interval_count"])
@@ -146,7 +146,7 @@ class calib():
                         save_dir=self.results_dir)
 
             model_object.inverse_model(v_ref = 0.6, w_ref= 0.0 , V_r_init = 0.5, V_l_init = 0.5, semi_wheel_distance=L)
-
+        """
 
     # Data Operations
     def load_dataset(self, dataset_name, path_to_dataset, localization_type=None):

@@ -3,7 +3,7 @@ from abc import ABCMeta, abstractmethod
 import numpy as np
 import rospy
 from calibration.data_adapter_utils import *
-from calibration.utils import reshape_x, get_param_from_config_file
+from calibration.utils import reshape_x, get_param_from_config_file, get_valid_drive_constants
 from scipy.optimize import fsolve
 from scipy.interpolate import interp1d
 import time
@@ -225,38 +225,53 @@ class InputDependentKinematicDrive(BaseModelClass):
         return model_params
 
     def input_dependent_parameter_selector(self, u, p):
-        (cmd_right, cmd_left) = u
+        mode = "validate"
+        if mode == "train":
+            (cmd_right, cmd_left) = u
 
-        # right drive constant
-        bin_id_right = np.searchsorted(self.intervals, cmd_right) - 1
-        index_right = 2 * (bin_id_right-1)
-        param_right_name = self.param_ordered_list[index_right]
-        param_right_val = p[index_right]
+            # right drive constant
+            bin_id_right = np.searchsorted(self.intervals, cmd_right) - 1
+            index_right = 2 * (bin_id_right-1)
+            param_right_name = self.param_ordered_list[index_right]
+            param_right_val = p[index_right]
 
-        if bin_id_right not in self.right_wheel_active_intervals:
-            self.right_wheel_active_intervals.append(bin_id_right)
+            if bin_id_right not in self.right_wheel_active_intervals:
+                self.right_wheel_active_intervals.append(bin_id_right)
 
-        # left drive constant
-        bin_id_left = np.searchsorted(self.intervals, cmd_left) - 1
-        index_left = 2 * (bin_id_right-1) + 1
-        param_left_name = self.param_ordered_list[index_left]
-        param_left_val = p[index_left]
+            # left drive constant
+            bin_id_left = np.searchsorted(self.intervals, cmd_left) - 1
+            index_left = 2 * (bin_id_right-1) + 1
+            param_left_name = self.param_ordered_list[index_left]
+            param_left_val = p[index_left]
 
-        if bin_id_left not in self.left_wheel_active_intervals:
-            self.left_wheel_active_intervals.append(bin_id_left)
+            if bin_id_left not in self.left_wheel_active_intervals:
+                self.left_wheel_active_intervals.append(bin_id_left)
 
-        #print("intervals: {}".format(self.intervals))
-        #print(self.model_params)
-        #print("intervals: {}".format(self.intervals))
-        #print("p: {}".format(p))
-        #print("param_ordered_list: {}".format(self.param_ordered_list))
+            #print("intervals: {}".format(self.intervals))
+            #print(self.model_params)
+            #print("intervals: {}".format(self.intervals))
+            #print("p: {}".format(p))
+            #print("param_ordered_list: {}".format(self.param_ordered_list))
 
-        #print("cmd_right: {} \t index_right: {} ".format(cmd_right, index_right))
-        #print("Param Right Name: {} \t Param Right Value: {} ".format(param_right_name, param_right_val))
-        #print("cmd_left: {} \t index_left: {} ".format(cmd_left, index_left))
-        #print("Param Left Name: {} \t Param Left Value: {} ".format(param_left_name, param_left_val))
+            #print("cmd_right: {} \t index_right: {} ".format(cmd_right, index_right))
+            #print("Param Right Name: {} \t Param Right Value: {} ".format(param_right_name, param_right_val))
+            #print("cmd_left: {} \t index_left: {} ".format(cmd_left, index_left))
+            #print("Param Left Name: {} \t Param Left Value: {} ".format(param_left_name, param_left_val))
 
-        return param_right_val, param_left_val, p[-1]
+            return param_right_val, param_left_val, p[-1]
+        elif mode == "validate":
+            first = True
+            if first == True: # on the first call fit to motor speed-drive constant curve
+                duty_cycle_right, drive_constant_right, duty_cycle_left, drive_constant_left, L = get_valid_drive_constants("mete", self)
+                self.fit_to_exponential_model_drive_constants(duty_cycle_right, drive_constant_right, duty_cycle_left, drive_constant_left)
+                first = False
+            (cmd_right, cmd_left) = u
+            p_r = self.exponential_decay(cmd_right, self.popt_right[0], self.popt_right[1], self.popt_right[2])
+            p_l = self.exponential_decay(cmd_left, self.popt_left[0], self.popt_left[1], self.popt_left[2])
+
+            return p_r, p_l, L
+
+
     """
     def linear_interp_drive_constants(self,duty_cycle_right, drive_constant_right, duty_cycle_left, drive_constant_left):
         self.right_fit = interp1d(duty_cycle_right, drive_constant_right, fill_value='extrapolate')
@@ -300,6 +315,23 @@ class InputDependentKinematicDrive(BaseModelClass):
 
         return f
 
+    def forward_model(self, input, v_ref, w_ref, L):
+        v_r = input[0]
+        v_l = input[1]
+
+        f = np.zeros(2)
+        """
+        # linear_interp_drive_constants
+        f[0] = v_ref - (self.right_fit(v_r) * v_r + self.left_fit(v_l) * v_l)
+        f[1] = w_ref - (self.right_fit(v_r) * v_r - self.left_fit(v_l) * v_l) / L
+        """
+        p_r = self.exponential_decay(v_r, self.popt_right[0], self.popt_right[1], self.popt_right[2])
+        p_l = self.exponential_decay(v_l, self.popt_left[0], self.popt_left[1], self.popt_left[2])
+
+        f[0] = v_ref - (p_r * v_r + p_l * v_l)
+        f[1] = w_ref - (p_r * v_r - p_l * v_l) / L
+
+        return f
 '''
 class DynamicDrive(BaseModelClass):
 

@@ -8,8 +8,9 @@ show_plots: True # display the plots if save_experiment_results is False
 
 # AprilTag Detection Related
 multitag_pose_estimation: False # not yet implemented
-single_apriltag_id: 1
-
+# single_apriltag_id: 1
+single_apriltag_train_id: 1
+single_apriltag_validation_id: 0
 # Optimization
 model: dynamic_drive
 cost_function_type: AsRMSE # see include/calibration/cost_function_library.py for available options
@@ -37,3 +38,6 @@ discard_n_after_spline_fitting: 1
 # Model assessment logic - see include/calibration/model_assessment.py for more details.
 assessment_rule: nsap_threshold
 nsap_threshold: 1.7
+
+# Upload plots to plotly
+upload_plots: True

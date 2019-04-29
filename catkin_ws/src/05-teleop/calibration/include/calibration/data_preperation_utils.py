@@ -25,7 +25,7 @@ class DataPreparation():
         self.input_bag = input_bag
         self.exp_name = exp_name
         self.wheel_cmd, self.robot_pose = self.load_bag(input_bag, top_wheel_cmd_exec, top_robot_pose,
-                                                        localization_type=localization_method)
+                                                        localization_type=localization_method, dataset_type=dataset_name)
         data_selected = self.select_interval_and_resample_numpify(localization_type=localization_method)
         self.data = self.filter(data_selected)
 
@@ -226,7 +226,7 @@ class DataPreparation():
 
         return wheel_cmd_exec_rs
 
-    def load_bag(self, input_bag, top_wheel_cmd_exec, top_robot_pose, localization_type=None):
+    def load_bag(self, input_bag, top_wheel_cmd_exec, top_robot_pose, localization_type=None, dataset_type=None):
         """
         generates dictionaries for  by reading the content available in their respective topics.
         as a convention each function takes in a topic name, and returns the parameter dictionary.
@@ -239,7 +239,7 @@ class DataPreparation():
             rospy.logfatal('provided rosbag: {} does not contain topic: {}'.format(input_bag, top_robot_pose))
 
         if localization_type == 'apriltag':
-            robot_pose = self.get_robot_pose_apriltag(input_bag, top_robot_pose)
+            robot_pose = self.get_robot_pose_apriltag(input_bag, top_robot_pose, dataset_type=dataset_type)
         elif localization_type == 'lane_filter':
             robot_pose = self.get_robot_pose_lane_filter(input_bag, top_robot_pose)
         else:
@@ -280,12 +280,14 @@ class DataPreparation():
                 at_obj.add('timestamp', t.to_sec())
         return known_at
 
-    def get_robot_pose_apriltag(self, input_bag, topic_name):
+    def get_robot_pose_apriltag(self, input_bag, topic_name, dataset_type=None):
         at_detections = self.get_apriltag_detections(input_bag, topic_name)
         if self.multitag_pose_estimation == False:
-
-            # load the id of a single tag; used in offline calibration, distributed AprilTag ID:0.
-            single_apriltag_id = get_param_from_config_file("single_apriltag_id")
+            if dataset_type == "Training":
+                # load the id of a single tag; used in offline calibration, distributed AprilTag ID:0.
+                single_apriltag_id = get_param_from_config_file("single_apriltag_train_id")
+            elif dataset_type == "Validation":
+                single_apriltag_id = get_param_from_config_file("single_apriltag_validation_id")
             return at_detections[single_apriltag_id].pose
         else:
             raise NotImplementedError

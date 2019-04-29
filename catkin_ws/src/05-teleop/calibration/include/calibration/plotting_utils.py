@@ -3,21 +3,28 @@ from os.path import join
 
 import plotly.graph_objs as go
 import plotly.offline as opy
+import plotly
+import plotly.plotly as py
 import rospy
 from numpy import arange, array, cos, sin, pi
 from utils import get_param_from_config_file, x_in_np, get_workspace_param, deg
 
-opy.init_notebook_mode(connected=True)
 
 save_results = get_param_from_config_file('save_experiment_results')
-SLEEP_DURATION = 1
+upload_results = get_param_from_config_file('upload_plots')
 
+if not upload_results:
+    opy.init_notebook_mode(connected=True)
+else:
+    pass
+
+SLEEP_DURATION = 1
 
 # High Level
 def multiplot(states_list=None, time_list=None, input_list=None, experiment_name_list=None, plot_title='', save=False,
               save_dir=None):
     plot_datas = []
-    # generate arange time data if time is not provided to faciliate debugging
+    # generate arange time data if time is not provided to facilitate debugging
     if time_list is None:
         time_list = []
         for i in range(len(states_list)):
@@ -44,7 +51,7 @@ def multiplot(states_list=None, time_list=None, input_list=None, experiment_name
         rospy.loginfo('[plotting_utils] unable to plot as data no data provided')
     shall_i_sleep()
 
-
+"""
 def path_plot(single_experiment, plot_name=''):
     data = x_in_np(single_experiment)
     plot_data = single_path_data_polar(data)
@@ -59,9 +66,12 @@ def path_plot(single_experiment, plot_name=''):
         title=plot_name
     )
     fig = go.Figure(data=plot_data, layout=layout)
-    opy.plot(fig)
+    if not upload_results:
+        opy.plot(fig)
+    else:
+        py.plot(fig)
     shall_i_sleep()
-
+"""
 
 def single_plot_data(states=None, time=None, input=None, experiment_name=""):
     return single_plot_data_polar(states=states, time=time, input=input, experiment_name=experiment_name)
@@ -172,11 +182,14 @@ def multi_path_plot(experiment_list, experiment_name_list=[], plot_title="", sav
 
     fig = go.Figure(data=plot_data, layout=layout)
 
-    if save:
-        save_dir = get_workspace_param("results_dir")
-        opy.plot(fig, auto_open=False, filename=join(save_dir, plot_title + ".html"))
+    if not upload_results:
+        if save:
+            save_dir = get_workspace_param("results_dir")
+            opy.plot(fig, auto_open=False, filename=join(save_dir, plot_title + ".html"))
+        else:
+            opy.plot(fig)
     else:
-        opy.plot(fig)
+        py.plot(fig)
     shall_i_sleep()
 
 

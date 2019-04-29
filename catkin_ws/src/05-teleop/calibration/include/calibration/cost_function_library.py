@@ -2,6 +2,8 @@ import numpy as np
 import rospy
 from utils import get_param_from_config_file
 
+used_model = get_param_from_config_file("model")
+
 """ Metrics 
 
 input: 1D arrays of measurements and predictions 
@@ -56,22 +58,26 @@ def se(x, x_sim):
 
 def calculate_cost(x, x_sim, metric_eval, p=None):
     cost_val = 0.0
-    eval_mode = "similar_motors"
+
 
     rho = metric_eval(x[0, :], x_sim[0, :])
     yaw = metric_eval(x[1, :], x_sim[1, :])
-    #print("stage cost rho: {} yaw: {}".format(rho, yaw))
-    if eval_mode == "pure_state":
+
+    if used_model == "kinematic_drive" or used_model == "input_dependent_kinematic_drive":
+        # use only state values
         obj_cost = rho + yaw
-    elif eval_mode == "similar_motors":
-        print p
+    elif used_model == "dynamic_drive":
+        # add regularizer to enforce motor similarity (to avoid over-fitting)
+        reg_delta_u = 0.00
+        reg_delta_w = 0.007
+
         u_alpha_r = p[6]
         u_alpha_l = p[7]
         w_alpha_r = p[8]
         w_alpha_l = p[9]
 
-        delta_u = (u_alpha_r - u_alpha_l) ** 2 * 0
-        delta_w = (w_alpha_r - w_alpha_l) ** 2 * 0.007
+        delta_u = (u_alpha_r - u_alpha_l) ** 2 * reg_delta_u
+        delta_w = (w_alpha_r - w_alpha_l) ** 2 * reg_delta_w
         obj_cost = rho + yaw + delta_u + delta_w
         """
         alpha_r = p[6]
