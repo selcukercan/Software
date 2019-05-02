@@ -20,9 +20,12 @@ else:
 
 SLEEP_DURATION = 1
 
+get_desired_plot = 1
 # High Level
 def multiplot(states_list=None, time_list=None, input_list=None, experiment_name_list=None, plot_title='', save=False,
               save_dir=None):
+    global get_desired_plot
+
     plot_datas = []
     # generate arange time data if time is not provided to facilitate debugging
     if time_list is None:
@@ -41,12 +44,17 @@ def multiplot(states_list=None, time_list=None, input_list=None, experiment_name
     if len(plot_datas) is not 0:
         layout = dict(title=plot_title)
         fig = dict(data=plot_datas, layout=layout)
-        if save:
-            if save_dir == None:  # default save location
-                save_dir = get_workspace_param("results_dir")
-            opy.plot(fig, auto_open=False, filename=join(save_dir, plot_title + ".html"))
+        if not upload_results:
+            if save:
+                if save_dir == None:  # default save location
+                    save_dir = get_workspace_param("results_dir")
+                opy.plot(fig, auto_open=False, filename=join(save_dir, plot_title + ".html"))
+            else:
+                opy.plot(fig)
         else:
-            opy.plot(fig)
+            if get_desired_plot == 8:
+                py.plot(fig)
+        get_desired_plot += 1
     else:
         rospy.loginfo('[plotting_utils] unable to plot as data no data provided')
     shall_i_sleep()
@@ -170,14 +178,27 @@ def multi_path_plot(experiment_list, experiment_name_list=[], plot_title="", sav
             lower_rho = min(plot_data_exp[0, :])
 
     layout = go.Layout(
-        showlegend=True,
+        legend=dict(x=0.72, y=0.98,
+                    font=dict(
+                        family='Arial',
+                        size=12,
+                        color='#000'
+                    )
+                    ),
         polar=dict(
             sector=[deg(lower_theta) - 10, deg(upper_theta) + 10],
             radialaxis=dict(
                 range=[lower_rho - 0.05, upper_rho + 0.05]
             )
         ),
-        title=plot_title
+        title=go.layout.Title(
+        text=plot_title,
+        font=dict(
+            family='Courier New, monospace',
+            size=18,
+            color='#7f7f7f'
+        )
+    )
     )
 
     fig = go.Figure(data=plot_data, layout=layout)
@@ -189,7 +210,8 @@ def multi_path_plot(experiment_list, experiment_name_list=[], plot_title="", sav
         else:
             opy.plot(fig)
     else:
-        py.plot(fig)
+        if 0:
+            py.plot(fig)
     shall_i_sleep()
 
 
