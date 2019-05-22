@@ -241,7 +241,7 @@ class calib():
 
             # one-step-ahead simulation of the model
             # states for a particular p set
-            if self.model_type == "kinematic_drive" or self.model_type == "input_dependent_kinematic_drive":
+            if self.model_type == "kinematic_drive" or self.model_type == "input_dependent_kinematic_drive" or self.model_type == "gain_trim":
                 x_sim_opt = model_object.simulate(t, x, u, popt)
             elif self.model_type == "dynamic_drive":
                 x_sim_opt = model_object.simulate(t, x, x_dot, u, popt)  # states for a particular p set
@@ -257,7 +257,7 @@ class calib():
             # n-step-ahead simulation of the model, i.e. given an initial position predict the vehicle motion for the
             # complete experiment horizan.
             x0 = x[:, 0]
-            if self.model_type == "kinematic_drive" or self.model_type == "input_dependent_kinematic_drive":
+            if self.model_type == "kinematic_drive" or self.model_type == "input_dependent_kinematic_drive" or used_model == "gain_trim":
                 x_sim_opt_n_step = model_object.simulate_horizan(t, x0, u, popt)
             else:
                 x_sim_opt_n_step = model_object.simulate_horizan(t, x, x_dot, u, popt)
@@ -277,7 +277,8 @@ class calib():
                           experiment_name_list=[exp_name + '_measurement', exp_name + '_simulated_optimal'],
                           plot_title="One-Step-Ahead Predictions for Model: {} Dataset: {}".format(model_object.name,
                                                                                                    exp_name),
-                          save=self.save_experiment_results)
+                          save=self.save_experiment_results,
+                          upload_this=False)
 
                 multiplot(states_list=[x, x_sim_opt_n_step],
                           input_list=[u, u],
@@ -285,17 +286,20 @@ class calib():
                           experiment_name_list=[exp_name + '_measurement', exp_name + '_simulated_optimal'],
                           plot_title="N-Step-Ahead Predictions for Model: {} Dataset: {}".format(model_object.name,
                                                                                                  exp_name),
-                          save=self.save_experiment_results)
+                          save=self.save_experiment_results,
+                          upload_this=False)
 
                 multi_path_plot([x, x_sim_opt],
                                 experiment_name_list=['measurement', self.model_type],
                                 plot_title="Trajectory Simulation using One-Step-Ahead Prediction for Model: {} Dataset: {}".format(model_object.name, exp_name),
-                                save=self.save_experiment_results)
+                                save=self.save_experiment_results,
+                                upload_this=False)
 
                 multi_path_plot([x, x_sim_opt_n_step],
                                 experiment_name_list=['measurement', self.model_type],
                                 plot_title="Trajectory Simulation using N-Step Ahead Prediction for Model: {} Dataset: {}".format(model_object.name, exp_name),
-                                save=self.save_experiment_results)
+                                save=self.save_experiment_results,
+                                upload_this=False)
 
             if self.model_type == "input_dependent_kinematic_drive":
                 interval_count = get_param_from_config_file("interval_count")
@@ -330,6 +334,7 @@ class calib():
                                   model_object.name,
                                   exp_name),
                               save=self.save_experiment_results)
+        print "sel"
 
     # Save results
     def write_calibration(self, model_object, popt):

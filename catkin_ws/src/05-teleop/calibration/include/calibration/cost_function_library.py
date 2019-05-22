@@ -63,7 +63,7 @@ def calculate_cost(x, x_sim, metric_eval, p=None):
     rho = metric_eval(x[0, :], x_sim[0, :])
     yaw = metric_eval(x[1, :], x_sim[1, :])
 
-    if used_model == "kinematic_drive" or used_model == "input_dependent_kinematic_drive":
+    if used_model == "kinematic_drive" or used_model == "input_dependent_kinematic_drive" or used_model == "gain_trim":
         # use only state values
         obj_cost = rho + yaw
     elif used_model == "dynamic_drive":

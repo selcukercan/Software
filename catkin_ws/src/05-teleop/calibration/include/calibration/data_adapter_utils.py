@@ -142,7 +142,8 @@ def add_x_dot_estimate_to_dataset(dataset, dataset_type=None):
                       plot_title='Position Measurements <br>' +
                                  dataset_type + ' Dataset: {}'.format(exp_name),
                       save=save_plots,
-                      save_dir=get_workspace_param("results_preprocessing_dir")
+                      save_dir=get_workspace_param("results_preprocessing_dir"),
+                      upload_this=False
                       )
             # Velocity Estimations from position
             multiplot(states_list=[x_dot_spline, x_lsq_dot_spline],
@@ -151,7 +152,8 @@ def add_x_dot_estimate_to_dataset(dataset, dataset_type=None):
                       plot_title='Velocity Estimations With Spline Fitting <br>' +
                                  dataset_type + ' Dataset: {}'.format(exp_name),
                       save=save_plots,
-                      save_dir=get_workspace_param("results_preprocessing_dir")
+                      save_dir=get_workspace_param("results_preprocessing_dir"),
+                      upload_this=False
                       )
             # Position Measurement Fitting
             multiplot(states_list=[x_window, x_spline_window, x_lsq_spline_window],
@@ -160,7 +162,8 @@ def add_x_dot_estimate_to_dataset(dataset, dataset_type=None):
                       plot_title='Position Measurements After Discarding n Boundary Points<br>' +
                                  dataset_type + ' Dataset: {}'.format(exp_name),
                       save=save_plots,
-                      save_dir=get_workspace_param("results_preprocessing_dir")
+                      save_dir=get_workspace_param("results_preprocessing_dir"),
+                      upload_this=False
                       )
             # Velocity Estimations from position
             multiplot(states_list=[x_dot_spline_window, x_lsq_dot_spline_window],
@@ -169,7 +172,8 @@ def add_x_dot_estimate_to_dataset(dataset, dataset_type=None):
                       plot_title='Velocity Estimations With Spline Fitting After Discarding n Boundary Points<br>' +
                                  dataset_type + ' Dataset: {}'.format(exp_name),
                       save=save_plots,
-                      save_dir=get_workspace_param("results_preprocessing_dir")
+                      save_dir=get_workspace_param("results_preprocessing_dir"),
+                      upload_this=False
                       )
 
         # Update the dataset
