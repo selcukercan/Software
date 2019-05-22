@@ -10,16 +10,16 @@ show_plots: True # display the plots if save_experiment_results is False
 multitag_pose_estimation: False # not yet implemented
 # single_apriltag_id: 1
 single_apriltag_train_id: 1
-single_apriltag_validation_id: 0
+single_apriltag_validation_id: 1
 # Optimization
-model: dynamic_drive
+model: gt
 cost_function_type: AsRMSE # see include/calibration/cost_function_library.py for available options
 
 # Data preperation - see include/calibration/data_preperation_utils.py (smooth function) for more details.
 filter_type: hanning
 filter_length: 11
-discard_first_n_data: 10
-discard_last_n_data: 5
+discard_first_n_data: 1
+discard_last_n_data: 1
 down_sample_rate: 1
 
 # Model-Spesific Parameters
@@ -40,4 +40,4 @@ assessment_rule: nsap_threshold
 nsap_threshold: 1.7
 
 # Upload plots to plotly
-upload_plots: True
+upload_plots: False

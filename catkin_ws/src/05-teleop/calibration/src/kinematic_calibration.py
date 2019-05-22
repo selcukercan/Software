@@ -100,7 +100,7 @@ class calib():
         rospy.logwarn('[{}] started compressing the results folder, this might take around a minute ...'.format(self.node_name))
         pack_results(self.results_dir)
         rospy.logwarn('[{}] completed compressing the results folder'.format(self.node_name))
-        
+
     # train
     def training_routine(self, model_object, experiments):
         """ train the model and write the results to the YAML file"""
@@ -277,7 +277,8 @@ class calib():
                           experiment_name_list=[exp_name + '_measurement', exp_name + '_simulated_optimal'],
                           plot_title="One-Step-Ahead Predictions for Model: {} Dataset: {}".format(model_object.name,
                                                                                                    exp_name),
-                          save=self.save_experiment_results)
+                          save=self.save_experiment_results,
+                          upload=True)
 
                 multiplot(states_list=[x, x_sim_opt_n_step],
                           input_list=[u, u],
@@ -285,7 +286,8 @@ class calib():
                           experiment_name_list=[exp_name + '_measurement', exp_name + '_simulated_optimal'],
                           plot_title="N-Step-Ahead Predictions for Model: {} Dataset: {}".format(model_object.name,
                                                                                                  exp_name),
-                          save=self.save_experiment_results)
+                          save=self.save_experiment_results,
+                          upload=True)
 
                 multi_path_plot([x, x_sim_opt],
                                 experiment_name_list=['measurement', self.model_type],

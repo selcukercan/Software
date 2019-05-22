@@ -22,7 +22,7 @@ SLEEP_DURATION = 1
 
 # High Level
 def multiplot(states_list=None, time_list=None, input_list=None, experiment_name_list=None, plot_title='', save=False,
-              save_dir=None):
+              save_dir=None, upload=False):
     plot_datas = []
     # generate arange time data if time is not provided to facilitate debugging
     if time_list is None:
@@ -47,6 +47,8 @@ def multiplot(states_list=None, time_list=None, input_list=None, experiment_name
             opy.plot(fig, auto_open=False, filename=join(save_dir, plot_title + ".html"))
         else:
             opy.plot(fig)
+        if upload:
+            py.plot(fig)
     else:
         rospy.loginfo('[plotting_utils] unable to plot as data no data provided')
     shall_i_sleep()
@@ -324,6 +326,7 @@ def path_plot_plotly(experiment, plot_name=''):
             title='x position [m]',
             ticklen=1,
             zeroline=False,
+
             gridwidth=2,
         ),
         yaxis=dict(
