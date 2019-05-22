@@ -60,7 +60,7 @@ class GainTrim(BaseModelClass):
                              'k': {'param_init_guess': 27, 'param_bounds': (None, None), 'search': (2.0, 0.4)},
                              'limit': {'param_init_guess': 1.0, 'param_bounds': (None, None), 'search': (2.0, 0.4)},
                              'radius': {'param_init_guess': 0.0318, 'param_bounds': (None, None), 'search': (2.0, 0.4)},
-                             'trim': {'param_init_guess': -0.08, 'param_bounds': (None, None), 'search': (2.0, 0.4)}
+                             'trim': {'param_init_guess': -0.05, 'param_bounds': (None, None), 'search': (2.0, 0.4)}
                              }
         # "search" is used for for brute-force cost function value evaluatiom: (magnitude of variation in both directions, decimation)
         rospy.loginfo("\nusing model type: [{}]".format(self.name))

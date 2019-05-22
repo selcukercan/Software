@@ -6,7 +6,7 @@ import plotly.offline as opy
 import plotly.plotly as py
 import plotly
 import rospy
-from numpy import arange, array, cos, sin, pi
+from numpy import arange, array, cos, sin, pi, flip
 from utils import get_param_from_config_file, x_in_np, get_workspace_param, deg
 
 
@@ -23,7 +23,7 @@ SLEEP_DURATION = 1
 
 # High Level
 def multiplot(states_list=None, time_list=None, input_list=None, experiment_name_list=None, plot_title='', save=False,
-              save_dir=None, upload_this=False):
+              save_dir=None, upload_this=False, return_state=None):
     plot_datas = []
     # generate arange time data if time is not provided to facilitate debugging
     if time_list is None:
@@ -53,6 +53,7 @@ def multiplot(states_list=None, time_list=None, input_list=None, experiment_name
     else:
         rospy.loginfo('[plotting_utils] unable to plot as data no data provided')
     shall_i_sleep()
+    return fig
 
 """
 def path_plot(single_experiment, plot_name=''):
@@ -194,6 +195,257 @@ def multi_path_plot(experiment_list, experiment_name_list=[], plot_title="", sav
         py.plot(fig)
     shall_i_sleep()
 
+    return fig
+
+
+def poster(states_list=[], input=None,time=None, experiment_name_list=[], plot_title="",  save=False, upload_this=False, polar_plot=None):
+    #import plotly.io as pio
+
+    x_meas = states_list[0]
+    x_opt = states_list[1]
+
+    # negate the position measurement and bring it to zero
+    x_meas[0, :] = flip(x_meas[0, :] * -1 + x_meas[0, :][-1])
+
+    x_opt[0, :] = flip(x_opt[0, :] * -1 + x_opt[0, :][-1])
+
+    # all data
+    data = []
+
+    # input commands plot
+    input_plot_data = []
+
+    right_motor_scatter = go.Scatter(
+        x=time,
+        y=input[0,:],
+        mode='markers',
+        marker=dict(
+            size=6,
+            color='#1F77B4',
+        ),
+        name="Right Motor"
+    )
+
+
+    left_motor_scatter = go.Scatter(
+        x=time,
+        y=input[1,:],
+        mode='markers',
+        marker=dict(
+            size=6,
+            color='#FF7F0E',
+            symbol='circle-open'
+    ),
+        name="Left Motor"
+    )
+    input_plot_data.extend([right_motor_scatter, left_motor_scatter])
+    data.extend(input_plot_data)
+
+    # orientation prediction plot
+    orientation_plot_data = []
+
+    orientation_measurement = go.Scatter(
+        x=time,
+        y=x_meas[1,:],
+        mode='markers',
+        marker = dict(
+            size = 6,
+            color = '#A40202',
+            symbol='diamond-dot'
+            ),
+        name="Yaw Measurement",
+        xaxis='x2',
+        yaxis='y2'
+    )
+
+    orientation_prediction = go.Scatter(
+        x=time,
+        y=x_opt[1,:],
+        mode='markers',
+        marker=dict(
+            size=6,
+            color='#045F3E',
+            symbol='diamond-dot'
+        ),
+        name="Yaw Prediction",
+        xaxis='x2',
+        yaxis='y2'
+    )
+    orientation_plot_data.extend([orientation_measurement, orientation_prediction])
+    data.extend(orientation_plot_data)
+
+    # position prediction plot
+    position_plot_data = []
+
+    position_measurement = go.Scatter(
+        x=time,
+        y=x_meas[0, :],
+        mode='markers',
+        marker=dict(
+            size=6,
+            color='#A40202',
+        ),
+        name="Rho Measurement",
+        xaxis='x3',
+        yaxis='y3'
+    )
+
+    position_prediction = go.Scatter(
+        x=time,
+        y=x_opt[0, :],
+        mode='markers',
+        marker=dict(
+            size=6,
+            color='#045F3E',
+        ),
+        name="Rho Prediction",
+        xaxis='x3',
+        yaxis='y3'
+    )
+    position_plot_data.extend([position_measurement, position_prediction])
+    data.extend(position_plot_data)
+
+    # polar plot
+    polar_plot_data = []
+
+    path_measurement = go.Scatterpolar(
+        r=x_meas[0, :],
+        theta=deg(x_meas[1, :]),
+        mode='markers',
+        name="Predicted Trajectory",
+        marker=dict(
+            color=time,
+            colorbar=dict(
+                title='Time[sec]',
+                titlefont=dict(
+                    family='Courier New, monospace',
+                    size=14
+                ),
+                titleside='bottom',
+                x=0.93,
+                len=1.0
+            ),
+            colorscale='Viridis'
+        )
+    )
+
+    path_prediction = go.Scatterpolar(
+        r=x_opt[0, :],
+        theta=deg(x_opt[1, :]),
+        mode='markers',
+        name="Measured Trajectory",
+        marker=dict(
+            color=time,
+            colorscale='Viridis',
+            symbol='circle-open'
+        )
+    )
+
+    polar_plot_data.extend([path_measurement, path_prediction])
+    data.extend(polar_plot_data)
+
+    upper_rho = max(max(x_meas[0, :]), max(x_opt[0, :]))
+    lower_rho = min(min(x_meas[0, :]), min(x_opt[0, :]))
+    upper_theta = max(max(deg(x_meas[1, :])), max(deg(x_opt[1, :])))
+    lower_theta = min(min(deg(x_meas[1, :])), min(deg(x_opt[1, :])))
+
+    x_mid = 0.50
+    x_overlap = 0.05
+    t_offset = 0.05
+    t_min = min(time) - t_offset
+    t_max = max(time) + t_offset
+    layout = go.Layout(
+        title= "Deneme",
+        xaxis=dict(
+            domain=[0, x_mid + x_overlap],
+            title='Time[sec]',
+            titlefont=dict(
+                family='Courier New, monospace',
+                size=18
+            ),
+            gridcolor='#bdbdbd',
+            gridwidth=1,
+            dtick=0.2,
+            range=[t_min, t_max]
+        ),
+        yaxis=dict(
+            domain=[0.03, 0.33],
+            title='Duty Cycle',
+            titlefont=dict(
+                family='Courier New, monospace',
+                size=18
+            ),
+            gridcolor='#bdbdbd',
+            gridwidth=1,
+            dtick=0.1,
+        ),
+        xaxis2=dict(
+            domain=[0, x_mid + x_overlap],
+            gridcolor='#bdbdbd',
+            gridwidth=1,
+            dtick=0.2,
+            range=[t_min, t_max]
+        ),
+        yaxis2=dict(
+            domain=[0.36, 0.66],
+            title='Orientation[rad]',
+            titlefont=dict(
+                family='Courier New, monospace',
+                size=18
+            ),
+            gridcolor='#bdbdbd',
+            gridwidth=1,
+            dtick=0.2,
+        ),
+        xaxis3=dict(
+            domain=[0, x_mid + x_overlap],
+            gridcolor='#bdbdbd',
+            gridwidth=1,
+            dtick=0.2,
+            range=[t_min, t_max]
+        ),
+        yaxis3=dict(
+            domain=[0.69, 0.99],
+            title='Distance[m]',
+            titlefont=dict(
+                family='Courier New, monospace',
+                size=18
+            ),
+            gridcolor='#bdbdbd',
+            gridwidth=1,
+            dtick=0.2
+        ),
+        polar=dict(
+            domain=dict(
+                x=[x_mid - x_overlap, 1],
+                y=[0, 1]
+            ),
+            radialaxis=dict(
+                title='Distance[m]',
+                titlefont=dict(
+                    family='Courier New, monospace',
+                    size=18
+                ),
+                range=[lower_rho - 0.05, upper_rho + 0.05]
+            ),
+            sector=[lower_theta - 5, upper_theta + 5]
+        ),
+        legend=dict(
+            orientation="h",
+            font=dict(
+                family='Courier New, monospace',
+                size=14,
+                color='#000'
+            ),
+        ),
+        font=dict(family="Courier New, monospace", size=12),
+        titlefont= dict(size=26)
+    )
+    fig = go.Figure(data=data, layout=layout)
+    #pio.write_image(fig, 'fig1.png')
+    opy.plot(fig)
+    print 'sel'
+    # save plot
 
 # General
 def single_plot_generic(x=None, y=None, plot_title=None):

@@ -278,7 +278,7 @@ class calib():
                           plot_title="One-Step-Ahead Predictions for Model: {} Dataset: {}".format(model_object.name,
                                                                                                    exp_name),
                           save=self.save_experiment_results,
-                          upload=True)
+                          upload_this=False)
 
                 multiplot(states_list=[x, x_sim_opt_n_step],
                           input_list=[u, u],
@@ -287,7 +287,7 @@ class calib():
                           plot_title="N-Step-Ahead Predictions for Model: {} Dataset: {}".format(model_object.name,
                                                                                                  exp_name),
                           save=self.save_experiment_results,
-                          upload=True)
+                          upload_this=False)
 
                 multi_path_plot([x, x_sim_opt],
                                 experiment_name_list=['measurement', self.model_type],
@@ -295,11 +295,22 @@ class calib():
                                 save=self.save_experiment_results,
                                 upload_this=False)
 
-                multi_path_plot([x, x_sim_opt_n_step],
+                n_step_polar= multi_path_plot([x, x_sim_opt_n_step],
                                 experiment_name_list=['measurement', self.model_type],
                                 plot_title="Trajectory Simulation using N-Step Ahead Prediction for Model: {} Dataset: {}".format(model_object.name, exp_name),
                                 save=self.save_experiment_results,
                                 upload_this=False)
+
+                poster(states_list=[x, x_sim_opt_n_step],
+                       input=u,
+                       time=t,
+                       experiment_name_list=[exp_name + '_measurement', exp_name + '_simulated_optimal'],
+                       plot_title="N-Step-Ahead Predictions for Model: {} Dataset: {}".format(model_object.name,
+                                                                                              exp_name),
+                       save=self.save_experiment_results,
+                       upload_this=False,
+                       polar_plot= n_step_polar
+                       )
 
             if self.model_type == "input_dependent_kinematic_drive":
                 interval_count = get_param_from_config_file("interval_count")
