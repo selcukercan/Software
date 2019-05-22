@@ -12,7 +12,7 @@ multitag_pose_estimation: False # not yet implemented
 single_apriltag_train_id: 1
 single_apriltag_validation_id: 1
 # Optimization
-model: gt
+model: gain_trim
 cost_function_type: AsRMSE # see include/calibration/cost_function_library.py for available options
 
 # Data preperation - see include/calibration/data_preperation_utils.py (smooth function) for more details.
@@ -41,3 +41,4 @@ nsap_threshold: 1.7
 
 # Upload plots to plotly
 upload_plots: False
+

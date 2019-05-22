@@ -49,6 +49,99 @@ class BaseModelClass(object):
     def set_param(self, param_name, param_val):
         setattr(self, param_name, param_val)
 
+class GainTrim(BaseModelClass):
+
+    def __init__(self):
+        self.name = "gain_trim"
+        # it is used to enforce an order (to avoid possible confusions) while importing params from YAML as bounds are imported from model always.
+        self.param_ordered_list = ['baseline', 'gain', 'k', 'limit', 'radius', 'trim']
+        self.model_params = {'baseline': {'param_init_guess': 0.1, 'param_bounds': (None, None), 'search': (2.0, 0.4)},
+                             'gain': {'param_init_guess': 1.0, 'param_bounds': (None, None), 'search': (2.0, 0.4)},
+                             'k': {'param_init_guess': 27, 'param_bounds': (None, None), 'search': (2.0, 0.4)},
+                             'limit': {'param_init_guess': 1.0, 'param_bounds': (None, None), 'search': (2.0, 0.4)},
+                             'radius': {'param_init_guess': 0.0318, 'param_bounds': (None, None), 'search': (2.0, 0.4)},
+                             'trim': {'param_init_guess': -0.08, 'param_bounds': (None, None), 'search': (2.0, 0.4)}
+                             }
+        # "search" is used for for brute-force cost function value evaluatiom: (magnitude of variation in both directions, decimation)
+        rospy.loginfo("\nusing model type: [{}]".format(self.name))
+
+    def model(self, t, x, u, p):
+        # input commands + model params
+        (cmd_right, cmd_left) = u
+
+        # model params
+        k = self.model_params["k"]['param_init_guess']
+        gain = self.model_params["gain"]['param_init_guess']
+        trim = self.model_params["trim"]['param_init_guess']
+        radius = self.model_params["radius"]['param_init_guess']
+        baseline = self.model_params["baseline"]['param_init_guess']
+
+        # compute duty cycle gain
+        k_r = k_l = k
+        k_r_inv = (gain + trim) / k_r
+        k_l_inv = (gain - trim) / k_l
+
+        # Conversion from motor duty to motor rotation rate
+        omega_r = cmd_right / k_r_inv
+        omega_l = cmd_left / k_l_inv
+
+        # Compute linear and angular velocity of the platform
+        v = (radius * omega_r + radius * omega_l) / 2.0
+        omega = (radius * omega_r - radius * omega_l) / baseline
+
+        rho_dot = v
+        theta_dot = omega
+
+        return [rho_dot, theta_dot]
+
+    def simulate(self, t, x, u, p):
+        """
+        Note that this function performs N step ahead propagation of the initial state
+        for in one step ahead manner
+        Args:
+            model_object: a model object as defined by model library.
+            t (list) : time array for which the predictions will be made.
+            x (list) : measured states; x, y, yaw
+            u (numpy.ndarray): 2*n array, whose first row is wheel_right_exec, and second row is wheel_left_exec. n is the number of time-steps.
+            p (list): model parameters.
+        Returns:
+            x_sim (numpy.ndarray): 3*n array, containing history of state evolution.
+        """
+        x0 = x[:, 0]
+        x_sim = reshape_x(x0)
+
+        for i in range(len(t) - 1):
+            t_cur, t_next = t[
+                            i:i + 2]  # prediction will be made in between two consecutive time steps, note that this does not require fixed time step.
+            x0 = x[:, i]
+            # one-step-ahead prediction
+            sol = forward_euler_vel_to_pos(self.model, (t_next - t_cur), x0, u[:, i], p)
+            a = np.hstack([x_sim, reshape_x(sol)])
+            x_sim = a.copy()
+        return x_sim
+
+    def simulate_horizan(self, t, x0, u, p):
+        """
+        Note that this function performs N step ahead propagation of the initial state
+        for given input sequence u.
+        Args:
+            model_object: a model object as defined by model library.
+            t (list) : time array for which the predictions will be made.
+            x0 (list) : initial values of the states; x, y, yaw
+            u (numpy.ndarray): 2*n array, whose first row is wheel_right_exec, and second row is wheel_left_exec. n is the number of time-steps.
+            p (list): model parameters.
+        Returns:
+            x_sim (numpy.ndarray): 3*n array, containing history of state evolution.
+        """
+        x_sim = reshape_x(x0)
+        for i in range(len(t) - 1):
+            t_cur, t_next = t[
+                            i:i + 2]  # prediction will be made in between two consecutive time steps, note that this does not require fixed time step.
+            sol = forward_euler_vel_to_pos(self.model, (t_next - t_cur), x0, u[:, i], p)
+            a = np.hstack([x_sim, reshape_x(sol)])
+            x_sim = a.copy()
+            x0 = sol
+        return x_sim
 
 class KinematicDrive(BaseModelClass):
 
@@ -58,7 +151,7 @@ class KinematicDrive(BaseModelClass):
                                    'L']  # it is used to enforce an order (to avoid possible confusions) while importing params from YAML as bounds are imported from model always.
         self.model_params = {'dr': {'param_init_guess': 0.85, 'param_bounds': (None, None), 'search': (2.0, 0.4)},
                              'dl': {'param_init_guess': 0.85, 'param_bounds': (None, None), 'search': (2.0, 0.4)},
-                             'L': {'param_init_guess': 0.055, 'param_bounds': (0.05, 0.06), 'search': (0.050, 0.010)}}
+                             'L': {'param_init_guess': 0.0522, 'param_bounds': (0.05, 0.06), 'search': (0.050, 0.010)}}
         # "search" is used for for brute-force cost function value evaluatiom: (magnitude of variation in both directions, decimation)
         rospy.loginfo("\nusing model type: [{}]".format(self.name))
 
@@ -66,6 +159,7 @@ class KinematicDrive(BaseModelClass):
         # input commands + model params
         (cmd_right, cmd_left) = u
         (dr, dl, L) = p
+        L = 0.0522
 
         # kinetic states through actuation
         vx = (dr * cmd_right + dl * cmd_left)  # m/s
@@ -673,6 +767,8 @@ def model_generator(model_name=None, **kwargs):
     elif model_name == "input_dependent_kinematic_drive":
         interval_count = get_param_from_config_file("interval_count")
         return InputDependentKinematicDrive(interval_count=interval_count)
+    elif model_name == "gain_trim":
+        return GainTrim()
     else:
         rospy.logwarn('[model_library] model name {} is not valid!'.format(model_name))
 

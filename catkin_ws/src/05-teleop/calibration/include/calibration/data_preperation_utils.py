@@ -330,7 +330,8 @@ class DataPreparation():
                       experiment_name_list=['Original Signal', 'Filtered Signal'],
                       plot_title="Original and Filtered Signal for " + self.exp_name,
                       save=save_plot,
-                      save_dir=get_workspace_param("results_preprocessing_dir"))
+                      save_dir=get_workspace_param("results_preprocessing_dir"),
+                      upload_this=False)
         return filtered_signal
 
 

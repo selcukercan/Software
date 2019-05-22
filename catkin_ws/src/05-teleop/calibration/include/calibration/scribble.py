@@ -11,13 +11,13 @@ from scipy.optimize import curve_fit
 def exponential_decay(x, a, c, d):
     return a*np.exp(-c*x)+d
 
-
-plot_first = True
+plot_zero = True
+plot_first = False
 plot_second = False
 plot_third = False
 plot_fourth = False
 plot_fifth  = False # manually play with exponential parameters
-plot_sixth = True
+plot_sixth = False
 data = []
 # autobot 2
 #dr = [0.4092447641, 0.39738684, 0.32507522, 0.32147515, 0.30004273, 0.30507412, 0.30174047, 0.28353484, 0.29834763, 0.31358348]
@@ -37,6 +37,24 @@ d = np.array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
 vx = dr * d + dl * d
 omega = (dr * d - dl * d) / L
 
+x = np.arange(0,2,0.01)
+current = 1 - np.exp(-3 * x)
+
+power = 2
+vel = power / current
+
+if plot_zero:
+    data  = []
+    # Drive Constant Variation for Different Duty Cycles
+    p1 = go.Scatter(
+            x=x,
+            y=vel,
+            mode='markers')
+
+    data.extend([p1])
+    fig = dict(data=data)
+    opy.plot(fig)
+    time.sleep(1)
 
 
 if plot_first:
@@ -331,4 +349,3 @@ if plot_sixth:
     )
     fig = dict(data=data, layout=layout)
     opy.plot(fig)
-

@@ -3,8 +3,8 @@ from os.path import join
 
 import plotly.graph_objs as go
 import plotly.offline as opy
-import plotly
 import plotly.plotly as py
+import plotly
 import rospy
 from numpy import arange, array, cos, sin, pi
 from utils import get_param_from_config_file, x_in_np, get_workspace_param, deg
@@ -12,6 +12,7 @@ from utils import get_param_from_config_file, x_in_np, get_workspace_param, deg
 
 save_results = get_param_from_config_file('save_experiment_results')
 upload_results = get_param_from_config_file('upload_plots')
+plotly.tools.set_credentials_file(username='selcukercan', api_key='uiHkN3x2e7AfTnF8YwHk')
 
 if not upload_results:
     opy.init_notebook_mode(connected=True)
@@ -22,7 +23,7 @@ SLEEP_DURATION = 1
 
 # High Level
 def multiplot(states_list=None, time_list=None, input_list=None, experiment_name_list=None, plot_title='', save=False,
-              save_dir=None, upload=False):
+              save_dir=None, upload_this=False):
     plot_datas = []
     # generate arange time data if time is not provided to facilitate debugging
     if time_list is None:
@@ -47,7 +48,7 @@ def multiplot(states_list=None, time_list=None, input_list=None, experiment_name
             opy.plot(fig, auto_open=False, filename=join(save_dir, plot_title + ".html"))
         else:
             opy.plot(fig)
-        if upload:
+        if upload_this:
             py.plot(fig)
     else:
         rospy.loginfo('[plotting_utils] unable to plot as data no data provided')
@@ -147,7 +148,7 @@ def single_path_data_polar(states=None, color="#182844", experiment_name=""):
     return data
 
 
-def multi_path_plot(experiment_list, experiment_name_list=[], plot_title="", save=False):
+def multi_path_plot(experiment_list, experiment_name_list=[], plot_title="", save=False, upload_this=False):
     plot_data = []
     upper_rho = -10000  # unreasonably large number
     lower_rho = 10000  # unreasonably large number
@@ -184,13 +185,12 @@ def multi_path_plot(experiment_list, experiment_name_list=[], plot_title="", sav
 
     fig = go.Figure(data=plot_data, layout=layout)
 
-    if not upload_results:
-        if save:
-            save_dir = get_workspace_param("results_dir")
-            opy.plot(fig, auto_open=False, filename=join(save_dir, plot_title + ".html"))
-        else:
-            opy.plot(fig)
+    if save:
+        save_dir = get_workspace_param("results_dir")
+        opy.plot(fig, auto_open=False, filename=join(save_dir, plot_title + ".html"))
     else:
+        opy.plot(fig)
+    if upload_this:
         py.plot(fig)
     shall_i_sleep()
 
@@ -326,7 +326,6 @@ def path_plot_plotly(experiment, plot_name=''):
             title='x position [m]',
             ticklen=1,
             zeroline=False,
-
             gridwidth=2,
         ),
         yaxis=dict(
